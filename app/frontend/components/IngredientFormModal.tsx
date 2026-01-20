@@ -13,6 +13,8 @@ import { INGREDIENT_CATEGORIES } from '../../shared/constants/Categories';
 
 // Remove local CATEGORIES definition and use imported one
 
+type IngredientTab = 'general' | 'properties' | 'fattyAcids';
+
 const DEFAULT_INGREDIENT: Ingredient = {
     id: '',
     name: '',
@@ -43,20 +45,77 @@ const DEFAULT_INGREDIENT: Ingredient = {
     }
 };
 
+const TabButton = ({
+    id,
+    label,
+    active,
+    onClick
+}: {
+    id: IngredientTab;
+    label: string;
+    active: boolean;
+    onClick: (id: IngredientTab) => void;
+}) => (
+    <button
+        onClick={() => onClick(id)}
+        style={{
+            flex: 1,
+            padding: '0.9rem',
+            border: 'none',
+            background: active ? 'var(--color-primary-light)' : 'transparent',
+            color: active ? 'var(--color-primary-dark)' : 'var(--color-text-secondary)',
+            cursor: 'pointer',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            borderBottom: active ? '2px solid var(--color-primary)' : '1px solid #e5e7eb',
+            transition: 'all 0.2s',
+            textTransform: 'uppercase',
+            letterSpacing: '0.025em'
+        }}
+    >
+        {label}
+    </button>
+);
+
+const InputGroup = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text-main)' }}>
+            {label}
+        </label>
+        {children}
+    </div>
+);
+
+const NumberInput = ({ value, onChange }: { value: number; onChange: (val: number) => void }) => (
+    <input
+        type="number"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        style={{
+            width: '100%',
+            padding: '0.5rem',
+            borderRadius: '4px',
+            border: '1px solid #d1d5db',
+            fontFamily: 'monospace'
+        }}
+    />
+);
+
 export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen, onClose, initialData, onSave }) => {
-    const [activeTab, setActiveTab] = useState<'general' | 'properties' | 'fattyAcids'>('general');
+    const [activeTab, setActiveTab] = useState<IngredientTab>('general');
     const [formData, setFormData] = useState<Ingredient>(DEFAULT_INGREDIENT);
 
     useEffect(() => {
-        if (isOpen) {
-            if (initialData) {
-                setFormData({ ...initialData });
-            } else {
-                setFormData({ ...DEFAULT_INGREDIENT, id: `new_${Date.now()}` });
-            }
-            setActiveTab('general');
+        if (!isOpen) return;
+
+        if (initialData) {
+            setFormData({ ...initialData });
+        } else {
+            setFormData({ ...DEFAULT_INGREDIENT, id: `new_${Date.now()}` });
         }
-    }, [isOpen, initialData]);
+        setActiveTab('general');
+    }, [isOpen, initialData?.id]);
 
     const handleSave = () => {
         onSave(formData);
@@ -81,53 +140,6 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
         }));
     };
 
-    const TabButton = ({ id, label }: { id: typeof activeTab, label: string }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            style={{
-                flex: 1,
-                padding: '0.9rem',
-                border: 'none',
-                background: activeTab === id ? 'var(--color-primary-light)' : 'transparent',
-                color: activeTab === id ? 'var(--color-primary-dark)' : 'var(--color-text-secondary)',
-                cursor: 'pointer',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-                borderBottom: activeTab === id ? '2px solid var(--color-primary)' : '1px solid #e5e7eb',
-                transition: 'all 0.2s',
-                textTransform: 'uppercase',
-                letterSpacing: '0.025em'
-            }}
-        >
-            {label}
-        </button>
-    );
-
-    const InputGroup = ({ label, children }: { label: string, children: React.ReactNode }) => (
-        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-text-main)' }}>
-                {label}
-            </label>
-            {children}
-        </div>
-    );
-
-    const NumberInput = ({ value, onChange }: { value: number, onChange: (val: number) => void }) => (
-        <input
-            type="number"
-            step="0.01"
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            style={{
-                width: '100%',
-                padding: '0.5rem',
-                borderRadius: '4px',
-                border: '1px solid #d1d5db',
-                fontFamily: 'monospace'
-            }}
-        />
-    );
-
     return (
         <Modal
             isOpen={isOpen}
@@ -141,9 +153,9 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
             }
         >
             <div style={{ display: 'flex', marginBottom: '2rem', background: '#F9FAFB', borderRadius: 'var(--radius-md) var(--radius-md) 0 0', overflow: 'hidden' }}>
-                <TabButton id="general" label="Geral" />
-                <TabButton id="properties" label="Qualidade" />
-                <TabButton id="fattyAcids" label="Perfil Graxo" />
+                <TabButton id="general" label="Geral" active={activeTab === 'general'} onClick={setActiveTab} />
+                <TabButton id="properties" label="Qualidade" active={activeTab === 'properties'} onClick={setActiveTab} />
+                <TabButton id="fattyAcids" label="Perfil Graxo" active={activeTab === 'fattyAcids'} onClick={setActiveTab} />
             </div>
 
             <div style={{ minHeight: '400px', padding: '0 0.5rem' }}>

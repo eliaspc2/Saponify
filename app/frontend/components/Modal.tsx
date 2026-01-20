@@ -43,9 +43,7 @@ export const Modal: React.FC<ModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="modal-overlay" onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
-        }}>
+        <div className="modal-overlay">
             <div
                 ref={modalRef}
                 className="modal-container"
