@@ -1,4 +1,4 @@
-import { Questionnaire } from '../shared/types/Questionnaire';
+import { Questionnaire } from '../../shared/types/Questionnaire';
 
 export class QuestionnaireService {
     private static STORAGE_KEY = 'saponify_questionnaires';

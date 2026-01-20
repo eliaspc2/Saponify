@@ -1,4 +1,3 @@
-import React from 'react';
 import { BasePage, BasePageState } from '../../core/BasePage';
 import { StatCard } from '../../templates/StatsHeader';
 import { ClientService } from '../../../orchestrator/services/ClientService';

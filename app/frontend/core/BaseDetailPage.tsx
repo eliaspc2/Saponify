@@ -28,7 +28,7 @@ export abstract class BaseDetailPage<T> extends BasePage<{ id?: string }, BaseDe
         );
     }
 
-    protected renderContent() {
+    renderContent() {
         return (
             <div className="detail-page card">
                 <form onSubmit={(e) => { e.preventDefault(); this.handleSave(); }}>
