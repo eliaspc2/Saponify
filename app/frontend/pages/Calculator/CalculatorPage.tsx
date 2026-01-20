@@ -569,19 +569,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos Base</h4>
                                     <AddButton label="Adicionar" small onClick={() => this.addItem('fats')} />
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 40px', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.75rem', fontWeight: 700, color: '#9CA3AF' }}>
-                                    <span>INGREDIENTE</span>
-                                    <span style={{ textAlign: 'right' }}>PESO (g)</span>
-                                    <span style={{ textAlign: 'right' }}>SAP</span>
-                                    <span style={{ textAlign: 'right' }}>%</span>
-                                    <span></span>
-                                </div>
                                 {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ['Óleos Base'], results.totalFats))}
-                                {(!recipe.fats || recipe.fats.length === 0) && (
-                                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-light)', border: '1px dashed #E5E7EB', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
-                                        Nenhum óleo na fase 1. Clique em "+ Adicionar" acima.
-                                    </div>
-                                )}
                             </div>
                         </div>
 
