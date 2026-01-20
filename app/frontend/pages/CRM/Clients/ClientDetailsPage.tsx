@@ -39,6 +39,7 @@ interface ClientDetailsState extends BasePageState {
     // Production Form
     selectedRecipeId: string;
     productionWeight: number; // Factor to scale recipe
+    productionDate: string;
 }
 
 export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetailsState> {
@@ -57,7 +58,8 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             viewingRecipe: null,
             noteContent: '',
             selectedRecipeId: '',
-            productionWeight: 1000,
+            productionWeight: 0,
+            productionDate: new Date().toISOString().split('T')[0],
             isLoading: false,
             error: null
         };
@@ -114,33 +116,17 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         const recipe = RecipeService.getInstance().getById(selectedRecipeId);
         if (!recipe) return;
 
-        // Scale factors and calculations
-        const totalFatsOriginal = recipe.fats.reduce((sum, f) => sum + f.amount, 0) + (recipe.superfatOils?.reduce((sum, o) => sum + o.amount, 0) || 0);
-        const scaleFactor = productionWeight / totalFatsOriginal;
-
-        // Constants for calculation
-        const chemicalDays = 2; // 48h
-        const physicalDays = 40; // 6 weeks approx
-
-        // Adjust based on season (simple logic for now)
-        const month = new Date().getMonth();
-        const seasonFactor = (month >= 10 || month <= 2) ? 1.2 : 0.8; // Winter vs Summer
-        const adjustedPhysicalDays = Math.ceil(physicalDays * seasonFactor);
-
-        const productionDate = new Date();
-        const chemicalReadyDate = new Date();
-        chemicalReadyDate.setDate(productionDate.getDate() + chemicalDays);
-
-        const physicalReadyDate = new Date();
-        physicalReadyDate.setDate(productionDate.getDate() + adjustedPhysicalDays);
+        const productionDate = this.getProductionDate();
+        const totalFatsOriginal = this.getTotalFats(recipe);
+        const finalProductionWeight = productionWeight || totalFatsOriginal;
+        const {
+            plannedWeight,
+            stableWeight,
+            chemicalReadyDate,
+            physicalReadyDate
+        } = this.getProductionEstimates(recipe, finalProductionWeight, productionDate);
 
         const totalWeightOriginal = this.calculateRecipeTotalWeight(recipe);
-        const plannedWeight = totalWeightOriginal * scaleFactor;
-
-        // Water evaporation logic (assume 85% of water evaporates)
-        const waterAmountOriginal = recipe.liquids.reduce((sum, l) => sum + l.amount, 0);
-        const plannedWater = waterAmountOriginal * scaleFactor;
-        const stableWeight = plannedWeight - (plannedWater * 0.85);
 
         const details: ProductionDetails = {
             recipeId: recipe.id,
@@ -166,6 +152,60 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
 
         this.setState({ isProductionModalOpen: false });
         this.loadData();
+    }
+
+    private getTotalFats(recipe: Recipe): number {
+        const baseFats = recipe.fats.reduce((sum, f) => sum + (f.amount || 0), 0);
+        const superfatFats = recipe.superfatOils?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
+        return baseFats + superfatFats;
+    }
+
+    private getDayOfYear(date: Date): number {
+        const start = new Date(date.getFullYear(), 0, 0);
+        const diff = date.getTime() - start.getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    private getPhysicalCureDays(date: Date): number {
+        const minDays = 30;
+        const maxDays = 45;
+        const dayOfYear = this.getDayOfYear(date);
+        const radians = (2 * Math.PI * (dayOfYear - 172)) / 365;
+        const seasonalFactor = (1 - Math.cos(radians)) / 2;
+        return Math.round(minDays + (maxDays - minDays) * seasonalFactor);
+    }
+
+    private getProductionDate(): Date {
+        const { productionDate } = this.state;
+        if (!productionDate) return new Date();
+        return new Date(`${productionDate}T00:00:00`);
+    }
+
+    private getProductionEstimates(recipe: Recipe, productionWeight: number, productionDate: Date) {
+        const totalFatsOriginal = this.getTotalFats(recipe);
+        const scaleFactor = totalFatsOriginal > 0 ? productionWeight / totalFatsOriginal : 0;
+        const totalWeightOriginal = this.calculateRecipeTotalWeight(recipe);
+        const plannedWeight = totalWeightOriginal * scaleFactor;
+
+        const waterAmountOriginal = recipe.liquids.reduce((sum, l) => sum + (l.amount || 0), 0);
+        const plannedWater = waterAmountOriginal * scaleFactor;
+        const stableWeight = plannedWeight - (plannedWater * 0.85);
+
+        const chemicalDays = 2;
+        const chemicalReadyDate = new Date(productionDate.getTime());
+        chemicalReadyDate.setDate(chemicalReadyDate.getDate() + chemicalDays);
+
+        const physicalDays = this.getPhysicalCureDays(productionDate);
+        const physicalReadyDate = new Date(productionDate.getTime());
+        physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
+
+        return {
+            plannedWeight,
+            stableWeight,
+            chemicalReadyDate,
+            physicalReadyDate,
+            physicalDays
+        };
     }
 
     private calculateRecipeTotalWeight(recipe: Recipe): number {
@@ -194,7 +234,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                        <button className="btn btn-primary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.setState({ isProductionModalOpen: true })}>
+                        <button className="btn btn-primary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.setState({ isProductionModalOpen: true, productionDate: new Date().toISOString().split('T')[0] })}>
                             <Beaker size={16} /> Marcar Produção
                         </button>
                     </div>
@@ -263,7 +303,12 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                                     <button
                                                         title="Produzir esta Receita"
                                                         className="btn btn-secondary"
-                                                        onClick={() => this.setState({ selectedRecipeId: r.id, isProductionModalOpen: true })}
+                                                        onClick={() => this.setState({
+                                                            selectedRecipeId: r.id,
+                                                            productionWeight: this.getTotalFats(r),
+                                                            productionDate: new Date().toISOString().split('T')[0],
+                                                            isProductionModalOpen: true
+                                                        })}
                                                         style={{ padding: '0.4rem', minWidth: 'auto', color: 'var(--color-accent)' }}
                                                     >
                                                         <Beaker size={16} />
@@ -405,8 +450,14 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
     }
 
     private renderProductionModal() {
-        const { associatedRecipes, selectedRecipeId, productionWeight } = this.state;
+        const { associatedRecipes, selectedRecipeId, productionWeight, productionDate } = this.state;
         const selectedRecipe = associatedRecipes.find(r => r.id === selectedRecipeId);
+        const productionDateObj = this.getProductionDate();
+        const totalFats = selectedRecipe ? this.getTotalFats(selectedRecipe) : 0;
+        const estimatedWeight = selectedRecipe ? (productionWeight || totalFats) : 0;
+        const estimates = selectedRecipe
+            ? this.getProductionEstimates(selectedRecipe, estimatedWeight, productionDateObj)
+            : null;
 
         return (
             <Modal
@@ -428,7 +479,14 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         <select
                             className="form-control"
                             value={selectedRecipeId}
-                            onChange={(e) => this.setState({ selectedRecipeId: e.target.value })}
+                            onChange={(e) => {
+                                const recipeId = e.target.value;
+                                const recipe = associatedRecipes.find(r => r.id === recipeId);
+                                this.setState({
+                                    selectedRecipeId: recipeId,
+                                    productionWeight: recipe ? this.getTotalFats(recipe) : 0
+                                });
+                            }}
                         >
                             <option value="">-- Selecione uma receita --</option>
                             {associatedRecipes.map(r => <option key={r.id} value={r.id}>{r.name} (RE{r.code})</option>)}
@@ -436,13 +494,23 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: 700 }}>Peso Alvo das Gorduras (g)</label>
+                        <label className="form-label" style={{ fontWeight: 700 }}>Data de Produção</label>
+                        <input
+                            type="date"
+                            className="form-control"
+                            value={productionDate}
+                            onChange={(e) => this.setState({ productionDate: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Peso das Gorduras (g)</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <input
                                 type="number"
                                 className="form-control"
-                                value={productionWeight}
-                                onChange={(e) => this.setState({ productionWeight: parseFloat(e.target.value) || 0 })}
+                                value={selectedRecipe ? estimatedWeight : ''}
+                                readOnly
                             />
                             <span style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>gramas</span>
                         </div>
@@ -457,11 +525,15 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
                                 <div>
                                     <div style={{ color: 'var(--color-text-secondary)' }}>Pronto a usar (Químico):</div>
-                                    <div style={{ fontWeight: 700 }}>{new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                                    <div style={{ fontWeight: 700 }}>{estimates?.chemicalReadyDate.toLocaleDateString()}</div>
+                                    <div style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>Cura Física estimada:</div>
+                                    <div style={{ fontWeight: 700 }}>
+                                        {estimates?.physicalReadyDate.toLocaleDateString()} ({estimates?.physicalDays} dias)
+                                    </div>
                                 </div>
                                 <div>
                                     <div style={{ color: 'var(--color-text-secondary)' }}>Peso Final Estável:</div>
-                                    <div style={{ fontWeight: 700 }}>~ {Math.round(this.calculateRecipeTotalWeight(selectedRecipe) * (productionWeight / (selectedRecipe.fats.reduce((s, f) => s + f.amount, 0) + (selectedRecipe.superfatOils?.reduce((s, o) => s + o.amount, 0) || 0))) * 0.9)}g</div>
+                                    <div style={{ fontWeight: 700 }}>~ {Math.round(estimates?.stableWeight || 0)}g</div>
                                 </div>
                             </div>
                         </div>
