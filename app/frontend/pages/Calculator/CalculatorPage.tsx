@@ -421,7 +421,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const results = CalculatorService.calculate(recipe, availableIngredients);
 
         const phaseHeaderColor = 'rgba(217, 119, 6, 0.12)';
-        const phaseHeaderText = 'var(--color-accent)';
+        const phaseHeaderText = 'var(--color-primary-dark)';
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
