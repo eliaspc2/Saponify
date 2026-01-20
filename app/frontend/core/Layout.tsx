@@ -55,7 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
                 height: '100vh'
             }}>
                 <div className="logo" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <img src="./assets/brand/logo.png" alt="Saponify Logo" style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover' }} />
+                    <img src="/assets/brand/logo.png" alt="Saponify Logo" style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover' }} />
                     <div>
                         <h2 style={{ fontSize: '1.25rem', color: 'var(--color-primary-dark)' }}>Saponify</h2>
                     </div>
