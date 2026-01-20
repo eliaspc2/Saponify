@@ -24,7 +24,17 @@ const generateId = () => {
     return Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(4);
 };
 
-const SectionHeader = ({ title, color }: { title: string, color: string }) => (
+const SectionHeader = ({
+    title,
+    color,
+    titleColor,
+    actions
+}: {
+    title: string;
+    color: string;
+    titleColor?: string;
+    actions?: React.ReactNode;
+}) => (
     <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -35,7 +45,8 @@ const SectionHeader = ({ title, color }: { title: string, color: string }) => (
         marginBottom: '1rem',
         borderBottom: '1px solid rgba(0,0,0,0.05)'
     }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-primary-dark)', letterSpacing: '0.025em' }}>{title}</h3>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: titleColor || 'var(--color-primary-dark)', letterSpacing: '0.025em' }}>{title}</h3>
+        {actions && <div style={{ display: 'flex', alignItems: 'center' }}>{actions}</div>}
     </div>
 );
 
@@ -48,6 +59,37 @@ const AddButton = ({ label, onClick, small }: { label: string, onClick: () => vo
         <Plus size={small ? 14 : 18} />
         {label}
     </button>
+);
+
+const PhaseAddMenu = ({
+    options,
+    onSelect
+}: {
+    options: { label: string; type: keyof Recipe }[];
+    onSelect: (type: keyof Recipe) => void;
+}) => (
+    <details className="phase-add-menu">
+        <summary className="btn btn-primary">
+            <Plus size={18} />
+            Adicionar
+        </summary>
+        <div className="phase-add-menu-list">
+            {options.map(option => (
+                <button
+                    key={option.type}
+                    type="button"
+                    className="phase-add-menu-item"
+                    onClick={(event) => {
+                        const details = (event.currentTarget.closest('details') as HTMLDetailsElement | null);
+                        if (details) details.open = false;
+                        onSelect(option.type);
+                    }}
+                >
+                    {option.label}
+                </button>
+            ))}
+        </div>
+    </details>
 );
 
 
@@ -378,9 +420,8 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const { recipe, availableIngredients } = this.state;
         const results = CalculatorService.calculate(recipe, availableIngredients);
 
-        const phase1Color = '#F0F9FF';
-        const phase2Color = '#F0FDF4';
-        const phase3Color = '#FFF7ED';
+        const phaseHeaderColor = 'rgba(217, 119, 6, 0.12)';
+        const phaseHeaderText = 'var(--color-accent)';
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -563,37 +604,52 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                         </div>
 
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader title="FASE 1: Gorduras & Óleos" color={phase1Color} />
+                            <SectionHeader
+                                title="FASE 1: Gorduras & Óleos"
+                                color={phaseHeaderColor}
+                                titleColor={phaseHeaderText}
+                                actions={<AddButton label="Adicionar" onClick={() => this.addItem('fats')} />}
+                            />
                             <div style={{ padding: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos Base</h4>
-                                    <AddButton label="Adicionar" small onClick={() => this.addItem('fats')} />
                                 </div>
                                 {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ['Óleos Base'], results.totalFats))}
                             </div>
                         </div>
 
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader title="FASE 2: Lixívia & Aditivos" color={phase2Color} />
+                            <SectionHeader
+                                title="FASE 2: Lixívia & Aditivos"
+                                color={phaseHeaderColor}
+                                titleColor={phaseHeaderText}
+                                actions={
+                                    <PhaseAddMenu
+                                        options={[
+                                            { label: 'Líquidos', type: 'liquids' },
+                                            { label: 'Aditivos Funcionais', type: 'functionalAdditives' },
+                                            { label: 'Aditivos da Lixívia', type: 'lyeAdditives' }
+                                        ]}
+                                        onSelect={(type) => this.addItem(type)}
+                                    />
+                                }
+                            />
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
-                                        <AddButton label="Adicionar" small onClick={() => this.addItem('liquids')} />
                                     </div>
                                     {(recipe.liquids || []).map(l => this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia']))}
                                 </div>
                                 <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
-                                        <AddButton label="Adicionar" small onClick={() => this.addItem('functionalAdditives')} />
                                     </div>
                                     {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
                                 </div>
                                 <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
-                                        <AddButton label="Adicionar" small onClick={() => this.addItem('lyeAdditives')} />
                                     </div>
                                     {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
                                 </div>
@@ -601,12 +657,25 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                         </div>
 
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader title="FASE 3: No Traço (Trace)" color={phase3Color} />
+                            <SectionHeader
+                                title="FASE 3: No Traço (Trace)"
+                                color={phaseHeaderColor}
+                                titleColor={phaseHeaderText}
+                                actions={
+                                    <PhaseAddMenu
+                                        options={[
+                                            { label: 'Aditivos & Botânicos', type: 'traceAdditives' },
+                                            { label: 'Óleos de Superfat', type: 'superfatOils' },
+                                            { label: 'Aromas & O.E.', type: 'essentialOils' }
+                                        ]}
+                                        onSelect={(type) => this.addItem(type)}
+                                    />
+                                }
+                            />
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos & Botânicos</h4>
-                                        <AddButton label="Adicionar" small onClick={() => this.addItem('traceAdditives')} />
                                     </div>
                                     {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ['Aditivos Traço']))}
                                 </div>
@@ -614,7 +683,6 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos de Superfat</h4>
-                                        <AddButton label="Adicionar" small onClick={() => this.addItem('superfatOils')} />
                                     </div>
                                     {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ['Superfat']))}
                                 </div>
@@ -622,7 +690,6 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aromas & O.E.</h4>
-                                        <AddButton label="Adicionar" small onClick={() => this.addItem('essentialOils')} />
                                     </div>
                                     {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ['Óleos Essenciais']))}
                                 </div>
