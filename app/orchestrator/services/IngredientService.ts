@@ -4,9 +4,12 @@ import { Ingredient } from '../../shared/types/Ingredient';
 export class IngredientService extends BaseService {
     private ingredients: Ingredient[] = [];
     private static instance: IngredientService;
+    private static readonly STORAGE_KEY = 'saponify_ingredients';
+    private storageLoaded = false;
 
     private constructor() {
         super('IngredientService');
+        this.storageLoaded = this.loadFromStorage();
     }
 
     static getInstance(): IngredientService {
@@ -18,13 +21,15 @@ export class IngredientService extends BaseService {
 
     async loadInitialData(): Promise<void> {
         try {
+            if (this.storageLoaded || this.ingredients.length > 0) {
+                return;
+            }
             this.log('Fetching ingredients csv...');
             const response = await fetch('/data/ingredients.csv');
             const csvText = await response.text();
             this.ingredients = this.parseCSV(csvText);
             this.log(`Loaded ${this.ingredients.length} ingredients.`);
-
-            // TODO: Save to Browser Cache / IDB
+            this.saveToStorage();
         } catch (error) {
             this.handleError(error as Error);
         }
@@ -40,19 +45,19 @@ export class IngredientService extends BaseService {
             ingredient.id = `user_${Date.now()}`;
         }
         this.ingredients.push(ingredient);
-        // TODO: Persistence
+        this.saveToStorage();
     }
 
     deleteIngredient(id: string): void {
         this.ingredients = this.ingredients.filter(i => i.id !== id);
-        // TODO: Persistence
+        this.saveToStorage();
     }
 
     updateIngredient(updated: Ingredient): void {
         const index = this.ingredients.findIndex(i => i.id === updated.id);
         if (index !== -1) {
             this.ingredients[index] = updated;
-            // TODO: Persist changes (write back to file or DB)
+            this.saveToStorage();
         }
     }
 
@@ -65,6 +70,27 @@ export class IngredientService extends BaseService {
         const newIngredients = this.parseCSV(csvContent);
         this.ingredients = [...this.ingredients, ...newIngredients];
         // TODO: Deduplicate logic
+        this.saveToStorage();
+    }
+
+    private loadFromStorage(): boolean {
+        const stored = localStorage.getItem(IngredientService.STORAGE_KEY);
+        if (stored === null) return false;
+        try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                this.ingredients = parsed;
+                return true;
+            }
+        } catch (e) {
+            this.ingredients = [];
+        }
+        return false;
+    }
+
+    private saveToStorage(): void {
+        localStorage.setItem(IngredientService.STORAGE_KEY, JSON.stringify(this.ingredients));
+        this.storageLoaded = true;
     }
 
     private parseCSV(csvText: string): Ingredient[] {
