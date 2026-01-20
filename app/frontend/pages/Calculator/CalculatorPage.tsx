@@ -251,6 +251,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
 
         md += `\n### Fase 2: Lixívia & Aditivos\n`;
         recipe.liquids.forEach(l => md += `- ${l.name}: ${l.amount} g\n`);
+        recipe.functionalAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
         recipe.lyeAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
 
         md += `\n### Fase 3: No Traço\n`;
@@ -596,7 +597,14 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 </div>
                                 <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos</h4>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
+                                        <AddButton label="Adicionar" small onClick={() => this.addItem('functionalAdditives')} />
+                                    </div>
+                                    {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
+                                </div>
+                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
                                         <AddButton label="Adicionar" small onClick={() => this.addItem('lyeAdditives')} />
                                     </div>
                                     {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
