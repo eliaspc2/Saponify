@@ -11,6 +11,9 @@ export interface Ingredient {
     iodine?: number;
     ins?: number;
     waterPercent?: number;
+    flags?: {
+        citricAcid?: boolean;
+    };
     properties: {
         hardness: number;
         cleansing: number;

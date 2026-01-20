@@ -127,6 +127,7 @@ export class IngredientService extends BaseService {
             };
 
             const getString = (idx: number) => cleanValues[idx] || '';
+            const getBool = (idx: number) => getString(idx).toLowerCase() === 'true';
 
             // Use the exact category string from the CSV
             const categoryStr = getString(8);
@@ -144,6 +145,9 @@ export class IngredientService extends BaseService {
                 iodine: getNum(12),
                 ins: getNum(13),
                 waterPercent: getNum(15),
+                flags: {
+                    citricAcid: getBool(14)
+                },
                 properties: {
                     conditioning: getNum(20),
                     cleansing: getNum(21),

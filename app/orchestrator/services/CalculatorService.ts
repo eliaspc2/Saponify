@@ -34,6 +34,13 @@ export interface CalculationResults {
 
 export class CalculatorService {
     static calculate(recipe: Recipe, ingredients: Ingredient[]): CalculationResults {
+        const isCitricAcid = (ing?: Ingredient) => {
+            if (!ing) return false;
+            if (ing.flags?.citricAcid) return true;
+            const text = `${ing.name} ${ing.inci}`.toLowerCase();
+            return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido cítrico');
+        };
+
         const results: CalculationResults = {
             totalWeight: 0,
             totalFats: 0,
@@ -96,7 +103,17 @@ export class CalculatorService {
 
         // Apply Superfat discount to lye
         const superfatRatio = 1 - (recipe.superfat / 100);
-        results.alkaliAmount = totalSap * superfatRatio;
+        const baseLye = totalSap * superfatRatio;
+
+        // Extra lye required to neutralize citric acid additives (sodium/potassium citrate)
+        const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
+            const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            return isCitricAcid(ing) ? sum + (item.amount || 0) : sum;
+        }, 0);
+        const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
+        const citricLye = citricAcidAmount * citricLyeFactor;
+
+        results.alkaliAmount = baseLye + citricLye;
 
         // 3. Calculate Water
         const waterItem = recipe.liquids.find((l: RecipeIngredient) => l.name.toLowerCase().includes('água'));
