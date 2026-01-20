@@ -1,0 +1,68 @@
+ref,order,menuKey,name,inci,descriptionFragment,notes,catalogStatus,category,origin,sap,sap_koh,iodine,ins,flags.citricAcid,waterPercent,botanical.botanicalName,botanical.plantPart,botanical.physicalForm,botanical.notes,properties.conditioning,properties.cleansing,properties.bubbles,properties.persistence,properties.hardness,properties.solubility,properties.drying,fattyAcids.lauric,fattyAcids.myristic,fattyAcids.palmitic,fattyAcids.stearic,fattyAcids.oleic,fattyAcids.linoleic,fattyAcids.linolenic,fattyAcids.ricinoleic
+1,1,baseOils,"Azeite (Oliva)",Sodium Olivate,"Azeite extra virgem para sabonetes de alta qualidade",,"cataloged","Óleos Base","system",0.135,0.190,82,109,,0,,,,,,,,82,0,0,45,45,45,10,0,0,13,3,69,12,1,0
+2,2,baseOils,"Óleo de Coco",Sodium Cocoate,"Óleo de coco virgem prensado a frio",,"cataloged","Óleos Base","system",0.183,0.257,10,258,,0,,,,,,,,10,80,80,50,79,80,70,48,18,9,3,8,2,0,0
+3,3,baseOils,"Óleo de Girassol",Sodium Sunflowerate,"Óleo de girassol refinado",,"cataloged","Óleos Base","system",0.135,0.189,125,63,,0,,,,,,,,85,0,0,40,30,45,10,0,0,6,4,24,65,0,0
+4,4,baseOils,"Banha de porco",Sodium Lardate,"Banha de porco refinada de alta qualidade",,"cataloged","Óleos Base","system",0.138,0.194,57,139,,0,,,,,,,,35,0,0,45,50,40,45,0,1,25,15,45,10,1,0
+5,5,baseOils,"Sebo de vaca",Sodium Tallowate,"Sebo bovino purificado e refinado",,"cataloged","Óleos Base","system",0.140,0.197,45,147,,0,,,,,,,,35,0,0,50,55,35,50,0,3,26,20,42,3,1,0
+6,1,superfatOils,"Óleo de Amêndoas Doces",Prunus Amygdalus Dulcis Oil,"Óleo de amêndoas doces prensado a frio",,"cataloged","Superfat","system",0.137,0.192,97,97,,0,,,,,,,,82,0,0,45,35,45,15,0,0,7,2,69,20,0,0
+7,2,superfatOils,"Óleo de Sésamo (Gergelim)",Sesamum Indicum Seed Oil,"Óleo de gergelim prensado a frio",,"cataloged","Superfat","system",0.133,0.187,110,81,,0,,,,,,,,75,0,0,40,35,45,20,0,0,9,4,41,45,1,0
+8,3,superfatOils,"Óleo de Rícino",Ricinus Communis Seed Oil,"Óleo de rícino prensado a frio",,"cataloged","Superfat","system",0.128,0.180,86,95,,0,,,,,,,,90,0,0,85,0,90,0,0,0,1,1,3,4,0.5,90
+9,4,superfatOils,"Óleo de Rosa Mosqueta",Rosa Canina Fruit Oil,"Óleo de rosa mosqueta prensado a frio",,"cataloged","Superfat","system",0.132,0.185,179,16,,0,,,,,,,,85,0,0,30,40,10,0,0,4,2,14,44,35,0
+10,5,superfatOils,"Óleo de Abacate",Persea Gratissima Oil,"Óleo de abacate prensado a frio",,"cataloged","Superfat","system",0.133,0.187,86,99,,0,,,,,,,,85,10,0,45,35,40,10,0,0,15,2,70,12,1,0
+11,6,superfatOils,"Óleo de Girassol Virgem",Helianthus Annuus Seed Oil,"Óleo de girassol virgem prensado a frio",,"cataloged","Superfat","system",0.135,0.189,125,63,,0,,,,,,,,85,0,0,40,30,45,10,0,0,6,4,24,65,0,0
+12,1,lyeLiquids,"Água",Aqua,"Água destilada para diluição da lixívia",,"cataloged","Líquidos Lixívia","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
+13,2,lyeLiquids,"Álcool",Alcohol,"Álcool etílico 96% para diluição",,"cataloged","Líquidos Lixívia","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+14,1,functionalAdditives,"Infusão de Camomila",Chamomilla Infusion,"Infusão de camomila para propriedades calmantes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+15,2,functionalAdditives,"Infusão de Malvas",Mallow Infusion,"Infusão de malvas para propriedades emolientes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+16,3,functionalAdditives,"Infusão de Hibisco",Hibiscus Infusion,"Infusão de hibisco para propriedades antioxidantes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+17,4,functionalAdditives,"Infusão de Cavalinha",Chamomilla Infusion,"Infusão de cavalinha para propriedades anti-inflamatórias",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+18,5,functionalAdditives,"Infusão de Aveia",Oat Infusion,"Infusão de aveia para propriedades hidratantes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+19,6,functionalAdditives,"Infusão de Tília",Linden Infusion,"Infusão de tília para propriedades calmantes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+20,7,functionalAdditives,"Infusão de Cidreira",Apple Blossom Infusion,"Infusão de cidreira para propriedades tonificantes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+21,8,functionalAdditives,"Infusão de Carqueja",Oak Infusion,"Infusão de carqueja para propriedades adstringentes",,"cataloged","Aditivos Funcionais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+22,1,lyeAdditives,"Mel cru",Honey,"Mel cru não pasteurizado para adocar lixívia",,"cataloged","Aditivos Lixívia","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+23,2,lyeAdditives,"Açúcar branco",Sugar,"Açúcar branco refinado para aumentar traço",,"cataloged","Aditivos Lixívia","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+24,3,lyeAdditives,"Sal rosa dos Himalaias",Himalayan Pink Salt,"Sal rosa dos Himalaias para dureza e traço",,"cataloged","Aditivos Lixívia","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+25,4,lyeAdditives,"Sal grosso não iodado",Non-iodized Coarse Salt,"Sal grosso não iodado para dureza e traço",,"cataloged","Aditivos Lixívia","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+26,5,lyeAdditives,"Ácido cítrico (Citrato de sódio após saponificação)",Citric Acid,"Ácido cítrico para ajuste de pH e citrato de sódio",TRUE,"cataloged","Aditivos Lixívia","system",0,0,0,0,0,,TRUE,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+27,1,traceAdditives,"Argila branca (Kaolin)",Kaolin Clay,"Argila branca para adicionar ao traço",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+28,2,traceAdditives,"Aveia em pó",Oat Powder,"Aveia em pó para propriedades hidratantes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+29,3,traceAdditives,"Zeólite",Zeolite,"Zeólite para propriedades purificadoras",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+30,4,traceAdditives,"Açafrão-das-Índias",Annatto Powder,"Açafrão-das-Índias para cor natural",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+31,5,traceAdditives,"Canela em pó",Cinnamon Powder,"Canela em pó para aroma e propriedades antibacterianas",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+32,6,traceAdditives,"Cravinho em pó",Clove Powder,"Cravinho em pó para aroma e propriedades conservantes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+33,7,traceAdditives,"Piri-piri moído",Malagueta Powder,"Piri-piri moído para aroma picante e estimulante",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+34,8,traceAdditives,"Lavanda (Seca)",Dried Lavender,"Lavanda seca para aroma relaxante",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+35,9,traceAdditives,"Rosa branca (Pétalas/Pó)",White Rose Petals/Powder,"Rosa branca em pétalas ou pó para aroma floral",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+36,10,traceAdditives,"Rosa vermelha (Pétalas/Pó)",Red Rose Petals/Powder,"Rosa vermelha em pétalas ou pó para cor e aroma",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+37,11,traceAdditives,"Jasmim (Pó)",Jasmine Powder,"Jasmim em pó para aroma floral exótico",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+38,12,traceAdditives,"Casca de laranja desidratada (Pó)",Dried Orange Peel Powder,"Casca de laranja em pó para aroma cítrico e cor",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+39,13,traceAdditives,"Malvas (Secas)",Dried Mallows,"Malvas secas para propriedades emolientes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+40,14,traceAdditives,"Camomila (Seca)",Dried Chamomile,"Camomila seca para propriedades calmantes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+41,15,traceAdditives,"Hibisco (Seco)",Dried Hibiscus,"Hibisco seco para cor e propriedades antioxidantes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+42,16,traceAdditives,"Cavalinha (Seca)",Dried Chamomile,"Cavalinha seca para propriedades anti-inflamatórias",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+43,17,traceAdditives,"Tília (Seca)",Dried Linden,"Tília seca para propriedades calmantes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0
+44,18,traceAdditives,"Cidreira (Seca)",Dried Apple Blossom,"Cidreira seca para propriedades tonificantes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+45,19,traceAdditives,"Carqueja (Seca)",Dried Oak,"Carqueja seca para propriedades adstringentes",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+46,20,traceAdditives,"Flor de sabugueiro (Seca)",Dried Elderflower,"Flor de sabugueiro seca para aroma floral",,"cataloged","Aditivos Traço","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+47,1,essentialOils,"Lavanda",Lavender Essential Oil,"Óleo essencial de lavanda para aroma relaxante",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+48,2,essentialOils,"Camomila",Chamomile Essential Oil,"Óleo essencial de camomila para aroma calmante",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+49,3,essentialOils,"Rosa",Rose Essential Oil,"Óleo essencial de rosa para aroma floral",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+50,4,essentialOils,"Jasmim",Jasmine Essential Oil,"Óleo essencial de jasmim para aroma floral exótico",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+51,5,essentialOils,"Sakura",Sakura Essential Oil,"Óleo essencial de sakura para aroma floral delicado",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+52,6,essentialOils,"Gerânio",Geranium Essential Oil,"Óleo essencial de gerânio para aroma floral herbáceo",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0
+53,7,essentialOils,"Tea tree",Tea Tree Essential Oil,"Óleo essencial de tea tree para propriedades antissépticas",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+54,8,essentialOils,"Limão",Lemon Essential Oil,"Óleo essencial de limão para aroma cítrico",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+55,9,essentialOils,"Alecrim",Rosemary Essential Oil,"Óleo essencial de alecrim para aroma herbáceo",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+56,10,essentialOils,"Hortelã-pimenta",Peppermint Essential Oil,"Óleo essencial de hortelã-pimenta para aroma refrescante",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+57,11,essentialOils,"Capim-limão",Lemongrass Essential Oil,"Óleo essencial de capim-limão para aroma cítrico",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+58,12,essentialOils,"Laranja doce",Sweet Orange Essential Oil,"Óleo essencial de laranja doce para aroma cítrico doce",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+59,13,essentialOils,"Toranja",Grapefruit Essential Oil,"Óleo essencial de toranja para aroma cítrico",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+60,14,essentialOils,"Sálvia",Sage Essential Oil,"Óleo essencial de sálvia para aroma herbáceo",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+61,15,essentialOils,"Patchouli",Patchouli Essential Oil,"Óleo essencial de patchouli para aroma terroso",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+62,16,essentialOils,"Olíbano",Oregano Essential Oil,"Óleo essencial de olíbano para aroma herbáceo intenso",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+63,17,essentialOils,"Sândalo",Sandalwood Essential Oil,"Óleo essencial de sândalo para aroma madeirado",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+64,18,essentialOils,"Cravinho",Clove Essential Oil,"Óleo essencial de cravinho para aroma picante",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+65,19,essentialOils,"Canela",Cinnamon Essential Oil,"Óleo essencial de canela para aroma quente",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+66,20,essentialOils,"Baunilha",Vanilla Essential Oil,"Óleo essencial de baunilha para aroma doce",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
+67,21,essentialOils,"Ylang-ylang",Ylang-Ylang Essential Oil,"Óleo essencial de ylang-ylang para aroma floral exótico",,"cataloged","Óleos Essenciais","system",0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0
