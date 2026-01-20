@@ -6,6 +6,11 @@ import path from 'path'
 export default defineConfig({
     base: '/Saponify/',
     plugins: [react()],
+    server: {
+        mimeTypes: {
+            'application/javascript': ['js', 'jsx', 'ts', 'tsx']
+        }
+    },
     resolve: {
         alias: {
             '@frontend': path.resolve(__dirname, './app/frontend'),
