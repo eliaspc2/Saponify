@@ -10,7 +10,7 @@ export class IngredientService extends BaseService {
 
     private constructor() {
         super('IngredientService');
-        this.storageLoaded = this.loadFromStorage();
+        this.loadFromStorage();
     }
 
     static getInstance(): IngredientService {
