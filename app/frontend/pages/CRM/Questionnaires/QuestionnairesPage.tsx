@@ -87,9 +87,17 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
     }
 
     renderStats() {
+        const total = this.state.data.length;
+        const drynessCount = this.state.data.filter(q => q.drynessAfterWash && q.drynessAfterWash !== 'Nunca').length;
+        const oilinessCount = this.state.data.filter(q => q.oiliness === 'Quase sempre').length;
+        const irritationCount = this.state.data.filter(q => (q.irritationFrequency || '').toLowerCase().startsWith('com')).length;
+
         return (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                <StatCard label="Total Questionários" value={this.state.data.length} color="var(--color-primary)" />
+                <StatCard label="Total Questionarios" value={total} color="var(--color-primary)" />
+                <StatCard label="Pele seca" value={drynessCount} color="#F59E0B" />
+                <StatCard label="Pele oleosa" value={oilinessCount} color="#3B82F6" />
+                <StatCard label="Irritacao freq." value={irritationCount} color="#EF4444" />
             </div>
         );
     }

@@ -72,9 +72,19 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
     }
 
     renderStats() {
+        const total = this.state.data.length;
+        const withEssentialOils = this.state.data.filter(r => (r.essentialOils || []).length > 0).length;
+        const withNotes = this.state.data.filter(r => (r.notes || '').trim().length > 0).length;
+        const avgSuperfat = total > 0
+            ? this.state.data.reduce((sum, recipe) => sum + (recipe.superfat || 0), 0) / total
+            : 0;
+
         return (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                <StatCard label="Receitas Guardadas" value={this.state.data.length} color="var(--color-primary)" />
+                <StatCard label="Receitas Guardadas" value={total} color="var(--color-primary)" />
+                <StatCard label="Superfat medio" value={`${avgSuperfat.toFixed(1)}%`} color="var(--color-accent)" />
+                <StatCard label="Com OEs" value={withEssentialOils} color="#3B82F6" />
+                <StatCard label="Com notas" value={withNotes} color="#F59E0B" />
             </div>
         );
     }
