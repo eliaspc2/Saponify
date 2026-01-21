@@ -55,6 +55,34 @@ export class CalculatorService {
         const getIngredient = (item: RecipeIngredient) =>
             ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+        const deriveProperties = (ing: Ingredient) => {
+            const fatty = ing.fattyAcids || {
+                lauric: 0,
+                myristic: 0,
+                palmitic: 0,
+                stearic: 0,
+                ricinoleic: 0,
+                oleic: 0,
+                linoleic: 0,
+                linolenic: 0
+            };
+            const lauric = fatty.lauric || 0;
+            const myristic = fatty.myristic || 0;
+            const palmitic = fatty.palmitic || 0;
+            const stearic = fatty.stearic || 0;
+            const ricinoleic = fatty.ricinoleic || 0;
+            const oleic = fatty.oleic || 0;
+            const linoleic = fatty.linoleic || 0;
+            const linolenic = fatty.linolenic || 0;
+
+            return {
+                conditioning: oleic + linoleic + linolenic + ricinoleic,
+                cleansing: lauric + myristic,
+                bubbly: lauric + myristic + ricinoleic,
+                persistence: palmitic + stearic + ricinoleic,
+                hardness: lauric + myristic + palmitic + stearic
+            };
+        };
 
         const results: CalculationResults = {
             totalWeight: 0,
@@ -160,11 +188,33 @@ export class CalculatorService {
                     weightedIodine += (ing.iodine || 0) * weightRatio;
                     weightedIns += (ing.ins || 0) * weightRatio;
 
-                    results.properties.conditioning += (ing.properties?.conditioning || 0) * weightRatio;
-                    results.properties.cleansing += (ing.properties?.cleansing || 0) * weightRatio;
-                    results.properties.bubbles += (ing.properties?.bubbly || 0) * weightRatio;
-                    results.properties.persistence += (ing.properties?.stable || 0) * weightRatio;
-                    results.properties.hardness += (ing.properties?.hardness || 0) * weightRatio;
+                    const props = ing.properties || {
+                        conditioning: 0,
+                        cleansing: 0,
+                        bubbly: 0,
+                        stable: 0,
+                        hardness: 0
+                    };
+                    const derived = deriveProperties(ing);
+                    const hasPropertyData = [
+                        props.conditioning,
+                        props.cleansing,
+                        props.bubbly,
+                        props.stable,
+                        props.hardness
+                    ].some(value => (value || 0) > 0);
+
+                    const conditioning = hasPropertyData ? (props.conditioning || 0) : derived.conditioning;
+                    const cleansing = hasPropertyData ? (props.cleansing || 0) : derived.cleansing;
+                    const bubbles = hasPropertyData ? (props.bubbly || 0) : derived.bubbly;
+                    const persistence = hasPropertyData ? (props.stable || 0) : derived.persistence;
+                    const hardness = hasPropertyData ? (props.hardness || 0) : derived.hardness;
+
+                    results.properties.conditioning += conditioning * weightRatio;
+                    results.properties.cleansing += cleansing * weightRatio;
+                    results.properties.bubbles += bubbles * weightRatio;
+                    results.properties.persistence += persistence * weightRatio;
+                    results.properties.hardness += hardness * weightRatio;
                     results.properties.solubility += (ing.properties?.solubility || 0) * weightRatio;
                     results.properties.drying += (ing.properties?.drying || 0) * weightRatio;
 
@@ -206,7 +256,7 @@ export class CalculatorService {
         const phase3Weight = sumAmounts(recipe.traceAdditives)
             + sumAmounts(recipe.superfatOils)
             + sumAmounts(recipe.essentialOils);
-        results.totalWeight = phase1Weight + phase2Weight + phase3Weight + results.alkaliAmount;
+        results.totalWeight = phase1Weight + phase2Weight + phase3Weight;
 
         // 6. Glycerin estimation (3 moles NaOH = 1 mole Glycerin)
         // Ratio Glycerin/NaOH mass: 92.09 / (3 * 39.99) = 0.767

@@ -436,10 +436,6 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const results = CalculatorService.calculate(recipe, availableIngredients);
         const today = new Date();
         const physicalDays = this.getPhysicalCureDays(today);
-        const physicalReadyDate = new Date(today.getTime());
-        physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
-        const estimatedDryWeight = Math.max(0, results.totalWeight - (results.waterAmount * 0.85));
-
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -448,6 +444,20 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
             + sumAmounts(recipe.functionalAdditives)
             + sumAmounts(recipe.lyeAdditives);
         const phase3Total = sumAmounts(recipe.traceAdditives) + sumAmounts(recipe.superfatOils) + sumAmounts(recipe.essentialOils);
+        const physicalReadyDate = new Date(today.getTime());
+        physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
+        const batchWeightWithLye = phase1Total + phase2Total + phase3Total + (results.alkaliAmount || 0);
+        const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
+        const fattyAcidLabels = [
+            { key: 'lauric', label: 'Láurico' },
+            { key: 'myristic', label: 'Mirístico' },
+            { key: 'palmitic', label: 'Palmítico' },
+            { key: 'stearic', label: 'Esteárico' },
+            { key: 'oleic', label: 'Oleico' },
+            { key: 'linoleic', label: 'Linoleico' },
+            { key: 'linolenic', label: 'Linolênico' },
+            { key: 'ricinoleic', label: 'Ricinoleico' }
+        ] as const;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -759,10 +769,9 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                         </header>
                         <div className="result-section">
                             <h4>Dados Técnicos</h4>
-                            <div className="result-row"><span>Gorduras</span><span className="result-value">{results.totalFats.toFixed(1)}g</span></div>
-                            <div className="result-row"><span>Lixívia</span><span className="result-value" style={{ color: 'var(--color-accent)' }}>{results.alkaliAmount.toFixed(1)}g</span></div>
-                            <div className="result-row"><span>Água</span><span className="result-value">{results.waterAmount.toFixed(1)}g</span></div>
-                            <div className="result-row"><span>Superfat final</span><span className="result-value">{results.superfatFinal.toFixed(1)}%</span></div>
+                            <div className="result-row"><span>FASE 1: Gorduras & Óleos</span><span className="result-value">Total: {phase1Total.toFixed(1)}g</span></div>
+                            <div className="result-row"><span>FASE 2: Lixívia & Aditivos</span><span className="result-value">Total: {phase2Total.toFixed(1)}g</span></div>
+                            <div className="result-row"><span>FASE 3: No Traço (Trace)</span><span className="result-value">Total: {phase3Total.toFixed(1)}g</span></div>
                             <div className="result-row" style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed #eee' }}>
                                 <span style={{ fontWeight: 700 }}>Peso Final</span>
                                 <span className="result-value" style={{ fontSize: '1.1rem', color: 'var(--color-primary-dark)' }}>{results.totalWeight.toFixed(1)}g</span>
@@ -775,6 +784,10 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <span>Secagem Física</span>
                                 <span className="result-value">~ {physicalDays} dias ({physicalReadyDate.toLocaleDateString()})</span>
                             </div>
+                            <div className="result-row">
+                                <span>Superfat final</span>
+                                <span className="result-value">{results.superfatFinal.toFixed(1)}%</span>
+                            </div>
                         </div>
                         <div className="result-section">
                             <h4>Qualidade</h4>
@@ -783,11 +796,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                             {this.renderProgressBar('Bolhas', results.properties.bubbles)}
                             {this.renderProgressBar('Persistência', results.properties.persistence)}
                             {this.renderProgressBar('Dureza', results.properties.hardness)}
-                            <div className="result-row" style={{ marginTop: '0.75rem' }}>
-                                <span>Glicerina ≈</span>
-                                <span className="result-value">{results.glycerin.toFixed(1)}g</span>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
                                 <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
                                     <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
                                     <div style={{ fontWeight: 700 }}>{results.iodine.toFixed(0)}</div>
@@ -796,14 +805,24 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>INS</div>
                                     <div style={{ fontWeight: 700 }}>{results.ins.toFixed(0)}</div>
                                 </div>
+                                <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                    <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>GLICERINA ≈</div>
+                                    <div style={{ fontWeight: 700 }}>{results.glycerin.toFixed(1)}g</div>
+                                </div>
                             </div>
                         </div>
                         <div className="result-section">
                             <h4>Ácidos Graxos</h4>
                             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-                                {results.fattyAcids.lauric > 0 && <span className="fatty-acid-tag">Láurico: {results.fattyAcids.lauric.toFixed(1)}%</span>}
-                                {results.fattyAcids.palmitic > 0 && <span className="fatty-acid-tag">Palmítico: {results.fattyAcids.palmitic.toFixed(1)}%</span>}
-                                {results.fattyAcids.oleic > 0 && <span className="fatty-acid-tag">Oleico: {results.fattyAcids.oleic.toFixed(1)}%</span>}
+                                {fattyAcidLabels.map(({ key, label }) => {
+                                    const value = results.fattyAcids[key];
+                                    if (value <= 0) return null;
+                                    return (
+                                        <span key={key} className="fatty-acid-tag">
+                                            {label}: {value.toFixed(1)}%
+                                        </span>
+                                    );
+                                })}
                             </div>
                         </div>
                         <div className="result-section">
