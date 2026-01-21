@@ -32,5 +32,7 @@ export interface Ingredient {
         oleic: number;
         linoleic: number;
         linolenic: number;
+        gadoleic?: number;
+        other?: number;
     };
 }

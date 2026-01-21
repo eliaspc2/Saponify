@@ -165,7 +165,9 @@ export class IngredientService extends BaseService {
                     oleic: getNum(31),
                     linoleic: getNum(32),
                     linolenic: getNum(33),
-                    ricinoleic: getNum(34)
+                    ricinoleic: getNum(34),
+                    gadoleic: getNum(35),
+                    other: getNum(36)
                 }
             };
         });

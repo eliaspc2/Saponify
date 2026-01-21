@@ -169,7 +169,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
             let updatedRecipe = { ...prev.recipe, [field]: value };
 
             // Recalculate water if concentration or superfat changes
-            if (field === 'waterConcentration' || field === 'superfat') {
+            if (field === 'waterConcentration' || field === 'superfat' || field === 'alkali') {
                 updatedRecipe = this.recalculateWater(updatedRecipe);
             }
 
@@ -180,7 +180,48 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
     private recalculateWater(recipe: Recipe): Recipe {
         const fats = recipe.fats || [];
         const totalFats = fats.reduce((acc, f) => acc + (f.amount || 0), 0);
-        const newWaterAmount = parseFloat((totalFats * (recipe.waterConcentration / 100)).toFixed(1));
+        const { availableIngredients } = this.state;
+        const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const isBaseOil = (ing?: Ingredient) => {
+            if (!ing?.category) return false;
+            const category = normalizeCategory(ing.category);
+            return category.includes('oleos base') || category.includes('oleo base');
+        };
+        const isCitricAcid = (ing?: Ingredient) => {
+            if (!ing) return false;
+            if (ing.flags?.citricAcid) return true;
+            const text = `${ing.name} ${ing.inci}`.toLowerCase();
+            return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido citrico');
+        };
+        const getSapKOH = (ing?: Ingredient) => {
+            if (!ing) return 0;
+            if (ing.sapKOH) return ing.sapKOH;
+            return ing.sapNaOH ? ing.sapNaOH * 1.403 : 0;
+        };
+        const naohConversion = 0.713;
+        let totalSapKOH = 0;
+
+        fats.forEach((fat) => {
+            if (!fat.ingredientId || (fat.amount || 0) <= 0) return;
+            const ing = availableIngredients.find(i => i.id === fat.ingredientId);
+            if (!ing || !isBaseOil(ing)) return;
+            totalSapKOH += (fat.amount || 0) * getSapKOH(ing);
+        });
+
+        const superfatRatio = 1 - (recipe.superfat / 100);
+        const lyeBase = totalSapKOH * (recipe.alkali === 'NaOH' ? naohConversion : 1);
+        const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
+            const ing = availableIngredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            return isCitricAcid(ing) ? sum + (item.amount || 0) : sum;
+        }, 0);
+        const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
+        const citricLye = citricAcidAmount * citricLyeFactor;
+        const lyeAmount = (lyeBase * superfatRatio) + citricLye;
+        const lyeRatio = recipe.waterConcentration / 100;
+        const fallbackWaterAmount = parseFloat((totalFats * (recipe.waterConcentration / 100)).toFixed(1));
+        const newWaterAmount = lyeAmount > 0 && lyeRatio > 0
+            ? parseFloat((lyeAmount * (1 / lyeRatio - 1)).toFixed(1))
+            : fallbackWaterAmount;
 
         const liquids = recipe.liquids || [];
         const updatedLiquids = liquids.length > 0
@@ -215,7 +256,10 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 ...prev.recipe,
                 [type]: (prev.recipe[type] as any[]).filter(item => item.id !== id)
             };
-            return { recipe: type === 'fats' ? this.recalculateWater(updatedRecipe) : updatedRecipe };
+            if (type === 'fats' || type === 'lyeAdditives') {
+                return { recipe: this.recalculateWater(updatedRecipe) };
+            }
+            return { recipe: updatedRecipe };
         });
     }
 
@@ -240,7 +284,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 item.id === id ? { ...item, ...updates } : item
             );
             let updatedRecipe = { ...prev.recipe, [type]: updatedItems };
-            if (type === 'fats' && updates.amount !== undefined) {
+            if ((type === 'fats' && updates.amount !== undefined) || type === 'lyeAdditives') {
                 updatedRecipe = this.recalculateWater(updatedRecipe);
             }
             return { recipe: updatedRecipe };
@@ -456,7 +500,9 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
             { key: 'oleic', label: 'Oleico' },
             { key: 'linoleic', label: 'Linoleico' },
             { key: 'linolenic', label: 'Linolênico' },
-            { key: 'ricinoleic', label: 'Ricinoleico' }
+            { key: 'ricinoleic', label: 'Ricinoleico' },
+            { key: 'gadoleic', label: 'Gadoleico' },
+            { key: 'other', label: 'Outros' }
         ] as const;
 
         return (

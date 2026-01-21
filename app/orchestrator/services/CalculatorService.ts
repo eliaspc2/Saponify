@@ -1,6 +1,5 @@
 import { Recipe, RecipeIngredient } from '../../shared/types/Recipe';
 import { Ingredient } from '../../shared/types/Ingredient';
-
 export interface CalculationResults {
     totalWeight: number;
     totalFats: number;
@@ -31,10 +30,11 @@ export interface CalculationResults {
         linoleic: number;
         linolenic: number;
         ricinoleic: number;
+        gadoleic: number;
+        other: number;
     };
     inciList: string[];
 }
-
 export class CalculatorService {
     static calculate(recipe: Recipe, ingredients: Ingredient[]): CalculationResults {
         const isCitricAcid = (ing?: Ingredient) => {
@@ -51,6 +51,11 @@ export class CalculatorService {
             if (typeof console !== 'undefined') {
                 console.warn(`[CalculatorService] ${message}`);
             }
+        };
+        const getSapKOH = (ing?: Ingredient) => {
+            if (!ing) return 0;
+            if (ing.sapKOH) return ing.sapKOH;
+            return ing.sapNaOH ? ing.sapNaOH * 1.403 : 0;
         };
         const isBaseOil = (ing?: Ingredient) => {
             if (!ing?.category) return false;
@@ -105,7 +110,9 @@ export class CalculatorService {
                 ricinoleic: fatty?.ricinoleic || 0,
                 oleic: fatty?.oleic || 0,
                 linoleic: fatty?.linoleic || 0,
-                linolenic: fatty?.linolenic || 0
+                linolenic: fatty?.linolenic || 0,
+                gadoleic: fatty?.gadoleic || 0,
+                other: fatty?.other || 0
             };
             const entries = Object.entries(values);
             for (const [key, value] of entries) {
@@ -114,7 +121,8 @@ export class CalculatorService {
                 }
             }
             const total = values.lauric + values.myristic + values.palmitic + values.stearic
-                + values.ricinoleic + values.oleic + values.linoleic + values.linolenic;
+                + values.ricinoleic + values.oleic + values.linoleic + values.linolenic
+                + values.gadoleic + values.other;
             if (total <= 0) return { values, total };
             return { values, total };
         };
@@ -128,15 +136,15 @@ export class CalculatorService {
                 ricinoleic: 0,
                 oleic: 0,
                 linoleic: 0,
-                linolenic: 0
+                linolenic: 0,
+                gadoleic: 0,
+                other: 0
             };
-
             const weightTotal = oils.reduce((sum, oil) => sum + oil.amount, 0);
             if (weightTotal <= 0) {
                 diagnostics.push('Sem óleos base para calcular o perfil.');
                 return { profile, sum: 0, isValid: false, diagnostics };
             }
-
             oils.forEach(({ ingredient, amount }) => {
                 const { values, total } = normalizeFattyAcids(ingredient.fattyAcids, ingredient.name);
                 if (total <= 0) {
@@ -156,11 +164,12 @@ export class CalculatorService {
                 profile.oleic += values.oleic * factor * weightRatio;
                 profile.linoleic += values.linoleic * factor * weightRatio;
                 profile.linolenic += values.linolenic * factor * weightRatio;
+                profile.gadoleic += values.gadoleic * factor * weightRatio;
+                profile.other += values.other * factor * weightRatio;
             });
-
             const sum = profile.lauric + profile.myristic + profile.palmitic + profile.stearic
-                + profile.ricinoleic + profile.oleic + profile.linoleic + profile.linolenic;
-
+                + profile.ricinoleic + profile.oleic + profile.linoleic + profile.linolenic
+                + profile.gadoleic + profile.other;
             if (sum < 98 || sum > 102) {
                 diagnostics.push(`Soma do perfil da mistura ${sum.toFixed(1)}% (esperado ~100%).`);
             }
@@ -169,7 +178,6 @@ export class CalculatorService {
                     diagnostics.push(`Valor de ácido graxo fora do intervalo (${key}=${value.toFixed(1)}%).`);
                 }
             });
-
             const oliveWeight = oils.filter(o => /azeite|oliva/i.test(o.ingredient.name)).reduce((sum, o) => sum + o.amount, 0);
             if (oliveWeight / weightTotal >= 0.2 && profile.oleic < 10) {
                 diagnostics.push('Oleico demasiado baixo para uma mistura com muito azeite.');
@@ -178,7 +186,6 @@ export class CalculatorService {
             if (castorWeight / weightTotal < 0.05 && profile.ricinoleic > 10) {
                 diagnostics.push('Ricinoleico alto sem presença relevante de rícino.');
             }
-
             const isValid = diagnostics.length === 0;
             return { profile, sum, isValid, diagnostics };
         };
@@ -187,9 +194,8 @@ export class CalculatorService {
             cleansing: profile.lauric + profile.myristic,
             bubbles: profile.lauric + profile.myristic + profile.ricinoleic,
             persistence: profile.palmitic + profile.stearic + profile.ricinoleic,
-            conditioning: profile.oleic + profile.linoleic + profile.linolenic + profile.ricinoleic
+            conditioning: profile.oleic + profile.linoleic + profile.linolenic + profile.ricinoleic + profile.gadoleic
         });
-
         const results: CalculationResults = {
             totalWeight: 0,
             totalFats: 0,
@@ -219,11 +225,12 @@ export class CalculatorService {
                 oleic: 0,
                 linoleic: 0,
                 linolenic: 0,
-                ricinoleic: 0
+                ricinoleic: 0,
+                gadoleic: 0,
+                other: 0
             },
             inciList: []
         };
-
         // 1. Select canonical ingredient sets
         const baseOilData = getBaseOils();
         const traceOilData = getTraceOils();
@@ -231,38 +238,32 @@ export class CalculatorService {
         const traceOils = traceOilData.oils;
         const baseOilsWeight = baseOils.reduce((sum, oil) => sum + oil.amount, 0);
         const traceOilsWeight = traceOils.reduce((sum, oil) => sum + oil.amount, 0);
-
         results.totalFats = baseOilsWeight;
         results.fattyAcidDiagnostics = [...baseOilData.diagnostics, ...traceOilData.diagnostics];
-
         const unsaponifiedFromBase = baseOilsWeight * (recipe.superfat / 100);
         const totalOilPhase = baseOilsWeight + traceOilsWeight;
         results.superfatFinal = totalOilPhase > 0
             ? ((unsaponifiedFromBase + traceOilsWeight) / totalOilPhase) * 100
             : 0;
-
         baseOils.forEach(({ ingredient }) => {
             if (ingredient.inci && !results.inciList.includes(ingredient.inci)) {
                 results.inciList.push(ingredient.inci);
             }
         });
-
         // 2. Calculate Alkali (NaOH/KOH)
-        let totalSap = 0;
+        const naohConversion = 0.713;
+        let totalSapKOH = 0;
         baseOils.forEach(({ ingredient, amount }) => {
-            const sapValue = recipe.alkali === 'NaOH'
-                ? (ingredient.sapNaOH || 0)
-                : (ingredient.sapKOH || 0);
-            if (!sapValue) {
+            const sapKOH = getSapKOH(ingredient);
+            if (!sapKOH) {
                 results.fattyAcidDiagnostics.push(`SAP em falta para "${ingredient.name}".`);
             }
-            totalSap += amount * sapValue;
+            totalSapKOH += amount * sapKOH;
         });
-
-        // Apply Superfat discount to lye
+        // Apply Superfat discount to lye (KOH base, convert for NaOH if needed)
         const superfatRatio = 1 - (recipe.superfat / 100);
-        const baseLye = totalSap * superfatRatio;
-
+        const lyeBase = totalSapKOH * (recipe.alkali === 'NaOH' ? naohConversion : 1);
+        const baseLye = lyeBase * superfatRatio;
         // Extra lye required to neutralize citric acid additives (sodium/potassium citrate)
         const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
             const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
@@ -270,40 +271,37 @@ export class CalculatorService {
         }, 0);
         const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
         const citricLye = citricAcidAmount * citricLyeFactor;
-
         results.alkaliAmount = baseLye + citricLye;
-
         // 3. Calculate Water
         const waterItem = recipe.liquids.find((l: RecipeIngredient) => l.name.toLowerCase().includes('água'));
-        results.waterAmount = waterItem?.amount || (baseOilsWeight * (recipe.waterConcentration / 100));
-
+        const lyeRatio = recipe.waterConcentration / 100;
+        const waterFromRatio = lyeRatio > 0 ? results.alkaliAmount * (1 / lyeRatio - 1) : 0;
+        results.waterAmount = waterItem?.amount || waterFromRatio;
         // 4. Iodine, INS, Fatty Acids, and Quality Metrics (base oils only)
         if (baseOilsWeight > 0) {
-            let weightedIodine = 0;
             let weightedSapKOH = 0;
             let solubility = 0;
             let drying = 0;
-
             baseOils.forEach(({ ingredient, amount }) => {
                 const weightRatio = amount / baseOilsWeight;
-                weightedIodine += (ingredient.iodine || 0) * weightRatio;
-                const sapKOH = ingredient.sapKOH || (ingredient.sapNaOH ? ingredient.sapNaOH * 1.403 : 0);
+                const sapKOH = getSapKOH(ingredient);
                 weightedSapKOH += sapKOH * weightRatio;
                 solubility += (ingredient.properties?.solubility || 0) * weightRatio;
                 drying += (ingredient.properties?.drying || 0) * weightRatio;
             });
-
-            results.iodine = weightedIodine;
-            results.ins = weightedSapKOH - results.iodine;
             results.properties.solubility = solubility;
             results.properties.drying = drying;
-
             const profileResult = computeFattyAcidProfile(baseOils);
             results.fattyAcidProfileValid = profileResult.isValid && baseOilData.diagnostics.length === 0;
             results.fattyAcidDiagnostics.push(...profileResult.diagnostics);
             results.fattyAcids = { ...profileResult.profile };
-
             if (results.fattyAcidProfileValid) {
+                const iodine = (profileResult.profile.oleic * 90
+                    + profileResult.profile.linoleic * 181
+                    + profileResult.profile.linolenic * 274
+                    + profileResult.profile.gadoleic * 90) / 100;
+                results.iodine = iodine;
+                results.ins = (weightedSapKOH * 1000) - iodine;
                 const metrics = computeQualityMetrics(profileResult.profile);
                 results.properties.hardness = metrics.hardness;
                 results.properties.cleansing = metrics.cleansing;
@@ -311,6 +309,8 @@ export class CalculatorService {
                 results.properties.persistence = metrics.persistence;
                 results.properties.conditioning = metrics.conditioning;
             } else {
+                results.iodine = 0;
+                results.ins = 0;
                 results.properties.hardness = 0;
                 results.properties.cleansing = 0;
                 results.properties.bubbles = 0;
@@ -321,7 +321,6 @@ export class CalculatorService {
             results.fattyAcidProfileValid = false;
             results.fattyAcidDiagnostics.push('Sem óleos base para cálculo das métricas.');
         }
-
         // 5. Total weight
         const allAdditives = [
             ...(recipe.functionalAdditives || []),
@@ -330,14 +329,12 @@ export class CalculatorService {
             ...(recipe.superfatOils || []),
             ...(recipe.essentialOils || [])
         ];
-
         allAdditives.forEach((item: RecipeIngredient) => {
             const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
             if (ing && ing.inci && !results.inciList.includes(ing.inci)) {
                 results.inciList.push(ing.inci);
             }
         });
-
         const phase1Weight = sumAmounts(recipe.fats);
         const phase2Weight = sumAmounts(recipe.liquids)
             + sumAmounts(recipe.functionalAdditives)
@@ -346,7 +343,6 @@ export class CalculatorService {
             + sumAmounts(recipe.superfatOils)
             + sumAmounts(recipe.essentialOils);
         results.totalWeight = phase1Weight + phase2Weight + phase3Weight;
-
         // 6. Glycerin estimation (3 moles NaOH = 1 mole Glycerin)
         // Ratio Glycerin/NaOH mass: 92.09 / (3 * 39.99) = 0.767
         // Ratio Glycerin/KOH mass: 92.09 / (3 * 56.1) = 0.547
@@ -355,7 +351,6 @@ export class CalculatorService {
         } else {
             results.glycerin = results.alkaliAmount * 0.547;
         }
-
         return results;
     }
 }

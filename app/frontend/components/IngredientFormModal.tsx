@@ -41,7 +41,9 @@ const DEFAULT_INGREDIENT: Ingredient = {
         ricinoleic: 0,
         oleic: 0,
         linoleic: 0,
-        linolenic: 0
+        linolenic: 0,
+        gadoleic: 0,
+        other: 0
     }
 };
 
@@ -106,11 +108,18 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
     const [activeTab, setActiveTab] = useState<IngredientTab>('general');
     const [formData, setFormData] = useState<Ingredient>(DEFAULT_INGREDIENT);
 
+    const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
     useEffect(() => {
         if (!isOpen) return;
 
         if (initialData) {
-            setFormData({ ...initialData });
+            setFormData({
+                ...DEFAULT_INGREDIENT,
+                ...initialData,
+                properties: { ...DEFAULT_INGREDIENT.properties, ...initialData.properties },
+                fattyAcids: { ...DEFAULT_INGREDIENT.fattyAcids, ...initialData.fattyAcids }
+            });
         } else {
             setFormData({ ...DEFAULT_INGREDIENT, id: `new_${Date.now()}` });
         }
@@ -118,6 +127,15 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
     }, [isOpen, initialData?.id]);
 
     const handleSave = () => {
+        const category = normalizeCategory(formData.category || '');
+        if (category.includes('oleos base') || category.includes('oleo base')) {
+            const fatty = formData.fattyAcids || DEFAULT_INGREDIENT.fattyAcids;
+            const total = Object.values(fatty).reduce((sum, value) => sum + (typeof value === 'number' ? value : 0), 0);
+            if (total < 98 || total > 102) {
+                alert(`O perfil de ácidos graxos deve somar ~100% (atual: ${total.toFixed(1)}%).`);
+                return;
+            }
+        }
         onSave(formData);
         onClose();
     };
