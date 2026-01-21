@@ -181,9 +181,11 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const { availableIngredients } = this.state;
         const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         const isBaseOil = (ing?: Ingredient) => {
-            if (!ing?.category) return false;
+            if (!ing) return false;
+            if (ing.menuKey && ing.menuKey.toLowerCase() === 'baseoils') return true;
+            if (!ing.category) return false;
             const category = normalizeCategory(ing.category);
-            return category.includes('oleos base') || category.includes('oleo base');
+            return category.includes('oleos base') || category.includes('oleo base') || category.includes('leos base');
         };
         const isCitricAcid = (ing?: Ingredient) => {
             if (!ing) return false;
@@ -199,9 +201,12 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const naohConversion = 0.713;
         let totalSapKOH = 0;
 
+        const normalizeLabel = (value?: string) =>
+            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
         fats.forEach((fat) => {
-            if (!fat.ingredientId || (fat.amount || 0) <= 0) return;
-            const ing = availableIngredients.find(i => i.id === fat.ingredientId);
+            if ((fat.amount || 0) <= 0) return;
+            const ing = availableIngredients.find(i => i.id === fat.ingredientId)
+                || availableIngredients.find(i => normalizeLabel(i.name) === normalizeLabel(fat.name));
             if (!ing || !isBaseOil(ing)) return;
             totalSapKOH += (fat.amount || 0) * getSapKOH(ing);
         });

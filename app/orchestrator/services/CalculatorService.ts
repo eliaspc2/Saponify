@@ -44,8 +44,15 @@ export class CalculatorService {
             return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido cítrico');
         };
         const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        const getIngredient = (item: RecipeIngredient) =>
-            ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+        const normalizeLabel = (value?: string) =>
+            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+        const getIngredient = (item: RecipeIngredient) => {
+            const byId = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            if (byId) return byId;
+            const targetName = normalizeLabel(item.name);
+            if (!targetName) return undefined;
+            return ingredients.find(i => normalizeLabel(i.name) === targetName);
+        };
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
         const warn = (message: string) => {
             if (typeof console !== 'undefined') {
@@ -74,7 +81,7 @@ export class CalculatorService {
         const getBaseOils = () => {
             const diagnostics: string[] = [];
             const oils = (recipe.fats || []).flatMap((item) => {
-                if ((item.amount || 0) <= 0 || !item.ingredientId) return [];
+                if ((item.amount || 0) <= 0) return [];
                 const ing = getIngredient(item);
                 if (!ing) {
                     diagnostics.push(`Ingrediente não encontrado para "${item.name || item.id}".`);
@@ -91,7 +98,7 @@ export class CalculatorService {
         const getTraceOils = () => {
             const diagnostics: string[] = [];
             const oils = (recipe.superfatOils || []).flatMap((item) => {
-                if ((item.amount || 0) <= 0 || !item.ingredientId) return [];
+                if ((item.amount || 0) <= 0) return [];
                 const ing = getIngredient(item);
                 if (!ing) {
                     diagnostics.push(`Ingrediente não encontrado para "${item.name || item.id}".`);
@@ -158,18 +165,17 @@ export class CalculatorService {
                 if (total < 98 || total > 102) {
                     diagnostics.push(`Perfil inválido para "${ingredient.name}": soma ${total.toFixed(1)}%.`);
                 }
-                const factor = (total >= 98 && total <= 102) ? (100 / total) : 1;
                 const weightRatio = amount / weightTotal;
-                profile.lauric += values.lauric * factor * weightRatio;
-                profile.myristic += values.myristic * factor * weightRatio;
-                profile.palmitic += values.palmitic * factor * weightRatio;
-                profile.stearic += values.stearic * factor * weightRatio;
-                profile.ricinoleic += values.ricinoleic * factor * weightRatio;
-                profile.oleic += values.oleic * factor * weightRatio;
-                profile.linoleic += values.linoleic * factor * weightRatio;
-                profile.linolenic += values.linolenic * factor * weightRatio;
-                profile.gadoleic += values.gadoleic * factor * weightRatio;
-                profile.other += values.other * factor * weightRatio;
+                profile.lauric += values.lauric * weightRatio;
+                profile.myristic += values.myristic * weightRatio;
+                profile.palmitic += values.palmitic * weightRatio;
+                profile.stearic += values.stearic * weightRatio;
+                profile.ricinoleic += values.ricinoleic * weightRatio;
+                profile.oleic += values.oleic * weightRatio;
+                profile.linoleic += values.linoleic * weightRatio;
+                profile.linolenic += values.linolenic * weightRatio;
+                profile.gadoleic += values.gadoleic * weightRatio;
+                profile.other += values.other * weightRatio;
             });
             const sum = profile.lauric + profile.myristic + profile.palmitic + profile.stearic
                 + profile.ricinoleic + profile.oleic + profile.linoleic + profile.linolenic
@@ -196,8 +202,8 @@ export class CalculatorService {
         const computeQualityMetrics = (profile: CalculationResults['fattyAcids']) => ({
             hardness: profile.lauric + profile.myristic + profile.palmitic + profile.stearic,
             cleansing: profile.lauric + profile.myristic,
-            bubbles: profile.lauric + profile.myristic + profile.ricinoleic,
-            persistence: profile.palmitic + profile.stearic + profile.ricinoleic,
+            bubbles: profile.lauric + profile.myristic,
+            persistence: profile.palmitic + profile.stearic,
             conditioning: profile.oleic + profile.linoleic + profile.linolenic + profile.ricinoleic + profile.gadoleic
         });
         const results: CalculationResults = {
