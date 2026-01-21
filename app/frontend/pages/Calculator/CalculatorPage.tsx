@@ -791,39 +791,53 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                         </div>
                         <div className="result-section">
                             <h4>Qualidade</h4>
-                            {this.renderProgressBar('Condicionamento', results.properties.conditioning)}
-                            {this.renderProgressBar('Limpeza', results.properties.cleansing)}
-                            {this.renderProgressBar('Bolhas', results.properties.bubbles)}
-                            {this.renderProgressBar('Persistência', results.properties.persistence)}
-                            {this.renderProgressBar('Dureza', results.properties.hardness)}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
-                                <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
-                                    <div style={{ fontWeight: 700 }}>{results.iodine.toFixed(0)}</div>
+                            {!results.fattyAcidProfileValid ? (
+                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                    Perfil de ácidos graxos inválido. Verifique óleos base e tabelas.
                                 </div>
-                                <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>INS</div>
-                                    <div style={{ fontWeight: 700 }}>{results.ins.toFixed(0)}</div>
-                                </div>
-                                <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>GLICERINA ≈</div>
-                                    <div style={{ fontWeight: 700 }}>{results.glycerin.toFixed(1)}g</div>
-                                </div>
-                            </div>
+                            ) : (
+                                <>
+                                    {this.renderProgressBar('Condicionamento', results.properties.conditioning)}
+                                    {this.renderProgressBar('Limpeza', results.properties.cleansing)}
+                                    {this.renderProgressBar('Bolhas', results.properties.bubbles)}
+                                    {this.renderProgressBar('Persistência', results.properties.persistence)}
+                                    {this.renderProgressBar('Dureza', results.properties.hardness)}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
+                                        <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
+                                            <div style={{ fontWeight: 700 }}>{results.iodine.toFixed(0)}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>INS</div>
+                                            <div style={{ fontWeight: 700 }}>{results.ins.toFixed(0)}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>GLICERINA ≈</div>
+                                            <div style={{ fontWeight: 700 }}>{results.glycerin.toFixed(1)}g</div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                         <div className="result-section">
                             <h4>Ácidos Graxos</h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-                                {fattyAcidLabels.map(({ key, label }) => {
-                                    const value = results.fattyAcids[key];
-                                    if (value <= 0) return null;
-                                    return (
-                                        <span key={key} className="fatty-acid-tag">
-                                            {label}: {value.toFixed(1)}%
-                                        </span>
-                                    );
-                                })}
-                            </div>
+                            {!results.fattyAcidProfileValid ? (
+                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                    Perfil indisponível para este conjunto de óleos.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                                    {fattyAcidLabels.map(({ key, label }) => {
+                                        const value = results.fattyAcids[key];
+                                        if (value <= 0) return null;
+                                        return (
+                                            <span key={key} className="fatty-acid-tag">
+                                                {label}: {value.toFixed(1)}%
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                         <div className="result-section">
                             <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><ShieldCheck size={14} /> INCI</h4>
