@@ -1,4 +1,5 @@
 
+import type { ChangeEvent } from 'react';
 import { BaseListPage, BaseListPageState } from '../../core/BaseListPage';
 import { StatCard } from '../../templates/StatsHeader';
 import { Ingredient } from '../../../shared/types/Ingredient';
@@ -13,6 +14,7 @@ interface IngredientsPageState extends BaseListPageState<Ingredient> {
 }
 
 export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageState> {
+    private importInputRef: HTMLInputElement | null = null;
 
     // @ts-ignore - overriding state type
     state: IngredientsPageState = {
@@ -70,6 +72,34 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
             isModalOpen: false,
             editingItem: null
         });
+    }
+
+    handleExportCSV() {
+        const csv = IngredientService.getInstance().exportToCSV();
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ingredientes.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    async handleImportChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const csvText = await file.text();
+        IngredientService.getInstance().importFromCSV(csvText);
+        this.setState({
+            data: IngredientService.getInstance().getAll()
+        });
+        event.target.value = '';
+    }
+
+    handleImportClick() {
+        this.importInputRef?.click();
     }
 
     renderStats() {
@@ -135,12 +165,19 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                 <div style={{ flex: 1 }}></div>
 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => alert('Exportar CSV: Funcionalidade em breve')}>
+                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleExportCSV()}>
                         <Download size={14} /> Exportar
                     </button>
-                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => alert('Importar: Funcionalidade em breve')}>
+                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportClick()}>
                         <Upload size={14} /> Importar
                     </button>
+                    <input
+                        ref={(el) => { this.importInputRef = el; }}
+                        type="file"
+                        accept=".csv,text/csv"
+                        style={{ display: 'none' }}
+                        onChange={(event) => this.handleImportChange(event)}
+                    />
                     <button className="btn btn-primary" style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }} onClick={() => this.handleAddClick()}>
                         <Plus size={16} /> Adicionar
                     </button>

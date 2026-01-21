@@ -74,14 +74,80 @@ export class IngredientService extends BaseService {
     }
 
     exportToCSV(): string {
-        // TODO: Implement export logic
-        return '';
+        const header = 'ref,order,menuKey,name,inci,descriptionFragment,notes,catalogStatus,category,origin,sap,sap_koh,iodine,ins,flags.citricAcid,waterPercent,botanical.botanicalName,botanical.plantPart,botanical.physicalForm,botanical.notes,properties.conditioning,properties.cleansing,properties.bubbles,properties.persistence,properties.hardness,properties.solubility,properties.drying,fattyAcids.lauric,fattyAcids.myristic,fattyAcids.palmitic,fattyAcids.stearic,fattyAcids.oleic,fattyAcids.linoleic,fattyAcids.linolenic,fattyAcids.ricinoleic,fattyAcids.gadoleic,fattyAcids.other';
+        const csvEscape = (value: string) => {
+            if (value.includes('"')) {
+                value = value.replace(/"/g, '""');
+            }
+            if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+                return `"${value}"`;
+            }
+            return value;
+        };
+        const formatNumber = (value?: number) => {
+            if (value === null || value === undefined) return '';
+            if (!Number.isFinite(value)) return '';
+            return value.toString();
+        };
+        const rows = this.ingredients.map((ingredient, index) => {
+            const values = [
+                ingredient.id || `ingredient_${index + 1}`,
+                (index + 1).toString(),
+                ingredient.menuKey || '',
+                ingredient.name || '',
+                ingredient.inci || '',
+                ingredient.descriptionFragment || '',
+                ingredient.notes || '',
+                'custom',
+                ingredient.category || '',
+                ingredient.origin || '',
+                formatNumber(ingredient.sapNaOH),
+                formatNumber(ingredient.sapKOH),
+                formatNumber(ingredient.iodine),
+                formatNumber(ingredient.ins),
+                ingredient.flags?.citricAcid ? 'true' : '',
+                formatNumber(ingredient.waterPercent),
+                '',
+                '',
+                '',
+                '',
+                formatNumber(ingredient.properties?.conditioning),
+                formatNumber(ingredient.properties?.cleansing),
+                formatNumber(ingredient.properties?.bubbly),
+                formatNumber(ingredient.properties?.stable),
+                formatNumber(ingredient.properties?.hardness),
+                formatNumber(ingredient.properties?.solubility),
+                formatNumber(ingredient.properties?.drying),
+                formatNumber(ingredient.fattyAcids?.lauric),
+                formatNumber(ingredient.fattyAcids?.myristic),
+                formatNumber(ingredient.fattyAcids?.palmitic),
+                formatNumber(ingredient.fattyAcids?.stearic),
+                formatNumber(ingredient.fattyAcids?.oleic),
+                formatNumber(ingredient.fattyAcids?.linoleic),
+                formatNumber(ingredient.fattyAcids?.linolenic),
+                formatNumber(ingredient.fattyAcids?.ricinoleic),
+                formatNumber(ingredient.fattyAcids?.gadoleic),
+                formatNumber(ingredient.fattyAcids?.other)
+            ];
+            return values.map(value => csvEscape(String(value))).join(',');
+        });
+        return [header, ...rows].join('\n');
     }
 
     importFromCSV(csvContent: string): void {
-        const newIngredients = this.parseCSV(csvContent);
-        this.ingredients = [...this.ingredients, ...newIngredients];
-        // TODO: Deduplicate logic
+        const newIngredients = this.parseCSV(csvContent)
+            .map(ingredient => this.normalizeIngredient(ingredient));
+        const merged = new Map<string, Ingredient>();
+        this.ingredients.forEach(ingredient => {
+            if (ingredient.id) {
+                merged.set(ingredient.id, ingredient);
+            }
+        });
+        newIngredients.forEach((ingredient, index) => {
+            const id = ingredient.id || `import_${Date.now()}_${index}`;
+            merged.set(id, { ...ingredient, id });
+        });
+        this.ingredients = Array.from(merged.values());
         this.saveToStorage();
     }
 

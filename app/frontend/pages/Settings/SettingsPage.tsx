@@ -59,7 +59,16 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     private handleReset() {
-        if (confirm('Tem a certeza que deseja repor as configurações de fábrica?')) {
+        const confirmed = confirm('Tem a certeza que deseja repor as configuracoes e apagar TODOS os dados da app?');
+        if (confirmed) {
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i += 1) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('saponify_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach((key) => localStorage.removeItem(key));
             location.reload();
         }
     }

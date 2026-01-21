@@ -4,8 +4,10 @@ import { Recipe } from '../../../../shared/types/Recipe';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
-import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus } from 'lucide-react';
+import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
+import { CalculatorService } from '../../../../orchestrator/services/CalculatorService';
+import { IngredientService } from '../../../../orchestrator/services/IngredientService';
 
 export interface SavedRecipesProps {
     onNavigate: (page: string, params?: any) => void;
@@ -30,6 +32,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
 
     componentDidMount() {
         this.loadRecipes();
+        IngredientService.getInstance().loadInitialData();
     }
 
     private loadRecipes() {
@@ -48,7 +51,11 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
         }
     }
 
-    private openEditModal(recipe: Recipe) {
+    private async openEditModal(recipe: Recipe) {
+        const ingredientService = IngredientService.getInstance();
+        if (ingredientService.getAll().length === 0) {
+            await ingredientService.loadInitialData();
+        }
         this.setState({
             isModalOpen: true,
             editingRecipe: { ...recipe }
@@ -69,6 +76,67 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             this.closeEditModal();
             this.loadRecipes();
         }
+    }
+
+    private async handleExportMarkdown(recipe: Recipe) {
+        const ingredientService = IngredientService.getInstance();
+        if (ingredientService.getAll().length === 0) {
+            await ingredientService.loadInitialData();
+        }
+        const ingredients = ingredientService.getAll();
+        const results = CalculatorService.calculate(recipe, ingredients);
+
+        let md = `# Receita: ${recipe.name || 'Sem Nome'}\n`;
+        md += `Código: ${recipe.code} | Data: ${recipe.date}\n\n`;
+        md += `## Configurações\n`;
+        md += `- Álcali: ${recipe.alkali}\n`;
+        md += `- Superfat: ${recipe.superfat}%\n`;
+        md += `- Concentração de Água: ${recipe.waterConcentration}%\n`;
+        md += `- Pureza do Álcali: ${recipe.alkaliPurity ?? 100}%\n\n`;
+
+        md += `## Composição\n`;
+        md += `### Fase 1: Gorduras\n`;
+        recipe.fats.forEach(f => {
+            const pct = results.totalFats > 0 ? ((f.amount / results.totalFats) * 100).toFixed(1) : '0.0';
+            md += `- ${f.name}: ${f.amount} g (${pct}%)\n`;
+        });
+
+        md += `\n### Fase 2: Lixívia & Aditivos\n`;
+        recipe.liquids.forEach(l => md += `- ${l.name}: ${l.amount} g\n`);
+        recipe.functionalAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+        md += `- ${recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}: ${results.alkaliAmount.toFixed(2)} g\n`;
+        recipe.lyeAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+
+        md += `\n### Fase 3: No Traço\n`;
+        recipe.traceAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+        recipe.superfatOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
+        recipe.essentialOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
+
+        md += `\n## Resultados Técnicos\n`;
+        md += `- Total de Gorduras: ${results.totalFats.toFixed(1)} g\n`;
+        md += `- Lixívia (${recipe.alkali}): ${results.alkaliAmount.toFixed(2)} g\n`;
+        md += `- Água: ${results.waterAmount.toFixed(1)} g\n`;
+        md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n\n`;
+
+        md += `## Qualidade (valores crus)\n`;
+        md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)}\n`;
+        md += `- Limpeza: ${results.properties.cleansing.toFixed(0)}\n`;
+        md += `- Bolhas: ${results.properties.bubbles.toFixed(0)}\n`;
+        md += `- Persistência: ${results.properties.persistence.toFixed(0)}\n`;
+        md += `- Dureza: ${results.properties.hardness.toFixed(0)}\n\n`;
+
+        md += `## INCI\n`;
+        md += `${results.inciList.join(', ')}\n`;
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${recipe.code}_${recipe.name.replace(/\s+/g, '_')}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     renderStats() {
@@ -209,6 +277,9 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
     private renderEditModal() {
         const { editingRecipe } = this.state;
         if (!editingRecipe) return null;
+        const ingredients = IngredientService.getInstance().getAll();
+        const results = CalculatorService.calculate(editingRecipe, ingredients);
+        const alkaliLabel = editingRecipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)';
 
         const updateField = (field: keyof Recipe, value: any) => {
             this.setState({ editingRecipe: { ...editingRecipe, [field]: value } });
@@ -222,6 +293,9 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                 footer={
                     <>
                         <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => this.closeEditModal()}>Cancelar</button>
+                        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => this.handleExportMarkdown(editingRecipe)}>
+                            <FileText size={16} /> Exportar Markdown
+                        </button>
                         <button className="btn btn-accent" style={{ flex: 1 }} onClick={() => this.props.onNavigate('calculator', { recipeId: editingRecipe.id })}>
                             <ExternalLink size={16} /> Abrir na Calculadora
                         </button>
@@ -294,7 +368,45 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                             {this.renderIngredientList("Fase 1: Gorduras", editingRecipe.fats, 'fats')}
                             {this.renderIngredientList("Fase 2: Líquidos", editingRecipe.liquids, 'liquids')}
                             {this.renderIngredientList("Fase 2: Aditivos Funcionais", editingRecipe.functionalAdditives, 'functionalAdditives')}
-                            {this.renderIngredientList("Fase 2: Aditivos Lixívia", editingRecipe.lyeAdditives, 'lyeAdditives')}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.75rem', borderBottom: '1px solid #eee', paddingBottom: '0.25rem' }}>
+                                    Fase 2: Aditivos Lixívia
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', gap: '1rem' }}>
+                                        <span style={{ flex: 1 }}>{alkaliLabel}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                style={{ width: '80px', textAlign: 'right', padding: '0.2rem 0.4rem' }}
+                                                value={results.alkaliAmount.toFixed(2)}
+                                                readOnly
+                                            />
+                                            <span style={{ color: '#9CA3AF' }}>g</span>
+                                        </div>
+                                    </div>
+                                    {editingRecipe.lyeAdditives.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', gap: '1rem' }}>
+                                            <span style={{ flex: 1 }}>{item.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                <input
+                                                    type="number"
+                                                    className="form-control"
+                                                    style={{ width: '80px', textAlign: 'right', padding: '0.2rem 0.4rem' }}
+                                                    value={item.amount}
+                                                    onChange={(e) => {
+                                                        const newItems = [...editingRecipe.lyeAdditives];
+                                                        newItems[idx] = { ...item, amount: parseFloat(e.target.value) || 0 };
+                                                        this.setState({ editingRecipe: { ...editingRecipe, lyeAdditives: newItems } });
+                                                    }}
+                                                />
+                                                <span style={{ color: '#9CA3AF' }}>g</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                         <div>
                             {this.renderIngredientList("Fase 3: Aditivos Traço", editingRecipe.traceAdditives, 'traceAdditives')}

@@ -3,6 +3,7 @@ import { ClientService } from './ClientService';
 import { IngredientService } from './IngredientService';
 import { SettingsService } from './SettingsService';
 import { QuestionnaireService } from './QuestionnaireService';
+import { CalculatorService } from './CalculatorService';
 
 export class BackupService {
     private static instance: BackupService;
@@ -18,10 +19,26 @@ export class BackupService {
     }
 
     public async exportAllData(): Promise<string> {
+        const ingredients = IngredientService.getInstance().getAll();
+        const recipes = RecipeService.getInstance().getAll();
+        const recipeCalculations = recipes.map(recipe => {
+            const results = CalculatorService.calculate(recipe, ingredients);
+            return {
+                recipeId: recipe.id,
+                code: recipe.code,
+                name: recipe.name,
+                alkaliAmount: results.alkaliAmount,
+                alkaliPure: results.alkaliPure,
+                alkaliPurity: results.alkaliPurity,
+                waterAmount: results.waterAmount
+            };
+        });
+
         const data = {
             version: '1.0.0',
             timestamp: new Date().toISOString(),
-            recipes: RecipeService.getInstance().getAll(),
+            recipes,
+            recipeCalculations,
             clients: ClientService.getInstance().getAll(),
             ingredients: IngredientService.getInstance().getAll(),
             settings: SettingsService.getInstance().getSettings(),

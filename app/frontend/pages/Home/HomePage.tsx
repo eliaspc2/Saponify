@@ -225,6 +225,27 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                                 >
                                     Questionários <ClipboardCheck size={14} />
                                 </button>
+                                <button
+                                    onClick={() => this.props.onNavigate('recipes')}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ justifyContent: 'space-between', width: '100%', padding: '0.75rem 1rem' }}
+                                >
+                                    Receitas Guardadas <ArrowRight size={14} />
+                                </button>
+                                <button
+                                    onClick={() => this.props.onNavigate('ingredients')}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ justifyContent: 'space-between', width: '100%', padding: '0.75rem 1rem' }}
+                                >
+                                    Ingredientes <ArrowRight size={14} />
+                                </button>
+                                <button
+                                    onClick={() => this.props.onNavigate('settings')}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ justifyContent: 'space-between', width: '100%', padding: '0.75rem 1rem' }}
+                                >
+                                    Configurações <ArrowRight size={14} />
+                                </button>
                             </div>
                         </div>
                     </div>

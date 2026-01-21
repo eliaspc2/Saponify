@@ -123,19 +123,6 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         URL.revokeObjectURL(url);
     }
 
-    private handleExportClientSummary() {
-        const { client, activities, associatedRecipes } = this.state;
-        if (!client) return;
-        const payload = {
-            version: '1.0.0',
-            exportedAt: new Date().toISOString(),
-            client,
-            activities,
-            recipes: associatedRecipes
-        };
-        this.downloadJsonFile(`cliente_${client.id}_ficha.json`, payload);
-    }
-
     private async handleExportClientAllData() {
         const { client, activities, associatedRecipes } = this.state;
         if (!client) return;
@@ -150,6 +137,29 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             questionnaires: clientQuestionnaires
         };
         this.downloadJsonFile(`cliente_${client.id}_dados_completos.json`, payload);
+    }
+
+    private async handleDeleteClientData() {
+        const { client } = this.state;
+        if (!client) return;
+        const confirmed = confirm('Eliminar esta ficha e todos os dados associados (atividades, receitas e questionários)? Esta ação é irreversível.');
+        if (!confirmed) return;
+        const confirmedAgain = confirm('Tem a certeza absoluta? Esta ação não pode ser anulada.');
+        if (!confirmedAgain) return;
+
+        const recipeService = RecipeService.getInstance();
+        recipeService.getAll()
+            .filter(r => r.clientId === client.id)
+            .forEach(r => recipeService.delete(r.id));
+
+        const questionnaires = await QuestionnaireService.getQuestionnaires();
+        for (const q of questionnaires.filter(q => q.clientId === client.id)) {
+            await QuestionnaireService.deleteQuestionnaire(q.id);
+        }
+
+        ClientService.getInstance().delete(client.id);
+        this.setState({ client: null, activities: [], associatedRecipes: [] });
+        this.props.onClose();
     }
 
     private handleScheduleProduction() {
@@ -275,13 +285,13 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                 minHeight="85vh"
                 maxHeight="95vh"
             >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                        <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.handleExportClientSummary()}>
-                            <Download size={16} /> Exportar Ficha (JSON)
-                        </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '0.5rem' }}>
                         <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.handleExportClientAllData()}>
                             <Download size={16} /> Exportar Dados (JSON)
+                        </button>
+                        <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700, color: '#EF4444' }} onClick={() => this.handleDeleteClientData()}>
+                            <Trash2 size={16} /> Eliminar Dados
                         </button>
                         <button className="btn btn-primary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.setState({ isProductionModalOpen: true, productionDate: new Date().toISOString().split('T')[0] })}>
                             <Beaker size={16} /> Marcar Produção
