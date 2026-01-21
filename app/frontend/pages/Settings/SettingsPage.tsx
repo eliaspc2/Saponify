@@ -130,6 +130,15 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                 />
                             </div>
                             <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Pureza do Álcali Padrão (%)</label>
+                                <input
+                                    type="number"
+                                    value={settings.defaultAlkaliPurity}
+                                    onChange={(e) => this.handleUpdate('defaultAlkaliPurity', parseFloat(e.target.value))}
+                                    style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
+                            <div>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Alcali Padrão</label>
                                 <select
                                     value={settings.defaultAlkali}

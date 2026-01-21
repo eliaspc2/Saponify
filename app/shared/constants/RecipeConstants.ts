@@ -29,5 +29,6 @@ export const INFUSION_RATIO_FATS_PER_TS = 250; // 1 teaspoon per 250g of fats
 export const DEFAULT_RECIPE_CONFIG = {
     superfat: 7,
     waterConcentration: 29,
-    alkali: 'NaOH'
+    alkali: 'NaOH',
+    alkaliPurity: 100
 };

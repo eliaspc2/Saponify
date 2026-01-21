@@ -3,6 +3,10 @@ import { Ingredient } from '../../shared/types/Ingredient';
 export interface CalculationResults {
     totalWeight: number;
     totalFats: number;
+    sapAverage: number;
+    alkaliPure: number;
+    alkaliReal: number;
+    alkaliPurity: number;
     alkaliAmount: number;
     waterAmount: number;
     glycerin: number;
@@ -46,6 +50,10 @@ export class CalculatorService {
         const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         const normalizeLabel = (value?: string) =>
             (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+        const isWaterItem = (item: RecipeIngredient) => {
+            const label = normalizeLabel(item.name);
+            return label.includes('agua') || label.includes('water');
+        };
         const getIngredient = (item: RecipeIngredient) => {
             const byId = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
             if (byId) return byId;
@@ -209,6 +217,10 @@ export class CalculatorService {
         const results: CalculationResults = {
             totalWeight: 0,
             totalFats: 0,
+            sapAverage: 0,
+            alkaliPure: 0,
+            alkaliReal: 0,
+            alkaliPurity: 100,
             alkaliAmount: 0,
             waterAmount: 0,
             glycerin: 0,
@@ -262,6 +274,7 @@ export class CalculatorService {
         });
         // 2. Calculate Alkali (NaOH/KOH)
         const naohConversion = 0.713;
+        const alkaliPurity = recipe.alkaliPurity ?? 100;
         let totalSapKOH = 0;
         baseOils.forEach(({ ingredient, amount }) => {
             const sapKOH = getSapKOH(ingredient);
@@ -272,7 +285,10 @@ export class CalculatorService {
         });
         // Apply Superfat discount to lye (KOH base, convert for NaOH if needed)
         const superfatRatio = 1 - (recipe.superfat / 100);
-        const lyeBase = totalSapKOH * (recipe.alkali === 'NaOH' ? naohConversion : 1);
+        const sapAverage = baseOilsWeight > 0
+            ? (totalSapKOH / baseOilsWeight) * (recipe.alkali === 'NaOH' ? naohConversion : 1)
+            : 0;
+        const lyeBase = baseOilsWeight * sapAverage;
         const baseLye = lyeBase * superfatRatio;
         // Extra lye required to neutralize citric acid additives (sodium/potassium citrate)
         const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
@@ -281,12 +297,18 @@ export class CalculatorService {
         }, 0);
         const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
         const citricLye = citricAcidAmount * citricLyeFactor;
-        results.alkaliAmount = baseLye + citricLye;
+        const alkaliPure = baseLye + citricLye;
+        const purityRatio = alkaliPurity > 0 ? (alkaliPurity / 100) : 1;
+        const alkaliReal = purityRatio > 0 ? alkaliPure / purityRatio : alkaliPure;
+        results.sapAverage = sapAverage;
+        results.alkaliPurity = alkaliPurity;
+        results.alkaliPure = alkaliPure;
+        results.alkaliReal = alkaliReal;
+        results.alkaliAmount = alkaliReal;
         // 3. Calculate Water
-        const waterItem = recipe.liquids.find((l: RecipeIngredient) => l.name.toLowerCase().includes('água'));
         const lyeRatio = recipe.waterConcentration / 100;
-        const waterFromRatio = lyeRatio > 0 ? results.alkaliAmount * (1 / lyeRatio - 1) : 0;
-        results.waterAmount = waterItem?.amount || waterFromRatio;
+        const waterFromRatio = lyeRatio > 0 ? alkaliReal * (1 - lyeRatio) / lyeRatio : 0;
+        results.waterAmount = waterFromRatio;
         // 4. Iodine, INS, Fatty Acids, and Quality Metrics (base oils only)
         if (baseOilsWeight > 0) {
             let weightedSapKOH = 0;
@@ -306,10 +328,10 @@ export class CalculatorService {
             results.fattyAcidDiagnostics.push(...profileResult.diagnostics);
             results.fattyAcids = { ...profileResult.profile };
             if (results.fattyAcidProfileValid) {
-                const iodine = (profileResult.profile.oleic * 90
-                    + profileResult.profile.linoleic * 181
-                    + profileResult.profile.linolenic * 274
-                    + profileResult.profile.gadoleic * 90) / 100;
+                const iodine = (profileResult.profile.oleic * 0.86
+                    + profileResult.profile.linoleic * 1.732
+                    + profileResult.profile.linolenic * 2.616
+                    + profileResult.profile.gadoleic * 0.86);
                 results.iodine = iodine;
                 results.ins = (weightedSapKOH * 1000) - iodine;
                 const metrics = computeQualityMetrics(profileResult.profile);
@@ -346,7 +368,9 @@ export class CalculatorService {
             }
         });
         const phase1Weight = sumAmounts(recipe.fats);
-        const phase2Weight = sumAmounts(recipe.liquids)
+        const nonWaterLiquids = (recipe.liquids || []).filter(item => !isWaterItem(item));
+        const phase2Weight = sumAmounts(nonWaterLiquids)
+            + results.waterAmount
             + sumAmounts(recipe.functionalAdditives)
             + sumAmounts(recipe.lyeAdditives)
             + results.alkaliAmount;
@@ -354,14 +378,10 @@ export class CalculatorService {
             + sumAmounts(recipe.superfatOils)
             + sumAmounts(recipe.essentialOils);
         results.totalWeight = phase1Weight + phase2Weight + phase3Weight;
-        // 6. Glycerin estimation (3 moles NaOH = 1 mole Glycerin)
-        // Ratio Glycerin/NaOH mass: 92.09 / (3 * 39.99) = 0.767
-        // Ratio Glycerin/KOH mass: 92.09 / (3 * 56.1) = 0.547
-        if (recipe.alkali === 'NaOH') {
-            results.glycerin = results.alkaliAmount * 0.767;
-        } else {
-            results.glycerin = results.alkaliAmount * 0.547;
-        }
+        // 6. Glycerin estimation (saponified fats only)
+        const glycerinFactor = 0.105;
+        const saponifiedFats = baseOilsWeight * (1 - (recipe.superfat / 100));
+        results.glycerin = saponifiedFats * glycerinFactor;
         return results;
     }
 }

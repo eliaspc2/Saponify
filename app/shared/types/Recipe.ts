@@ -18,6 +18,7 @@ export interface Recipe {
     alkali: 'NaOH' | 'KOH';
     superfat: number; // percentage (0-100)
     waterConcentration: number; // percentage (0-100)
+    alkaliPurity?: number; // percentage (0-100)
 
     // Phase 1: Fats
     fats: RecipeIngredient[];

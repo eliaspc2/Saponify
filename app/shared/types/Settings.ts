@@ -2,6 +2,7 @@ export interface AppSettings {
     defaultSuperfat: number;
     defaultWaterConcentration: number;
     defaultAlkali: 'NaOH' | 'KOH';
+    defaultAlkaliPurity: number;
     language: 'pt' | 'en';
     measurementSystem: 'metric' | 'imperial';
     recipePrefix: string;
@@ -20,6 +21,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultSuperfat: 7,
     defaultWaterConcentration: 29,
     defaultAlkali: 'NaOH',
+    defaultAlkaliPurity: 100,
     language: 'pt',
     measurementSystem: 'metric',
     recipePrefix: 'RE',

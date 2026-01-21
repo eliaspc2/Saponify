@@ -92,6 +92,64 @@ const PhaseAddMenu = ({
     </details>
 );
 
+const QUALITY_RANGES = {
+    cleansing: {
+        min: 0,
+        max: 26,
+        thresholds: [
+            { max: 12, tone: 'danger', inclusive: false },
+            { max: 16, tone: 'warning', inclusive: false },
+            { max: 22, tone: 'good', inclusive: false },
+            { max: 26, tone: 'warning', inclusive: true },
+            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
+        ]
+    },
+    bubbles: {
+        min: 0,
+        max: 55,
+        thresholds: [
+            { max: 14, tone: 'danger', inclusive: false },
+            { max: 20, tone: 'warning', inclusive: false },
+            { max: 46, tone: 'good', inclusive: false },
+            { max: 55, tone: 'warning', inclusive: true },
+            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
+        ]
+    },
+    hardness: {
+        min: 0,
+        max: 60,
+        thresholds: [
+            { max: 29, tone: 'danger', inclusive: false },
+            { max: 35, tone: 'warning', inclusive: false },
+            { max: 54, tone: 'good', inclusive: false },
+            { max: 60, tone: 'warning', inclusive: true },
+            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
+        ]
+    },
+    persistence: {
+        min: 0,
+        max: 55,
+        thresholds: [
+            { max: 25, tone: 'danger', inclusive: false },
+            { max: 30, tone: 'warning', inclusive: false },
+            { max: 50, tone: 'good', inclusive: false },
+            { max: 55, tone: 'warning', inclusive: true },
+            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
+        ]
+    },
+    conditioning: {
+        min: 0,
+        max: 75,
+        thresholds: [
+            { max: 44, tone: 'danger', inclusive: false },
+            { max: 50, tone: 'warning', inclusive: false },
+            { max: 69, tone: 'good', inclusive: false },
+            { max: 75, tone: 'warning', inclusive: true },
+            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
+        ]
+    }
+} as const;
+
 
 export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorState> {
     constructor(props: { recipeId?: string }) {
@@ -117,6 +175,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 alkali: settings.defaultAlkali as 'NaOH' | 'KOH',
                 superfat: settings.defaultSuperfat,
                 waterConcentration: settings.defaultWaterConcentration,
+                alkaliPurity: settings.defaultAlkaliPurity ?? 100,
                 fats: [],
                 liquids: [
                     { id: crypto.randomUUID(), ingredientId: '12', name: 'Água', amount: 0, percentage: 0 }
@@ -167,7 +226,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
             let updatedRecipe = { ...prev.recipe, [field]: value };
 
             // Recalculate water if concentration or superfat changes
-            if (field === 'waterConcentration' || field === 'superfat' || field === 'alkali') {
+            if (field === 'waterConcentration' || field === 'superfat' || field === 'alkali' || field === 'alkaliPurity') {
                 updatedRecipe = this.recalculateWater(updatedRecipe);
             }
 
@@ -219,7 +278,11 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         }, 0);
         const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
         const citricLye = citricAcidAmount * citricLyeFactor;
-        const lyeAmount = (lyeBase * superfatRatio) + citricLye;
+        const alkaliPurity = recipe.alkaliPurity ?? 100;
+        const purityRatio = alkaliPurity > 0 ? (alkaliPurity / 100) : 1;
+        const lyeAmount = purityRatio > 0
+            ? ((lyeBase * superfatRatio) + citricLye) / purityRatio
+            : (lyeBase * superfatRatio) + citricLye;
         const lyeRatio = recipe.waterConcentration / 100;
         const fallbackWaterAmount = parseFloat((totalFats * (recipe.waterConcentration / 100)).toFixed(1));
         const newWaterAmount = lyeAmount > 0 && lyeRatio > 0
@@ -330,7 +393,8 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         md += `## Configurações\n`;
         md += `- Álcali: ${recipe.alkali} \n`;
         md += `- Superfat: ${recipe.superfat}%\n`;
-        md += `- Concentração de Água: ${recipe.waterConcentration}%\n\n`;
+        md += `- Concentração de Água: ${recipe.waterConcentration}%\n`;
+        md += `- Pureza do Álcali: ${recipe.alkaliPurity ?? 100}%\n\n`;
 
         md += `## Composição\n`;
         md += `### Fase 1: Gorduras\n`;
@@ -341,6 +405,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         md += `\n### Fase 2: Lixívia & Aditivos\n`;
         recipe.liquids.forEach(l => md += `- ${l.name}: ${l.amount} g\n`);
         recipe.functionalAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+        md += `- ${recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}: ${results.alkaliAmount.toFixed(2)} g\n`;
         recipe.lyeAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
 
         md += `\n### Fase 3: No Traço\n`;
@@ -437,13 +502,28 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         );
     }
 
-    private renderProgressBar(label: string, value: number, optimal: number = 50) {
-        const diff = Math.abs(value - optimal);
-        let colorClass = '';
+    private renderProgressBar(
+        label: string,
+        value: number,
+        range: {
+            min: number;
+            max: number;
+            thresholds: ReadonlyArray<{ max: number; tone: 'danger' | 'warning' | 'good'; inclusive: boolean }>;
+        }
+    ) {
+        const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
+        const denom = range.max - range.min;
+        const score = denom > 0 ? clamp(((value - range.min) / denom) * 100, 0, 100) : 0;
+        let tone: 'danger' | 'warning' | 'good' = 'good';
 
-        if (diff <= 5) colorClass = '';
-        else if (diff <= 12) colorClass = 'warning';
-        else colorClass = 'danger';
+        for (const threshold of range.thresholds) {
+            if (threshold.inclusive ? value <= threshold.max : value < threshold.max) {
+                tone = threshold.tone;
+                break;
+            }
+        }
+
+        const colorClass = tone === 'warning' ? 'warning' : tone === 'danger' ? 'danger' : '';
 
         return (
             <div className="progress-group" key={label}>
@@ -454,7 +534,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 <div className="progress-bar-bg">
                     <div
                         className={`progress-bar-fill ${colorClass}`}
-                        style={{ width: `${Math.min(100, (value / 80) * 100)}%` }}
+                        style={{ width: `${score}%` }}
                     />
                 </div>
             </div>
@@ -486,8 +566,16 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+        const normalizeLabel = (value?: string) =>
+            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+        const isWaterItem = (item: RecipeIngredient) => {
+            const label = normalizeLabel(item.name);
+            return label.includes('agua') || label.includes('water');
+        };
         const phase1Total = sumAmounts(recipe.fats);
-        const phase2Total = sumAmounts(recipe.liquids)
+        const nonWaterLiquids = (recipe.liquids || []).filter(item => !isWaterItem(item));
+        const phase2Total = sumAmounts(nonWaterLiquids)
+            + results.waterAmount
             + sumAmounts(recipe.functionalAdditives)
             + sumAmounts(recipe.lyeAdditives)
             + results.alkaliAmount;
@@ -669,6 +757,19 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                         style={{ width: '100%', accentColor: 'var(--color-primary)' }}
                                     />
                                 </div>
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Pureza do Álcali (%)</label>
+                                        <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.alkaliPurity ?? 100}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="80" max="100"
+                                        value={recipe.alkaliPurity ?? 100}
+                                        onChange={(e) => this.handleRecipeChange('alkaliPurity', parseInt(e.target.value))}
+                                        style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                                    />
+                                </div>
 
                                 {/* Calculated Alkali & Water Display */}
                                 <div style={{
@@ -847,11 +948,11 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 </div>
                             ) : (
                                 <>
-                                    {this.renderProgressBar('Condicionamento', results.properties.conditioning)}
-                                    {this.renderProgressBar('Limpeza', results.properties.cleansing)}
-                                    {this.renderProgressBar('Bolhas', results.properties.bubbles)}
-                                    {this.renderProgressBar('Persistência', results.properties.persistence)}
-                                    {this.renderProgressBar('Dureza', results.properties.hardness)}
+                                    {this.renderProgressBar('Condicionamento', results.properties.conditioning, QUALITY_RANGES.conditioning)}
+                                    {this.renderProgressBar('Limpeza', results.properties.cleansing, QUALITY_RANGES.cleansing)}
+                                    {this.renderProgressBar('Bolhas', results.properties.bubbles, QUALITY_RANGES.bubbles)}
+                                    {this.renderProgressBar('Persistência', results.properties.persistence, QUALITY_RANGES.persistence)}
+                                    {this.renderProgressBar('Dureza', results.properties.hardness, QUALITY_RANGES.hardness)}
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
                                         <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
                                             <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
