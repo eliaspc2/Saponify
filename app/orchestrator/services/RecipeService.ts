@@ -2,6 +2,7 @@ import { BaseService } from '../core/BaseService';
 import { Recipe } from '../../shared/types/Recipe';
 import { ClientService } from './ClientService';
 import { SettingsService } from './SettingsService';
+import { formatRecipeReferenceOrFallback } from '../../shared/utils/recipeFormat';
 
 export class RecipeService extends BaseService {
     private recipes: Recipe[] = [];
@@ -63,7 +64,7 @@ export class RecipeService extends BaseService {
                     timestamp: new Date().toISOString(),
                     type: 'system',
                     title: 'Formula Criada',
-                    content: `Uma nova receita (${normalized.name || 'Sem Nome'}) foi associada a este cliente. Codigo: RE${normalized.code}.`
+                    content: `Uma nova receita (${normalized.name || 'Sem Nome'}) foi associada a este cliente. Codigo: ${formatRecipeReferenceOrFallback(normalized.code, 'Sem referencia')}.`
                 });
             }
         }

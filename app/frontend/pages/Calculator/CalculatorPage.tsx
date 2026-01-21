@@ -9,6 +9,7 @@ import { TEASPOON_WEIGHTS, DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } fro
 import { Beaker, ShieldCheck, Plus, Trash2, Save, FileText } from 'lucide-react';
 import { Client } from '../../../shared/types/Client';
 import { ClientService } from '../../../orchestrator/services/ClientService';
+import { formatRecipeCodeForFile, formatRecipeReference } from '../../../shared/utils/recipeFormat';
 
 interface CalculatorState extends BasePageState {
     recipe: Recipe;
@@ -152,6 +153,8 @@ const QUALITY_RANGES = {
 
 
 export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorState> {
+    private autoSaveTimer: number | null = null;
+
     constructor(props: { recipeId?: string }) {
         super(props);
         this.state = {
@@ -207,7 +210,13 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         this.setState({ availableIngredients: ingredients, clients, recipe, loading: false });
     }
 
-    componentDidUpdate(prevProps: { recipeId?: string }) {
+    componentWillUnmount() {
+        if (this.autoSaveTimer) {
+            window.clearTimeout(this.autoSaveTimer);
+        }
+    }
+
+    componentDidUpdate(prevProps: { recipeId?: string }, prevState: CalculatorState) {
         if (this.props.recipeId !== prevProps.recipeId) {
             if (this.props.recipeId) {
                 const saved = RecipeService.getInstance().getById(this.props.recipeId);
@@ -217,6 +226,18 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
             } else {
                 // Reset to new recipe
                 this.setState({ recipe: this.getInitialState().recipe! });
+            }
+        }
+
+        if (!this.state.loading && prevState.recipe !== this.state.recipe) {
+            const persisted = !!RecipeService.getInstance().getById(this.state.recipe.id);
+            if (persisted) {
+                if (this.autoSaveTimer) {
+                    window.clearTimeout(this.autoSaveTimer);
+                }
+                this.autoSaveTimer = window.setTimeout(() => {
+                    RecipeService.getInstance().save(this.state.recipe);
+                }, 600);
             }
         }
     }
@@ -386,9 +407,14 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
     private handleDownloadMarkdown() {
         const { recipe, availableIngredients } = this.state;
         const results = CalculatorService.calculate(recipe, availableIngredients);
+        const recipeRef = formatRecipeReference(recipe.code);
 
         let md = `# Receita: ${recipe.name || 'Sem Nome'} \n`;
-        md += `Código: ${recipe.code} | Data: ${recipe.date} \n\n`;
+        if (recipeRef) {
+            md += `Codigo: ${recipeRef} | Data: ${recipe.date} \n\n`;
+        } else {
+            md += `Data: ${recipe.date} \n\n`;
+        }
 
         md += `## Configurações\n`;
         md += `- Álcali: ${recipe.alkali} \n`;
@@ -433,7 +459,8 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${recipe.code}_${recipe.name.replace(/\s+/g, '_')}.md`;
+        const codePrefix = formatRecipeCodeForFile(recipe.code);
+        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.md`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -460,7 +487,8 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${recipe.code}_${recipe.name.replace(/\s+/g, '_')}.json`;
+        const codePrefix = formatRecipeCodeForFile(recipe.code);
+        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

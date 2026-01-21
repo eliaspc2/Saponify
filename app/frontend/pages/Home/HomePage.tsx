@@ -7,6 +7,7 @@ import { ClientActivity } from '../../../shared/types/ClientActivity';
 import { Recipe, RecipeIngredient } from '../../../shared/types/Recipe';
 import { Modal } from '../../components/Modal';
 import { ClientDetailsPage } from '../CRM/Clients/ClientDetailsPage';
+import { formatRecipeReferenceOrFallback } from '../../../shared/utils/recipeFormat';
 import {
     Users,
     Beaker,
@@ -151,7 +152,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
             <Modal
                 isOpen={isRecipePreviewOpen}
                 onClose={() => this.closeRecipePreview()}
-                title={`Receita: RE${recipePreview.code}`}
+                title={`Receita: ${formatRecipeReferenceOrFallback(recipePreview.code, 'Sem referencia')}`}
                 maxWidth="850px"
                 footer={
                     <button className="btn btn-secondary" onClick={() => this.closeRecipePreview()}>Fechar</button>

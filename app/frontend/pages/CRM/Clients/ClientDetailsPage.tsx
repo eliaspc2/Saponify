@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
 import { QuestionnaireService } from '../../../../orchestrator/services/QuestionnaireService';
+import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 
 interface ClientDetailsProps {
     clientId: string;
@@ -620,7 +621,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             <Modal
                 isOpen={this.state.isRecipeModalOpen}
                 onClose={() => this.setState({ isRecipeModalOpen: false, viewingRecipe: null })}
-                title={`Detalhes da Fórmula: RE${viewingRecipe.code}`}
+                title={`Detalhes da Formula: ${formatRecipeReferenceOrFallback(viewingRecipe.code, 'Sem referencia')}`}
                 maxWidth="1000px"
                 footer={
                     <>

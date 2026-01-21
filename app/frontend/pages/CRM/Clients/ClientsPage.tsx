@@ -9,6 +9,7 @@ import { QuestionnaireService } from '../../../../orchestrator/services/Question
 import { Recipe } from '../../../../shared/types/Recipe';
 import { Questionnaire } from '../../../../shared/types/Questionnaire';
 import { ClientDetailsPage } from './ClientDetailsPage';
+import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 
 interface ClientsPageState extends BaseListPageState<Client> {
     isModalOpen: boolean;
@@ -74,7 +75,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
             new Date(a.details!.physicalReadyDate) <= endOfWeek
         );
 
-        const readyRecipeCodes = readyThisWeek.map(a => `RE${a.details!.recipeCode.padStart(4, '0')}`);
+        const readyRecipeCodes = readyThisWeek.map(a => formatRecipeReferenceOrFallback(a.details?.recipeCode, 'Sem referencia'));
 
         const withoutRecipe = clients.filter(c => !recipes.some(r => r.clientId === c.id)).length;
         const withoutQuestionnaire = clients.filter(c => !questionnaires.some(q => q.clientId === c.id)).length;
@@ -295,7 +296,13 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
 
                 const emailKey = email ? normalizeEmail(email) : '';
                 const phoneKey = phone ? normalizePhone(phone) : '';
-                const existing = (emailKey && clientsByEmail.get(emailKey)) || (phoneKey && clientsByPhone.get(phoneKey));
+                let existing: Client | undefined;
+                if (emailKey) {
+                    existing = clientsByEmail.get(emailKey);
+                }
+                if (!existing && phoneKey) {
+                    existing = clientsByPhone.get(phoneKey);
+                }
 
                 const requiredConsentText = getValue(row, cols.consentsRequired);
                 const hasRequiredConsent = requiredConsentText.length > 0;

@@ -9,6 +9,7 @@ import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText, Upload }
 import { Modal } from '../../../components/Modal';
 import { CalculatorService } from '../../../../orchestrator/services/CalculatorService';
 import { IngredientService } from '../../../../orchestrator/services/IngredientService';
+import { formatRecipeCodeForFile, formatRecipeReference, formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 
 export interface SavedRecipesProps {
     onNavigate: (page: string, params?: any) => void;
@@ -89,7 +90,12 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
         const results = CalculatorService.calculate(recipe, ingredients);
 
         let md = `# Receita: ${recipe.name || 'Sem Nome'}\n`;
-        md += `Código: ${recipe.code} | Data: ${recipe.date}\n\n`;
+        const recipeRef = formatRecipeReference(recipe.code);
+        if (recipeRef) {
+            md += `Codigo: ${recipeRef} | Data: ${recipe.date}\n\n`;
+        } else {
+            md += `Data: ${recipe.date}\n\n`;
+        }
         md += `## Configurações\n`;
         md += `- Álcali: ${recipe.alkali}\n`;
         md += `- Superfat: ${recipe.superfat}%\n`;
@@ -134,7 +140,8 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${recipe.code}_${recipe.name.replace(/\s+/g, '_')}.md`;
+        const codePrefix = formatRecipeCodeForFile(recipe.code);
+        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.md`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -143,7 +150,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
 
     private normalizeImportedRecipe(recipe: Recipe): Recipe {
         const id = recipe.id || `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const code = recipe.code || RecipeService.getInstance().getNextCode();
+        const code = recipe.code ?? '';
         const date = recipe.date || new Date().toISOString().split('T')[0];
         return { ...recipe, id, code, date };
     }
@@ -262,7 +269,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                                     style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)', cursor: 'pointer' }}
                                     onClick={() => this.openEditModal(recipe)}
                                 >
-                                    RE{recipe.code.padStart(4, '0')}
+                                    {formatRecipeReferenceOrFallback(recipe.code, '-')}
                                 </td>
                                 <td
                                     style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}
@@ -352,7 +359,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             <Modal
                 isOpen={this.state.isModalOpen}
                 onClose={() => this.closeEditModal()}
-                title={`Receita: RE${editingRecipe.code}`}
+                title={`Receita: ${formatRecipeReferenceOrFallback(editingRecipe.code, 'Sem referencia')}`}
                 footer={
                     <>
                         <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => this.closeEditModal()}>Cancelar</button>
