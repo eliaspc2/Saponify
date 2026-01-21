@@ -29,6 +29,7 @@ interface HomePageState extends BasePageState {
         activeBatches: number;
     };
     recentActivities: ClientActivity[];
+    productionActivities: ClientActivity[];
 }
 
 export class HomePage extends BasePage<HomePageProps, HomePageState> {
@@ -46,6 +47,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                 activeBatches: 0
             },
             recentActivities: [],
+            productionActivities: [],
             isLoading: true,
             error: null
         };
@@ -64,28 +66,32 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
         // Sort activities by timestamp descending
         const sortedActivities = [...allActivities].sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        ).slice(0, 10); // Last 10 events
+        ).slice(0, 5); // Last 5 events
 
-        // Calculate active batches (production activities where physicalReadyDate > now)
         const now = new Date();
-        const activeBatches = allActivities.filter(a =>
-            a.type === 'production' && a.details && new Date(a.details.physicalReadyDate) > now
-        ).length;
+        const productionActivities = allActivities.filter(a =>
+            a.type === 'production' &&
+            a.details?.physicalReadyDate &&
+            new Date(a.details.physicalReadyDate) > now
+        ).sort((a, b) =>
+            new Date(a.details?.physicalReadyDate || 0).getTime() - new Date(b.details?.physicalReadyDate || 0).getTime()
+        );
 
         this.setState({
             stats: {
                 totalClients: clients.length,
                 totalRecipes: recipes.length,
                 totalIngredients: ingredients.length,
-                activeBatches: activeBatches
+                activeBatches: productionActivities.length
             },
             recentActivities: sortedActivities,
+            productionActivities,
             isLoading: false
         });
     }
 
     renderContent() {
-        const { stats, recentActivities } = this.state;
+        const { stats, recentActivities, productionActivities } = this.state;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -181,7 +187,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         <div className="card" style={{ padding: '1.5rem', background: 'var(--color-primary)', color: 'white' }}>
                             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Produções em Curso</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {recentActivities.filter(a => a.type === 'production').slice(0, 3).map((a, i) => (
+                                {productionActivities.map((a, i) => (
                                     <div key={i} style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                                         <div style={{ fontWeight: 700 }}>{a.details?.recipeName}</div>
                                         <div style={{ opacity: 0.8, fontSize: '0.75rem' }}>
@@ -189,7 +195,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                                         </div>
                                     </div>
                                 ))}
-                                {recentActivities.filter(a => a.type === 'production').length === 0 && (
+                                {productionActivities.length === 0 && (
                                     <p style={{ fontSize: '0.85rem', opacity: 0.8 }}>Sem produções agendadas.</p>
                                 )}
                             </div>

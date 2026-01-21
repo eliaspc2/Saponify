@@ -420,7 +420,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const { recipe, availableIngredients } = this.state;
         const results = CalculatorService.calculate(recipe, availableIngredients);
 
-        const phaseHeaderColor = 'rgba(217, 119, 6, 0.12)';
+        const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
 
         return (
@@ -449,9 +449,14 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 {/* 2. Main Layout */}
                 <div className="calculator-layout">
                     <div className="calculator-form">
-                        <div className="card">
-                            <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 700 }}>Informações da Receita</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '150px 200px 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <SectionHeader
+                                title="Informações da Receita"
+                                color={phaseHeaderColor}
+                                titleColor={phaseHeaderText}
+                            />
+                            <div style={{ padding: '1.5rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '150px 200px 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}># Número</label>
                                     <div style={{
@@ -519,21 +524,27 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     style={{ width: '100%' }}
                                 />
                             </div>
-                            <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Notas & Observações</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Detalhes sobre o processo..."
-                                    value={recipe.notes}
-                                    onChange={(e) => this.handleRecipeChange('notes', e.target.value)}
-                                    style={{ width: '100%', fontFamily: 'inherit' }}
-                                />
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Notas & Observações</label>
+                                    <textarea
+                                        rows={3}
+                                        placeholder="Detalhes sobre o processo..."
+                                        value={recipe.notes}
+                                        onChange={(e) => this.handleRecipeChange('notes', e.target.value)}
+                                        style={{ width: '100%', fontFamily: 'inherit' }}
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="card">
-                            <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 700 }}>Configurações Base</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <SectionHeader
+                                title="Configurações Base"
+                                color={phaseHeaderColor}
+                                titleColor={phaseHeaderText}
+                            />
+                            <div style={{ padding: '1.5rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.8rem', fontSize: '0.85rem', fontWeight: 600 }}>Tipo de Álcali</label>
                                     <select
@@ -559,45 +570,46 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     />
                                 </div>
                             </div>
-                            <div style={{ marginTop: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
-                                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Concentração da Lixívia (% lixívia/água)</label>
-                                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.waterConcentration}%</span>
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Concentração da Lixívia (% lixívia/água)</label>
+                                        <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.waterConcentration}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="10" max="50"
+                                        value={recipe.waterConcentration}
+                                        onChange={(e) => this.handleRecipeChange('waterConcentration', parseInt(e.target.value))}
+                                        style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                                    />
                                 </div>
-                                <input
-                                    type="range"
-                                    min="10" max="50"
-                                    value={recipe.waterConcentration}
-                                    onChange={(e) => this.handleRecipeChange('waterConcentration', parseInt(e.target.value))}
-                                    style={{ width: '100%', accentColor: 'var(--color-primary)' }}
-                                />
-                            </div>
 
-                            {/* Calculated Alkali & Water Display */}
-                            <div style={{
-                                marginTop: '1.5rem',
-                                padding: '1.25rem',
-                                background: 'var(--color-primary-light)',
-                                borderRadius: 'var(--radius-md)',
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 1fr',
-                                gap: '1.5rem',
-                                border: '1px solid rgba(90, 125, 76, 0.1)'
-                            }}>
-                                <div>
-                                    <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
-                                        {recipe.alkali === 'NaOH' ? 'SODA CÁUSTICA (NaOH)' : 'POTASSA (KOH)'}
+                                {/* Calculated Alkali & Water Display */}
+                                <div style={{
+                                    marginTop: '1.5rem',
+                                    padding: '1.25rem',
+                                    background: 'var(--color-primary-light)',
+                                    borderRadius: 'var(--radius-md)',
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr',
+                                    gap: '1.5rem',
+                                    border: '1px solid rgba(90, 125, 76, 0.1)'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
+                                            {recipe.alkali === 'NaOH' ? 'SODA CÁUSTICA (NaOH)' : 'POTASSA (KOH)'}
+                                        </div>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
+                                            {results.alkaliAmount.toFixed(2)}g
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
-                                        {results.alkaliAmount.toFixed(2)}g
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
-                                        ÁGUA TOTAL
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
-                                        {results.waterAmount.toFixed(1)}g
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
+                                            ÁGUA TOTAL
+                                        </div>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
+                                            {results.waterAmount.toFixed(1)}g
+                                        </div>
                                     </div>
                                 </div>
                             </div>

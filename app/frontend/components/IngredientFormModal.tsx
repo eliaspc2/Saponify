@@ -152,7 +152,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
                 </>
             }
         >
-            <div style={{ display: 'flex', marginBottom: '2rem', background: '#F9FAFB', borderRadius: 'var(--radius-md) var(--radius-md) 0 0', overflow: 'hidden' }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 2, display: 'flex', marginBottom: '2rem', background: '#F9FAFB', borderRadius: 'var(--radius-md) var(--radius-md) 0 0', overflow: 'hidden' }}>
                 <TabButton id="general" label="Geral" active={activeTab === 'general'} onClick={setActiveTab} />
                 <TabButton id="properties" label="Qualidade" active={activeTab === 'properties'} onClick={setActiveTab} />
                 <TabButton id="fattyAcids" label="Perfil Graxo" active={activeTab === 'fattyAcids'} onClick={setActiveTab} />
