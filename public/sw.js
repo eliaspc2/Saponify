@@ -1,47 +1,44 @@
 // Service Worker para Saponify PWA
-const CACHE_NAME = 'saponify-v1';
-const urlsToCache = [
+const CACHE_NAME = 'saponify-v2';
+const CORE_ASSETS = [
     '/',
     '/index.html',
-    '/app/frontend/index.css',
-    '/app/frontend/app.js'
+    '/manifest.json',
+    '/assets/brand/logo.png'
 ];
 
-// Instalação - cachear recursos
+// Instalacao - cachear recursos
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('Cache aberto');
-                return cache.addAll(urlsToCache);
-            })
+            .then((cache) => cache.addAll(CORE_ASSETS))
     );
     self.skipWaiting();
 });
 
-// Ativação - limpar caches antigos
+// Ativacao - limpar caches antigos
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('Removendo cache antigo:', cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
+        caches.keys().then((cacheNames) => Promise.all(
+            cacheNames.map((cacheName) => {
+                if (cacheName !== CACHE_NAME) {
+                    return caches.delete(cacheName);
+                }
+            })
+        ))
     );
     self.clients.claim();
 });
 
-// Fetch - estratégia Network First com fallback para Cache
+// Fetch - estrategia Network First com fallback para Cache
 self.addEventListener('fetch', (event) => {
+    if (event.request.method !== 'GET') return;
+    const url = new URL(event.request.url);
+    if (url.origin !== self.location.origin) return;
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                // Se a resposta for válida, cachear
                 if (response && response.status === 200) {
                     const responseToCache = response.clone();
                     caches.open(CACHE_NAME)
@@ -51,14 +48,11 @@ self.addEventListener('fetch', (event) => {
                 }
                 return response;
             })
-            .catch(() => {
-                // Se falhar (offline), tentar do cache
-                return caches.match(event.request);
-            })
+            .catch(() => caches.match(event.request))
     );
 });
 
-// Sincronização em background para backup automático
+// Sincronizacao em background para backup automatico
 self.addEventListener('sync', (event) => {
     if (event.tag === 'auto-backup') {
         event.waitUntil(performAutoBackup());
@@ -66,7 +60,6 @@ self.addEventListener('sync', (event) => {
 });
 
 async function performAutoBackup() {
-    // Trigger backup automático
     const clients = await self.clients.matchAll();
     clients.forEach(client => {
         client.postMessage({
