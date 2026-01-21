@@ -133,9 +133,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
 
     async componentDidMount() {
         const service = IngredientService.getInstance();
-        if (service.getAll().length === 0) {
-            await service.loadInitialData();
-        }
+        await service.loadInitialData();
         const ingredients = service.getAll();
         const clients = ClientService.getInstance().getAll();
 

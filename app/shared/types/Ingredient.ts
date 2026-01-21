@@ -1,5 +1,6 @@
 export interface Ingredient {
     id: string;
+    menuKey?: string;
     name: string;
     inci: string;
     category: string;

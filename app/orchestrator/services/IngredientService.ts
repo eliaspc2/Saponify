@@ -94,7 +94,7 @@ export class IngredientService extends BaseService {
                 this.ingredients = parsed.map((ingredient) => this.normalizeIngredient(ingredient));
                 return true;
             }
-            if (parsed && parsed.version === IngredientService.STORAGE_VERSION && Array.isArray(parsed.items)) {
+            if (parsed && Array.isArray(parsed.items)) {
                 this.ingredients = parsed.items.map((ingredient: Ingredient) => this.normalizeIngredient(ingredient));
                 return true;
             }
@@ -182,6 +182,7 @@ export class IngredientService extends BaseService {
 
             return {
                 id: getString(0), // Use 'ref' as ID
+                menuKey: getString(2),
                 name: getString(3),
                 inci: getString(4),
                 category: categoryStr,

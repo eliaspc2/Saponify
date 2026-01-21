@@ -58,18 +58,23 @@ export class CalculatorService {
             return ing.sapNaOH ? ing.sapNaOH * 1.403 : 0;
         };
         const isBaseOil = (ing?: Ingredient) => {
-            if (!ing?.category) return false;
+            if (!ing) return false;
+            if (ing.menuKey && ing.menuKey.toLowerCase() === 'baseoils') return true;
+            if (!ing.category) return false;
             const category = normalizeCategory(ing.category);
-            return category.includes('oleos base') || category.includes('oleo base');
+            return category.includes('oleos base') || category.includes('oleo base') || category.includes('leos base');
         };
         const isTraceOil = (ing?: Ingredient) => {
-            if (!ing?.category) return false;
+            if (!ing) return false;
+            if (ing.menuKey && ing.menuKey.toLowerCase() === 'superfatoils') return true;
+            if (!ing.category) return false;
             const category = normalizeCategory(ing.category);
             return category.includes('superfat');
         };
         const getBaseOils = () => {
             const diagnostics: string[] = [];
             const oils = (recipe.fats || []).flatMap((item) => {
+                if ((item.amount || 0) <= 0 || !item.ingredientId) return [];
                 const ing = getIngredient(item);
                 if (!ing) {
                     diagnostics.push(`Ingrediente não encontrado para "${item.name || item.id}".`);
@@ -79,7 +84,6 @@ export class CalculatorService {
                     diagnostics.push(`Ingrediente "${ing.name}" não é óleo base; ignorado.`);
                     return [];
                 }
-                if ((item.amount || 0) <= 0) return [];
                 return [{ ingredient: ing, amount: item.amount || 0 }];
             });
             return { oils, diagnostics };
@@ -87,6 +91,7 @@ export class CalculatorService {
         const getTraceOils = () => {
             const diagnostics: string[] = [];
             const oils = (recipe.superfatOils || []).flatMap((item) => {
+                if ((item.amount || 0) <= 0 || !item.ingredientId) return [];
                 const ing = getIngredient(item);
                 if (!ing) {
                     diagnostics.push(`Ingrediente não encontrado para "${item.name || item.id}".`);
@@ -96,7 +101,6 @@ export class CalculatorService {
                     diagnostics.push(`Ingrediente "${ing.name}" não é óleo de superfat; ignorado.`);
                     return [];
                 }
-                if ((item.amount || 0) <= 0) return [];
                 return [{ ingredient: ing, amount: item.amount || 0 }];
             });
             return { oils, diagnostics };
