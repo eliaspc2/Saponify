@@ -933,11 +933,9 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
                                 </div>
                                 {this.renderTableHeader()}
-                                {results.alkaliAmount > 0 && (
-                                    this.renderReadOnlyRow(
-                                        recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
-                                        results.alkaliAmount
-                                    )
+                                {this.renderReadOnlyRow(
+                                    recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
+                                    results.alkaliAmount
                                 )}
                                 {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
                             </div>
