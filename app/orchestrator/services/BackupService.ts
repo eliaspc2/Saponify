@@ -40,6 +40,7 @@ export class BackupService {
             recipes,
             recipeCalculations,
             clients: ClientService.getInstance().getAll(),
+            activities: ClientService.getInstance().getAllActivities(),
             ingredients: IngredientService.getInstance().getAll(),
             settings: SettingsService.getInstance().getSettings(),
             questionnaires: await QuestionnaireService.getQuestionnaires()
@@ -62,6 +63,9 @@ export class BackupService {
             // 2. Clients
             const clientService = ClientService.getInstance();
             data.clients.forEach((c: any) => clientService.save(c));
+
+            // 2.1 Activities
+            (data.activities || []).forEach((activity: any) => clientService.addActivity(activity));
 
             // 3. Recipes
             const recipeService = RecipeService.getInstance();

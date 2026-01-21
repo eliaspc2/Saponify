@@ -6,7 +6,7 @@ import { QuestionnaireService } from '../../../../orchestrator/services/Question
 import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Modal } from '../../../components/Modal';
-import { Plus, Trash2, Edit2, FileText, Upload } from 'lucide-react';
+import { Plus, Trash2, Edit2, FileText, Upload, Download } from 'lucide-react';
 
 interface QuestionnairesPageState extends BaseListPageState<Questionnaire> {
     isModalOpen: boolean;
@@ -85,6 +85,29 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
             await QuestionnaireService.deleteQuestionnaire(id);
             await this.loadData();
         }
+    }
+
+    private downloadJsonFile(filename: string, data: any) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    private handleExportQuestionnaire(questionnaire: Questionnaire) {
+        const payload = {
+            version: '1.0.0',
+            type: 'questionnaire',
+            exportedAt: new Date().toISOString(),
+            questionnaire
+        };
+        const safeName = (questionnaire.clientName || 'questionario').replace(/\s+/g, '_');
+        this.downloadJsonFile(`questionario_${safeName}.json`, payload);
     }
 
     private async handleImportQuestionnaireChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -185,6 +208,14 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                                 <td style={{ padding: '1rem 1.5rem', color: 'var(--color-text-secondary)' }}>{q.date}</td>
                                 <td style={{ padding: '1rem 1.5rem' }}>{q.ageGroup}</td>
                                 <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.4rem', minWidth: 'auto', marginRight: '0.5rem' }}
+                                        onClick={() => this.handleExportQuestionnaire(q)}
+                                        title="Exportar"
+                                    >
+                                        <Download size={16} />
+                                    </button>
                                     <button className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: 'auto', marginRight: '0.5rem' }} onClick={() => this.openModal(q)}>
                                         <Edit2 size={16} />
                                     </button>
