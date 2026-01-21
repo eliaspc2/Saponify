@@ -73,6 +73,20 @@ export class IngredientService extends BaseService {
         }
     }
 
+    upsertIngredient(ingredient: Ingredient): void {
+        const normalized = this.normalizeIngredient(ingredient);
+        if (!normalized.id) {
+            normalized.id = `user_${Date.now()}`;
+        }
+        const index = this.ingredients.findIndex(i => i.id === normalized.id);
+        if (index !== -1) {
+            this.ingredients[index] = normalized;
+        } else {
+            this.ingredients.push(normalized);
+        }
+        this.saveToStorage();
+    }
+
     exportToCSV(): string {
         const header = 'ref,order,menuKey,name,inci,descriptionFragment,notes,catalogStatus,category,origin,sap,sap_koh,iodine,ins,flags.citricAcid,waterPercent,botanical.botanicalName,botanical.plantPart,botanical.physicalForm,botanical.notes,properties.conditioning,properties.cleansing,properties.bubbles,properties.persistence,properties.hardness,properties.solubility,properties.drying,fattyAcids.lauric,fattyAcids.myristic,fattyAcids.palmitic,fattyAcids.stearic,fattyAcids.oleic,fattyAcids.linoleic,fattyAcids.linolenic,fattyAcids.ricinoleic,fattyAcids.gadoleic,fattyAcids.other';
         const csvEscape = (value: string) => {

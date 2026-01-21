@@ -1,10 +1,11 @@
+import type { ChangeEvent } from 'react';
 import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Recipe } from '../../../../shared/types/Recipe';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
-import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText } from 'lucide-react';
+import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
 import { CalculatorService } from '../../../../orchestrator/services/CalculatorService';
 import { IngredientService } from '../../../../orchestrator/services/IngredientService';
@@ -20,6 +21,7 @@ interface SavedRecipesState extends BaseListPageState<Recipe> {
 }
 
 export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, SavedRecipesProps> {
+    private importInputRef: HTMLInputElement | null = null;
     constructor(props: SavedRecipesProps) {
         super(props);
         this.state = {
@@ -139,6 +141,43 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
         URL.revokeObjectURL(url);
     }
 
+    private normalizeImportedRecipe(recipe: Recipe): Recipe {
+        const id = recipe.id || `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const code = recipe.code || RecipeService.getInstance().getNextCode();
+        const date = recipe.date || new Date().toISOString().split('T')[0];
+        return { ...recipe, id, code, date };
+    }
+
+    private async handleImportRecipeChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const recipes = Array.isArray(parsed)
+                ? parsed
+                : (parsed?.recipes || parsed?.recipe ? (parsed.recipes || [parsed.recipe]) : [parsed]);
+            const validRecipes = recipes.filter((recipe: Recipe) => recipe && typeof recipe === 'object');
+            if (validRecipes.length === 0) {
+                alert('Ficheiro invalido para receita.');
+                return;
+            }
+            validRecipes.forEach((recipe: Recipe) => {
+                const normalized = this.normalizeImportedRecipe(recipe);
+                RecipeService.getInstance().save(normalized);
+            });
+            this.loadRecipes();
+        } catch (error) {
+            alert('Erro ao importar receita.');
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    private handleImportRecipeClick() {
+        this.importInputRef?.click();
+    }
+
     renderStats() {
         const total = this.state.data.length;
         const withEssentialOils = this.state.data.filter(r => (r.essentialOils || []).length > 0).length;
@@ -162,6 +201,20 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1 }}>
                 <div style={{ flex: 1 }}></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button
+                        className="btn btn-secondary"
+                        style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }}
+                        onClick={() => this.handleImportRecipeClick()}
+                    >
+                        <Upload size={14} /> Importar
+                    </button>
+                    <input
+                        ref={(el) => { this.importInputRef = el; }}
+                        type="file"
+                        accept=".json,application/json"
+                        style={{ display: 'none' }}
+                        onChange={(event) => this.handleImportRecipeChange(event)}
+                    />
                     <button
                         className="btn btn-primary"
                         style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }}

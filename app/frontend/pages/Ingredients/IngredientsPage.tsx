@@ -14,7 +14,8 @@ interface IngredientsPageState extends BaseListPageState<Ingredient> {
 }
 
 export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageState> {
-    private importInputRef: HTMLInputElement | null = null;
+    private importCsvInputRef: HTMLInputElement | null = null;
+    private importJsonInputRef: HTMLInputElement | null = null;
 
     // @ts-ignore - overriding state type
     state: IngredientsPageState = {
@@ -87,7 +88,7 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
         URL.revokeObjectURL(url);
     }
 
-    async handleImportChange(event: ChangeEvent<HTMLInputElement>) {
+    async handleImportCsvChange(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
         if (!file) return;
         const csvText = await file.text();
@@ -98,8 +99,57 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
         event.target.value = '';
     }
 
-    handleImportClick() {
-        this.importInputRef?.click();
+    handleImportCsvClick() {
+        this.importCsvInputRef?.click();
+    }
+
+    private downloadJsonFile(filename: string, data: any) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    handleExportIngredient(ingredient: Ingredient) {
+        const payload = {
+            version: '1.0.0',
+            type: 'ingredient',
+            exportedAt: new Date().toISOString(),
+            ingredient
+        };
+        const safeName = (ingredient.name || 'ingrediente').replace(/\s+/g, '_');
+        this.downloadJsonFile(`ingrediente_${safeName}.json`, payload);
+    }
+
+    async handleImportJsonChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const ingredient = parsed?.ingredient ?? parsed;
+            if (!ingredient || !ingredient.name) {
+                alert('Ficheiro invalido para ingrediente.');
+                return;
+            }
+            IngredientService.getInstance().upsertIngredient(ingredient);
+            this.setState({
+                data: IngredientService.getInstance().getAll()
+            });
+        } catch (error) {
+            alert('Erro ao importar ingrediente.');
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    handleImportJsonClick() {
+        this.importJsonInputRef?.click();
     }
 
     renderStats() {
@@ -166,17 +216,27 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleExportCSV()}>
-                        <Download size={14} /> Exportar
+                        <Download size={14} /> Exportar CSV
                     </button>
-                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportClick()}>
-                        <Upload size={14} /> Importar
+                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportCsvClick()}>
+                        <Upload size={14} /> Importar CSV
                     </button>
                     <input
-                        ref={(el) => { this.importInputRef = el; }}
+                        ref={(el) => { this.importCsvInputRef = el; }}
                         type="file"
                         accept=".csv,text/csv"
                         style={{ display: 'none' }}
-                        onChange={(event) => this.handleImportChange(event)}
+                        onChange={(event) => this.handleImportCsvChange(event)}
+                    />
+                    <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportJsonClick()}>
+                        <Upload size={14} /> Importar Item
+                    </button>
+                    <input
+                        ref={(el) => { this.importJsonInputRef = el; }}
+                        type="file"
+                        accept=".json,application/json"
+                        style={{ display: 'none' }}
+                        onChange={(event) => this.handleImportJsonChange(event)}
                     />
                     <button className="btn btn-primary" style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }} onClick={() => this.handleAddClick()}>
                         <Plus size={16} /> Adicionar
@@ -192,71 +252,81 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
         return (
             <>
                 {this.renderEditModal()}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left', color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-                            <th style={{ padding: '1rem' }}>#</th>
-                            <th style={{ padding: '1rem' }}>Nome</th>
-                            <th style={{ padding: '1rem' }}>INCI</th>
-                            <th style={{ padding: '1rem' }}>Categoria</th>
-                            <th style={{ padding: '1rem' }}>SAP NaOH</th>
-                            <th style={{ padding: '1rem' }}>SAP KOH</th>
-                            <th style={{ padding: '1rem', textAlign: 'right' }}>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredData.length === 0 ? (
+                <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: '1rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
                             <tr>
-                                <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-light)' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                                        <p>Nenhum ingrediente encontrado com os critérios actuais.</p>
-                                    </div>
-                                </td>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>#</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>Nome</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>INCI</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>Categoria</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>SAP NaOH</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>SAP KOH</th>
+                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>Ações</th>
                             </tr>
-                        ) : (
-                            filteredData.map((ing, index) => (
-                                <tr key={ing.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                    <td style={{ padding: '1rem', color: '#9CA3AF', fontSize: '0.8rem' }}>{index + 1}</td>
-                                    <td style={{ padding: '1rem', fontWeight: 500 }}>{ing.name}</td>
-                                    <td style={{ padding: '1rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{ing.inci}</td>
-                                    <td style={{ padding: '1rem' }}>
-                                        <span style={{
-                                            padding: '0.25rem 0.75rem',
-                                            borderRadius: '1rem',
-                                            backgroundColor: '#F3F4F6',
-                                            fontSize: '0.75rem',
-                                            color: '#4B5563'
-                                        }}>
-                                            {ing.category}
-                                        </span>
+                        </thead>
+                        <tbody>
+                            {filteredData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-light)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                            <p>Nenhum ingrediente encontrado com os critérios actuais.</p>
+                                        </div>
                                     </td>
-                                    <td style={{ padding: '1rem' }}>{ing.sapNaOH}</td>
-                                    <td style={{ padding: '1rem' }}>{ing.sapKOH}</td>
-                                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                </tr>
+                            ) : (
+                                filteredData.map((ing, index) => (
+                                    <tr key={ing.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                                        <td style={{ padding: '1rem 1.5rem', color: '#9CA3AF', fontSize: '0.8rem' }}>{index + 1}</td>
+                                        <td style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>{ing.name}</td>
+                                        <td style={{ padding: '1rem 1.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{ing.inci}</td>
+                                        <td style={{ padding: '1rem 1.5rem' }}>
+                                            <span style={{
+                                                padding: '0.25rem 0.75rem',
+                                                borderRadius: '1rem',
+                                                backgroundColor: '#F3F4F6',
+                                                fontSize: '0.75rem',
+                                                color: '#4B5563'
+                                            }}>
+                                                {ing.category}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '1rem 1.5rem' }}>{ing.sapNaOH}</td>
+                                        <td style={{ padding: '1rem 1.5rem' }}>{ing.sapKOH}</td>
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                                             <button
                                                 className="btn btn-sm"
                                                 style={{ color: 'var(--color-primary)', padding: '0.5rem' }}
-                                                title="Editar"
-                                                onClick={() => this.handleEditClick(ing)}
+                                                title="Exportar"
+                                                onClick={() => this.handleExportIngredient(ing)}
                                             >
-                                                <Edit size={16} />
+                                                <Download size={16} />
                                             </button>
                                             <button
                                                 className="btn btn-sm"
-                                                style={{ color: 'var(--color-error)', padding: '0.5rem' }}
-                                                title="Eliminar"
-                                                onClick={() => this.handleDelete(ing.id)}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                                                style={{ color: 'var(--color-primary)', padding: '0.5rem' }}
+                                                title="Editar"
+                                                    onClick={() => this.handleEditClick(ing)}
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm"
+                                                    style={{ color: 'var(--color-error)', padding: '0.5rem' }}
+                                                    title="Eliminar"
+                                                    onClick={() => this.handleDelete(ing.id)}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </>
         );
     }

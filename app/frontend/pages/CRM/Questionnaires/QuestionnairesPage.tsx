@@ -6,7 +6,7 @@ import { QuestionnaireService } from '../../../../orchestrator/services/Question
 import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Modal } from '../../../components/Modal';
-import { Plus, Trash2, Edit2, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, FileText, Upload } from 'lucide-react';
 
 interface QuestionnairesPageState extends BaseListPageState<Questionnaire> {
     isModalOpen: boolean;
@@ -16,6 +16,7 @@ interface QuestionnairesPageState extends BaseListPageState<Questionnaire> {
 }
 
 export class QuestionnairesPage extends BaseListPage<Questionnaire, QuestionnairesPageState> {
+    private importInputRef: HTMLInputElement | null = null;
     constructor(props: any) {
         super(props);
         this.state = {
@@ -86,6 +87,34 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
         }
     }
 
+    private async handleImportQuestionnaireChange(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const items = Array.isArray(parsed)
+                ? parsed
+                : (parsed?.questionnaires || parsed?.questionnaire ? (parsed.questionnaires || [parsed.questionnaire]) : [parsed]);
+            for (const item of items) {
+                if (!item || typeof item !== 'object') continue;
+                if (!item.id) {
+                    item.id = Math.random().toString(36).substr(2, 9);
+                }
+                await QuestionnaireService.saveQuestionnaire(item as Questionnaire);
+            }
+            await this.loadData();
+        } catch (error) {
+            alert('Erro ao importar questionario.');
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    private handleImportQuestionnaireClick() {
+        this.importInputRef?.click();
+    }
+
     renderStats() {
         const total = this.state.data.length;
         const drynessCount = this.state.data.filter(q => q.drynessAfterWash && q.drynessAfterWash !== 'Nunca').length;
@@ -106,6 +135,16 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
         return (
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1 }}>
                 <div style={{ flex: 1 }}></div>
+                <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportQuestionnaireClick()}>
+                    <Upload size={14} /> Importar
+                </button>
+                <input
+                    ref={(el) => { this.importInputRef = el; }}
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: 'none' }}
+                    onChange={(event) => this.handleImportQuestionnaireChange(event)}
+                />
                 <button className="btn btn-primary" style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }} onClick={() => this.openModal()}>
                     <Plus size={18} /> Novo Questionário
                 </button>

@@ -13,8 +13,7 @@ import {
     MessageSquare,
     FileText,
     Clock,
-    ArrowRight,
-    ClipboardCheck
+    ArrowRight
 } from 'lucide-react';
 
 interface HomePageProps {
@@ -223,7 +222,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                                     className="btn btn-secondary btn-sm"
                                     style={{ justifyContent: 'space-between', width: '100%', padding: '0.75rem 1rem' }}
                                 >
-                                    Questionários <ClipboardCheck size={14} />
+                                    Questionários <ArrowRight size={14} />
                                 </button>
                                 <button
                                     onClick={() => this.props.onNavigate('recipes')}
