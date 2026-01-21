@@ -1,6 +1,7 @@
 import { BaseService } from '../core/BaseService';
 import { Recipe } from '../../shared/types/Recipe';
 import { ClientService } from './ClientService';
+import { SettingsService } from './SettingsService';
 
 export class RecipeService extends BaseService {
     private recipes: Recipe[] = [];
@@ -22,7 +23,10 @@ export class RecipeService extends BaseService {
         const stored = localStorage.getItem('saponify_recipes');
         if (stored) {
             try {
-                this.recipes = JSON.parse(stored);
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                    this.recipes = parsed.map(recipe => this.normalizeRecipe(recipe));
+                }
             } catch (e) {
                 this.handleError(new Error('Failed to parse recipes from storage'));
             }
@@ -42,23 +46,24 @@ export class RecipeService extends BaseService {
     }
 
     save(recipe: Recipe) {
+        const normalized = this.normalizeRecipe(recipe);
         const index = this.recipes.findIndex(r => r.id === recipe.id);
         const isNew = index < 0;
 
         if (!isNew) {
-            this.recipes[index] = recipe;
+            this.recipes[index] = normalized;
         } else {
-            this.recipes.push(recipe);
+            this.recipes.push(normalized);
 
             // Log in client history if associated
-            if (recipe.clientId) {
+            if (normalized.clientId) {
                 ClientService.getInstance().addActivity({
                     id: '',
-                    clientId: recipe.clientId,
+                    clientId: normalized.clientId,
                     timestamp: new Date().toISOString(),
                     type: 'system',
-                    title: 'Fórmula Criada',
-                    content: `Uma nova receita (${recipe.name || 'Sem Nome'}) foi associada a este cliente. Código: RE${recipe.code}.`
+                    title: 'Formula Criada',
+                    content: `Uma nova receita (${normalized.name || 'Sem Nome'}) foi associada a este cliente. Codigo: RE${normalized.code}.`
                 });
             }
         }
@@ -79,4 +84,23 @@ export class RecipeService extends BaseService {
         const maxCode = Math.max(...codes);
         return (maxCode + 1).toString().padStart(4, '0');
     }
+    private normalizeRecipe(recipe: Recipe): Recipe {
+        const settings = SettingsService.getInstance().getSettings();
+        return {
+            ...recipe,
+            alkali: recipe.alkali || settings.defaultAlkali,
+            superfat: recipe.superfat ?? settings.defaultSuperfat,
+            waterConcentration: recipe.waterConcentration ?? settings.defaultWaterConcentration,
+            alkaliPurity: recipe.alkaliPurity ?? settings.defaultAlkaliPurity ?? 100,
+            fats: recipe.fats || [],
+            liquids: recipe.liquids || [],
+            functionalAdditives: recipe.functionalAdditives || [],
+            lyeAdditives: recipe.lyeAdditives || [],
+            traceAdditives: recipe.traceAdditives || [],
+            superfatOils: recipe.superfatOils || [],
+            essentialOils: recipe.essentialOils || [],
+            notes: recipe.notes || ''
+        };
+    }
+
 }

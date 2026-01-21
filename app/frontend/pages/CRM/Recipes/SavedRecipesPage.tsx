@@ -269,7 +269,15 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
                         <div className="form-group">
                             <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Álcali</label>
-                            <span style={{ fontWeight: 700 }}>{editingRecipe.alkali}</span>
+                            <select
+                                className="form-control"
+                                value={editingRecipe.alkali}
+                                onChange={(e) => updateField('alkali', e.target.value)}
+                                style={{ fontWeight: 700 }}
+                            >
+                                <option value="NaOH">NaOH</option>
+                                <option value="KOH">KOH</option>
+                            </select>
                         </div>
                         <div className="form-group">
                             <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Superfat</label>
@@ -285,6 +293,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                         <div>
                             {this.renderIngredientList("Fase 1: Gorduras", editingRecipe.fats, 'fats')}
                             {this.renderIngredientList("Fase 2: Líquidos", editingRecipe.liquids, 'liquids')}
+                            {this.renderIngredientList("Fase 2: Aditivos Funcionais", editingRecipe.functionalAdditives, 'functionalAdditives')}
                             {this.renderIngredientList("Fase 2: Aditivos Lixívia", editingRecipe.lyeAdditives, 'lyeAdditives')}
                         </div>
                         <div>

@@ -441,8 +441,22 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
     }
 
     private handleDownloadJSON() {
-        const { recipe } = this.state;
-        const blob = new Blob([JSON.stringify(recipe, null, 2)], { type: 'application/json' });
+        const { recipe, availableIngredients } = this.state;
+        const results = CalculatorService.calculate(recipe, availableIngredients);
+        const payload = {
+            ...recipe,
+            calculations: {
+                alkaliAmount: results.alkaliAmount,
+                alkaliPure: results.alkaliPure,
+                alkaliPurity: results.alkaliPurity,
+                sapAverage: results.sapAverage,
+                waterAmount: results.waterAmount,
+                iodine: results.iodine,
+                ins: results.ins,
+                glycerin: results.glycerin
+            }
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -559,6 +573,32 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 <div style={{ textAlign: 'right' }}>Peso (g)</div>
                 <div style={{ textAlign: 'right' }}>SAP</div>
                 <div style={{ textAlign: 'right' }}>%</div>
+                <div></div>
+            </div>
+        );
+    }
+
+    private renderReadOnlyRow(label: string, amount: number) {
+        return (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 40px', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <select
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}
+                    value={label}
+                    disabled
+                >
+                    <option value={label}>{label}</option>
+                </select>
+                <div style={{ position: 'relative' }}>
+                    <input
+                        type="number"
+                        value={amount ? amount.toFixed(2) : ''}
+                        disabled
+                        style={{ width: '100%', textAlign: 'right', paddingRight: '1.75rem', opacity: 0.9 }}
+                    />
+                    <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#9CA3AF' }}>g</span>
+                </div>
+                <div style={{ textAlign: 'right', fontSize: '0.85rem', color: '#6B7280', padding: '0 0.5rem' }}>-</div>
+                <div style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-primary)', padding: '0 0.5rem' }}>-</div>
                 <div></div>
             </div>
         );
@@ -875,7 +915,11 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
                                 </div>
                                 {this.renderTableHeader()}
-                                {(recipe.liquids || []).map(l => this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia']))}
+                                {(recipe.liquids || []).map((l) => (
+                                    isWaterItem(l)
+                                        ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
+                                        : this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia'])
+                                ))}
                             </div>
                             <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -890,17 +934,10 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 </div>
                                 {this.renderTableHeader()}
                                 {results.alkaliAmount > 0 && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 40px', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                                            {recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}
-                                        </div>
-                                        <div style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 600 }}>
-                                            {results.alkaliAmount.toFixed(2)} g
-                                        </div>
-                                        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: '#9CA3AF' }}>-</div>
-                                        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: '#9CA3AF' }}>-</div>
-                                        <div></div>
-                                    </div>
+                                    this.renderReadOnlyRow(
+                                        recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
+                                        results.alkaliAmount
+                                    )
                                 )}
                                 {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
                             </div>

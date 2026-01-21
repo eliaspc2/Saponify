@@ -17,9 +17,11 @@ import {
     Calendar,
     CheckCircle,
     FileText,
+    Download,
     Trash2
 } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
+import { QuestionnaireService } from '../../../../orchestrator/services/QuestionnaireService';
 
 interface ClientDetailsProps {
     clientId: string;
@@ -107,6 +109,47 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             ClientService.getInstance().deleteActivity(id);
             this.loadData();
         }
+    }
+
+    private downloadJsonFile(filename: string, data: any) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    private handleExportClientSummary() {
+        const { client, activities, associatedRecipes } = this.state;
+        if (!client) return;
+        const payload = {
+            version: '1.0.0',
+            exportedAt: new Date().toISOString(),
+            client,
+            activities,
+            recipes: associatedRecipes
+        };
+        this.downloadJsonFile(`cliente_${client.id}_ficha.json`, payload);
+    }
+
+    private async handleExportClientAllData() {
+        const { client, activities, associatedRecipes } = this.state;
+        if (!client) return;
+        const questionnaires = await QuestionnaireService.getQuestionnaires();
+        const clientQuestionnaires = questionnaires.filter(q => q.clientId === client.id);
+        const payload = {
+            version: '1.0.0',
+            exportedAt: new Date().toISOString(),
+            client,
+            activities,
+            recipes: associatedRecipes,
+            questionnaires: clientQuestionnaires
+        };
+        this.downloadJsonFile(`cliente_${client.id}_dados_completos.json`, payload);
     }
 
     private handleScheduleProduction() {
@@ -234,6 +277,12 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                        <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.handleExportClientSummary()}>
+                            <Download size={16} /> Exportar Ficha (JSON)
+                        </button>
+                        <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.handleExportClientAllData()}>
+                            <Download size={16} /> Exportar Dados (JSON)
+                        </button>
                         <button className="btn btn-primary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.setState({ isProductionModalOpen: true, productionDate: new Date().toISOString().split('T')[0] })}>
                             <Beaker size={16} /> Marcar Produção
                         </button>
