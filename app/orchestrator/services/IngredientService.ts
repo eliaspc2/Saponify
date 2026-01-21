@@ -5,7 +5,9 @@ export class IngredientService extends BaseService {
     private ingredients: Ingredient[] = [];
     private static instance: IngredientService;
     private static readonly STORAGE_KEY = 'saponify_ingredients';
+    private static readonly STORAGE_VERSION = 2;
     private storageLoaded = false;
+    private initialized = false;
 
     private constructor() {
         super('IngredientService');
@@ -21,13 +23,24 @@ export class IngredientService extends BaseService {
 
     async loadInitialData(): Promise<void> {
         try {
-            if (this.storageLoaded || this.ingredients.length > 0) {
+            if (this.initialized) {
                 return;
             }
+            this.initialized = true;
+            const storedIngredients = [...this.ingredients];
             this.log('Fetching ingredients csv...');
             const response = await fetch('/data/ingredients.csv');
             const csvText = await response.text();
-            this.ingredients = this.parseCSV(csvText);
+            const csvIngredients = this.parseCSV(csvText).map(ingredient => this.normalizeIngredient(ingredient));
+            if (storedIngredients.length > 0) {
+                const csvIds = new Set(csvIngredients.map(ingredient => ingredient.id));
+                const customIngredients = storedIngredients
+                    .filter(ingredient => !csvIds.has(ingredient.id))
+                    .map(ingredient => this.normalizeIngredient(ingredient));
+                this.ingredients = [...csvIngredients, ...customIngredients];
+            } else {
+                this.ingredients = csvIngredients;
+            }
             this.log(`Loaded ${this.ingredients.length} ingredients.`);
             this.saveToStorage();
         } catch (error) {
@@ -79,7 +92,11 @@ export class IngredientService extends BaseService {
         try {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed)) {
-                this.ingredients = parsed;
+                this.ingredients = parsed.map((ingredient) => this.normalizeIngredient(ingredient));
+                return true;
+            }
+            if (parsed && parsed.version === IngredientService.STORAGE_VERSION && Array.isArray(parsed.items)) {
+                this.ingredients = parsed.items.map((ingredient: Ingredient) => this.normalizeIngredient(ingredient));
                 return true;
             }
         } catch (e) {
@@ -89,8 +106,41 @@ export class IngredientService extends BaseService {
     }
 
     private saveToStorage(): void {
-        localStorage.setItem(IngredientService.STORAGE_KEY, JSON.stringify(this.ingredients));
+        const payload = {
+            version: IngredientService.STORAGE_VERSION,
+            items: this.ingredients
+        };
+        localStorage.setItem(IngredientService.STORAGE_KEY, JSON.stringify(payload));
         this.storageLoaded = true;
+    }
+
+    private normalizeIngredient(ingredient: Ingredient): Ingredient {
+        const defaultProperties = {
+            hardness: 0,
+            cleansing: 0,
+            bubbly: 0,
+            stable: 0,
+            conditioning: 0,
+            solubility: 0,
+            drying: 0
+        };
+        const defaultFattyAcids = {
+            lauric: 0,
+            myristic: 0,
+            palmitic: 0,
+            stearic: 0,
+            ricinoleic: 0,
+            oleic: 0,
+            linoleic: 0,
+            linolenic: 0,
+            gadoleic: 0,
+            other: 0
+        };
+        return {
+            ...ingredient,
+            properties: { ...defaultProperties, ...ingredient.properties },
+            fattyAcids: { ...defaultFattyAcids, ...ingredient.fattyAcids }
+        };
     }
 
     private parseCSV(csvText: string): Ingredient[] {

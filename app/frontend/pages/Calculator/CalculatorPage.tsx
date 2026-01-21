@@ -486,11 +486,12 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const phase1Total = sumAmounts(recipe.fats);
         const phase2Total = sumAmounts(recipe.liquids)
             + sumAmounts(recipe.functionalAdditives)
-            + sumAmounts(recipe.lyeAdditives);
+            + sumAmounts(recipe.lyeAdditives)
+            + results.alkaliAmount;
         const phase3Total = sumAmounts(recipe.traceAdditives) + sumAmounts(recipe.superfatOils) + sumAmounts(recipe.essentialOils);
         const physicalReadyDate = new Date(today.getTime());
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
-        const batchWeightWithLye = phase1Total + phase2Total + phase3Total + (results.alkaliAmount || 0);
+        const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
         const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
         const fattyAcidLabels = [
             { key: 'lauric', label: 'Láurico' },

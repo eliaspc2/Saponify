@@ -338,7 +338,8 @@ export class CalculatorService {
         const phase1Weight = sumAmounts(recipe.fats);
         const phase2Weight = sumAmounts(recipe.liquids)
             + sumAmounts(recipe.functionalAdditives)
-            + sumAmounts(recipe.lyeAdditives);
+            + sumAmounts(recipe.lyeAdditives)
+            + results.alkaliAmount;
         const phase3Weight = sumAmounts(recipe.traceAdditives)
             + sumAmounts(recipe.superfatOils)
             + sumAmounts(recipe.essentialOils);
