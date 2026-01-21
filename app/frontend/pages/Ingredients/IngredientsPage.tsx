@@ -278,7 +278,14 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                                 filteredData.map((ing, index) => (
                                     <tr key={ing.id} style={{ borderTop: '1px solid #f3f4f6' }}>
                                         <td style={{ padding: '1rem 1.5rem', color: '#9CA3AF', fontSize: '0.8rem' }}>{index + 1}</td>
-                                        <td style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>{ing.name}</td>
+                                        <td style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>
+                                            <span
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={() => this.handleEditClick(ing)}
+                                            >
+                                                {ing.name}
+                                            </span>
+                                        </td>
                                         <td style={{ padding: '1rem 1.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{ing.inci}</td>
                                         <td style={{ padding: '1rem 1.5rem' }}>
                                             <span style={{
