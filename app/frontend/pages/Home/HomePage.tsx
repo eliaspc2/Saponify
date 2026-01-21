@@ -184,13 +184,13 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
 
                     {/* Quick Access or Secondary Stats */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div className="card" style={{ padding: '1.5rem', background: 'var(--color-primary)', color: 'white' }}>
+                        <div className="card" style={{ padding: '1.5rem', background: 'var(--color-primary-light)', color: 'var(--color-primary-dark)', border: '1px solid rgba(90, 125, 76, 0.15)' }}>
                             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Produções em Curso</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {productionActivities.map((a, i) => (
-                                    <div key={i} style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
+                                    <div key={i} style={{ padding: '0.75rem', background: 'rgba(90, 125, 76, 0.08)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                                         <div style={{ fontWeight: 700 }}>{a.details?.recipeName}</div>
-                                        <div style={{ opacity: 0.8, fontSize: '0.75rem' }}>
+                                        <div style={{ opacity: 0.85, fontSize: '0.75rem' }}>
                                             Pronto em: {new Date(a.details?.physicalReadyDate || '').toLocaleDateString()}
                                         </div>
                                     </div>

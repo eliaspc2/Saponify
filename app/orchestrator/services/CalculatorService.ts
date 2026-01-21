@@ -7,6 +7,7 @@ export interface CalculationResults {
     alkaliAmount: number;
     waterAmount: number;
     glycerin: number;
+    superfatFinal: number;
     lyeConcentration: number;
     iodine: number;
     ins: number;
@@ -40,6 +41,20 @@ export class CalculatorService {
             const text = `${ing.name} ${ing.inci}`.toLowerCase();
             return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido cítrico');
         };
+        const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const isBaseOil = (ing?: Ingredient) => {
+            if (!ing?.category) return true;
+            const category = normalizeCategory(ing.category);
+            if (category.includes('oleos base') || category.includes('oleo base')) return true;
+            if (category.includes('superfat')) return false;
+            if (category.includes('aditivos')) return false;
+            if (category.includes('lixivia') || category.includes('liquidos')) return false;
+            if (category.includes('traco') || category.includes('essenciais')) return false;
+            return true;
+        };
+        const getIngredient = (item: RecipeIngredient) =>
+            ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+        const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
 
         const results: CalculationResults = {
             totalWeight: 0,
@@ -47,6 +62,7 @@ export class CalculatorService {
             alkaliAmount: 0,
             waterAmount: 0,
             glycerin: 0,
+            superfatFinal: 0,
             lyeConcentration: recipe.waterConcentration,
             iodine: 0,
             ins: 0,
@@ -75,11 +91,16 @@ export class CalculatorService {
         // 1. Calculate Total Fats and initial properties
         let totalFatsAmount = 0;
         const fats = recipe.fats || [];
-        fats.forEach((item: RecipeIngredient) => {
+        const baseFats = fats.filter((item: RecipeIngredient) => {
+            const ing = getIngredient(item);
+            return !ing || isBaseOil(ing);
+        });
+
+        baseFats.forEach((item: RecipeIngredient) => {
             const amount = item.amount || 0;
             totalFatsAmount += amount;
 
-            const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            const ing = getIngredient(item);
             if (ing) {
                 // Add to INCI list if not already there
                 if (ing.inci && !results.inciList.includes(ing.inci)) {
@@ -89,12 +110,18 @@ export class CalculatorService {
         });
 
         results.totalFats = totalFatsAmount;
+        const superfatOilsAmount = sumAmounts(recipe.superfatOils);
+        const unsaponifiedFromBase = totalFatsAmount * (recipe.superfat / 100);
+        const totalOilPhase = totalFatsAmount + superfatOilsAmount;
+        results.superfatFinal = totalOilPhase > 0
+            ? ((unsaponifiedFromBase + superfatOilsAmount) / totalOilPhase) * 100
+            : 0;
 
         // 2. Calculate Alkali (NaOH/KOH)
         let totalSap = 0;
-        fats.forEach((item: RecipeIngredient) => {
+        baseFats.forEach((item: RecipeIngredient) => {
             const amount = item.amount || 0;
-            const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            const ing = getIngredient(item);
             if (ing) {
                 const sapValue = recipe.alkali === 'NaOH' ? (ing.sapNaOH || 0) : (ing.sapKOH || 0);
                 totalSap += amount * sapValue;
@@ -124,10 +151,10 @@ export class CalculatorService {
             let weightedIodine = 0;
             let weightedIns = 0;
 
-            recipe.fats.forEach((item: RecipeIngredient) => {
+            baseFats.forEach((item: RecipeIngredient) => {
                 const amount = item.amount || 0;
                 const weightRatio = amount / totalFatsAmount;
-                const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+                const ing = getIngredient(item);
 
                 if (ing) {
                     weightedIodine += (ing.iodine || 0) * weightRatio;
@@ -157,7 +184,6 @@ export class CalculatorService {
         }
 
         // 5. Total weight
-        let additiveWeight = 0;
         const allAdditives = [
             ...(recipe.functionalAdditives || []),
             ...(recipe.lyeAdditives || []),
@@ -167,15 +193,20 @@ export class CalculatorService {
         ];
 
         allAdditives.forEach((item: RecipeIngredient) => {
-            additiveWeight += (item.amount || 0);
-
             const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
             if (ing && ing.inci && !results.inciList.includes(ing.inci)) {
                 results.inciList.push(ing.inci);
             }
         });
 
-        results.totalWeight = totalFatsAmount + results.alkaliAmount + results.waterAmount + additiveWeight;
+        const phase1Weight = sumAmounts(recipe.fats);
+        const phase2Weight = sumAmounts(recipe.liquids)
+            + sumAmounts(recipe.functionalAdditives)
+            + sumAmounts(recipe.lyeAdditives);
+        const phase3Weight = sumAmounts(recipe.traceAdditives)
+            + sumAmounts(recipe.superfatOils)
+            + sumAmounts(recipe.essentialOils);
+        results.totalWeight = phase1Weight + phase2Weight + phase3Weight + results.alkaliAmount;
 
         // 6. Glycerin estimation (3 moles NaOH = 1 mole Glycerin)
         // Ratio Glycerin/NaOH mass: 92.09 / (3 * 39.99) = 0.767

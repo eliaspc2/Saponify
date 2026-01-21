@@ -406,12 +406,27 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                 </div>
                 <div className="progress-bar-bg">
                     <div
-                        className={`progress - bar - fill ${colorClass} `}
-                        style={{ width: `${Math.min(100, (value / 80) * 100)}% ` }}
+                        className={`progress-bar-fill ${colorClass}`}
+                        style={{ width: `${Math.min(100, (value / 80) * 100)}%` }}
                     />
                 </div>
             </div>
         );
+    }
+
+    private getDayOfYear(date: Date): number {
+        const start = new Date(date.getFullYear(), 0, 0);
+        const diff = date.getTime() - start.getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    private getPhysicalCureDays(date: Date): number {
+        const minDays = 30;
+        const maxDays = 45;
+        const dayOfYear = this.getDayOfYear(date);
+        const radians = (2 * Math.PI * (dayOfYear - 172)) / 365;
+        const seasonalFactor = (1 - Math.cos(radians)) / 2;
+        return Math.round(minDays + (maxDays - minDays) * seasonalFactor);
     }
 
     renderContent() {
@@ -419,9 +434,20 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
 
         const { recipe, availableIngredients } = this.state;
         const results = CalculatorService.calculate(recipe, availableIngredients);
+        const today = new Date();
+        const physicalDays = this.getPhysicalCureDays(today);
+        const physicalReadyDate = new Date(today.getTime());
+        physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
+        const estimatedDryWeight = Math.max(0, results.totalWeight - (results.waterAmount * 0.85));
 
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
+        const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+        const phase1Total = sumAmounts(recipe.fats);
+        const phase2Total = sumAmounts(recipe.liquids)
+            + sumAmounts(recipe.functionalAdditives)
+            + sumAmounts(recipe.lyeAdditives);
+        const phase3Total = sumAmounts(recipe.traceAdditives) + sumAmounts(recipe.superfatOils) + sumAmounts(recipe.essentialOils);
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -620,7 +646,14 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 title="FASE 1: Gorduras & Óleos"
                                 color={phaseHeaderColor}
                                 titleColor={phaseHeaderText}
-                                actions={<AddButton label="Adicionar" onClick={() => this.addItem('fats')} />}
+                                actions={
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                            Total: {phase1Total.toFixed(1)}g
+                                        </span>
+                                        <AddButton label="Adicionar" onClick={() => this.addItem('fats')} />
+                                    </div>
+                                }
                             />
                             <div style={{ padding: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -636,14 +669,19 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 color={phaseHeaderColor}
                                 titleColor={phaseHeaderText}
                                 actions={
-                                    <PhaseAddMenu
-                                        options={[
-                                            { label: 'Líquidos', type: 'liquids' },
-                                            { label: 'Aditivos Funcionais', type: 'functionalAdditives' },
-                                            { label: 'Aditivos da Lixívia', type: 'lyeAdditives' }
-                                        ]}
-                                        onSelect={(type) => this.addItem(type)}
-                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                            Total: {phase2Total.toFixed(1)}g
+                                        </span>
+                                        <PhaseAddMenu
+                                            options={[
+                                                { label: 'Líquidos', type: 'liquids' },
+                                                { label: 'Aditivos Funcionais', type: 'functionalAdditives' },
+                                                { label: 'Aditivos da Lixívia', type: 'lyeAdditives' }
+                                            ]}
+                                            onSelect={(type) => this.addItem(type)}
+                                        />
+                                    </div>
                                 }
                             />
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -674,14 +712,19 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 color={phaseHeaderColor}
                                 titleColor={phaseHeaderText}
                                 actions={
-                                    <PhaseAddMenu
-                                        options={[
-                                            { label: 'Aditivos & Botânicos', type: 'traceAdditives' },
-                                            { label: 'Óleos de Superfat', type: 'superfatOils' },
-                                            { label: 'Aromas & O.E.', type: 'essentialOils' }
-                                        ]}
-                                        onSelect={(type) => this.addItem(type)}
-                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                            Total: {phase3Total.toFixed(1)}g
+                                        </span>
+                                        <PhaseAddMenu
+                                            options={[
+                                                { label: 'Aditivos & Botânicos', type: 'traceAdditives' },
+                                                { label: 'Óleos de Superfat', type: 'superfatOils' },
+                                                { label: 'Aromas & O.E.', type: 'essentialOils' }
+                                            ]}
+                                            onSelect={(type) => this.addItem(type)}
+                                        />
+                                    </div>
                                 }
                             />
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -719,10 +762,18 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                             <div className="result-row"><span>Gorduras</span><span className="result-value">{results.totalFats.toFixed(1)}g</span></div>
                             <div className="result-row"><span>Lixívia</span><span className="result-value" style={{ color: 'var(--color-accent)' }}>{results.alkaliAmount.toFixed(1)}g</span></div>
                             <div className="result-row"><span>Água</span><span className="result-value">{results.waterAmount.toFixed(1)}g</span></div>
-                            <div className="result-row"><span>Glicerina ≈</span><span className="result-value">{results.glycerin.toFixed(1)}g</span></div>
+                            <div className="result-row"><span>Superfat final</span><span className="result-value">{results.superfatFinal.toFixed(1)}%</span></div>
                             <div className="result-row" style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed #eee' }}>
                                 <span style={{ fontWeight: 700 }}>Peso Final</span>
                                 <span className="result-value" style={{ fontSize: '1.1rem', color: 'var(--color-primary-dark)' }}>{results.totalWeight.toFixed(1)}g</span>
+                            </div>
+                            <div className="result-row" style={{ marginTop: '0.75rem' }}>
+                                <span>Peso Estável (seco)</span>
+                                <span className="result-value">{estimatedDryWeight.toFixed(1)}g</span>
+                            </div>
+                            <div className="result-row">
+                                <span>Secagem Física</span>
+                                <span className="result-value">~ {physicalDays} dias ({physicalReadyDate.toLocaleDateString()})</span>
                             </div>
                         </div>
                         <div className="result-section">
@@ -732,6 +783,10 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                             {this.renderProgressBar('Bolhas', results.properties.bubbles)}
                             {this.renderProgressBar('Persistência', results.properties.persistence)}
                             {this.renderProgressBar('Dureza', results.properties.hardness)}
+                            <div className="result-row" style={{ marginTop: '0.75rem' }}>
+                                <span>Glicerina ≈</span>
+                                <span className="result-value">{results.glycerin.toFixed(1)}g</span>
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem' }}>
                                 <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
                                     <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
