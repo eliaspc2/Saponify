@@ -541,6 +541,29 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         );
     }
 
+    private renderTableHeader() {
+        return (
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 100px 80px 80px 40px',
+                gap: '0.75rem',
+                alignItems: 'center',
+                marginBottom: '0.75rem',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: '#9CA3AF',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em'
+            }}>
+                <div>Ingrediente</div>
+                <div style={{ textAlign: 'right' }}>Peso (g)</div>
+                <div style={{ textAlign: 'right' }}>SAP</div>
+                <div style={{ textAlign: 'right' }}>%</div>
+                <div></div>
+            </div>
+        );
+    }
+
     private getDayOfYear(date: Date): number {
         const start = new Date(date.getFullYear(), 0, 0);
         const diff = date.getTime() - start.getTime();
@@ -820,6 +843,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos Base</h4>
                                 </div>
+                                {this.renderTableHeader()}
                                 {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ['Óleos Base'], results.totalFats))}
                             </div>
                         </div>
@@ -847,24 +871,40 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                             />
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                 <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
-                                    </div>
-                                    {(recipe.liquids || []).map(l => this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia']))}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
                                 </div>
-                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
-                                    </div>
-                                    {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
-                                </div>
-                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
-                                    </div>
-                                    {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
-                                </div>
+                                {this.renderTableHeader()}
+                                {(recipe.liquids || []).map(l => this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia']))}
                             </div>
+                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
+                                </div>
+                                {this.renderTableHeader()}
+                                {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
+                            </div>
+                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
+                                </div>
+                                {this.renderTableHeader()}
+                                {results.alkaliAmount > 0 && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 40px', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
+                                            {recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 600 }}>
+                                            {results.alkaliAmount.toFixed(2)} g
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: '#9CA3AF' }}>-</div>
+                                        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: '#9CA3AF' }}>-</div>
+                                        <div></div>
+                                    </div>
+                                )}
+                                {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
+                            </div>
+                        </div>
                         </div>
 
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -890,26 +930,29 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                             />
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                 <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos & Botânicos</h4>
-                                    </div>
-                                    {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ['Aditivos Traço']))}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos & Botânicos</h4>
                                 </div>
-
-                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos de Superfat</h4>
-                                    </div>
-                                    {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ['Superfat']))}
-                                </div>
-
-                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aromas & O.E.</h4>
-                                    </div>
-                                    {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ['Óleos Essenciais']))}
-                                </div>
+                                {this.renderTableHeader()}
+                                {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ['Aditivos Traço']))}
                             </div>
+
+                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos de Superfat</h4>
+                                </div>
+                                {this.renderTableHeader()}
+                                {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ['Superfat']))}
+                            </div>
+
+                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aromas & O.E.</h4>
+                                </div>
+                                {this.renderTableHeader()}
+                                {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ['Óleos Essenciais']))}
+                            </div>
+                        </div>
                         </div>
                     </div>
 

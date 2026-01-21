@@ -239,7 +239,8 @@ Error generating stack: `+s.message+`
 ### Fase 2: Lixívia & Aditivos
 `,t.liquids.forEach(u=>i+=`- ${u.name}: ${u.amount} g
 `),t.functionalAdditives.forEach(u=>i+=`- ${u.name}: ${u.amount} g
-`),t.lyeAdditives.forEach(u=>i+=`- ${u.name}: ${u.amount} g
+`),i+=`- ${t.alkali==="NaOH"?"Soda Cáustica (NaOH)":"Potassa (KOH)"}: ${r.alkaliAmount.toFixed(2)} g
+`,t.lyeAdditives.forEach(u=>i+=`- ${u.name}: ${u.amount} g
 `),i+=`
 ### Fase 3: No Traço
 `,t.traceAdditives.forEach(u=>i+=`- ${u.name}: ${u.amount} g
