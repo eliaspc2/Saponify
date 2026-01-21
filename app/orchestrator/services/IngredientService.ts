@@ -6,7 +6,6 @@ export class IngredientService extends BaseService {
     private static instance: IngredientService;
     private static readonly STORAGE_KEY = 'saponify_ingredients';
     private static readonly STORAGE_VERSION = 2;
-    private storageLoaded = false;
     private initialized = false;
 
     private constructor() {
@@ -111,7 +110,6 @@ export class IngredientService extends BaseService {
             items: this.ingredients
         };
         localStorage.setItem(IngredientService.STORAGE_KEY, JSON.stringify(payload));
-        this.storageLoaded = true;
     }
 
     private normalizeIngredient(ingredient: Ingredient): Ingredient {
