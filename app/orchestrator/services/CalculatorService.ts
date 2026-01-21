@@ -55,32 +55,44 @@ export class CalculatorService {
         const getIngredient = (item: RecipeIngredient) =>
             ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
-        const deriveProperties = (ing: Ingredient) => {
-            const fatty = ing.fattyAcids || {
-                lauric: 0,
-                myristic: 0,
-                palmitic: 0,
-                stearic: 0,
-                ricinoleic: 0,
-                oleic: 0,
-                linoleic: 0,
-                linolenic: 0
+        const warn = (message: string) => {
+            if (typeof console !== 'undefined') {
+                console.warn(`[CalculatorService] ${message}`);
+            }
+        };
+        const normalizeFattyAcids = (fatty?: Ingredient['fattyAcids'], name?: string) => {
+            const values = {
+                lauric: fatty?.lauric || 0,
+                myristic: fatty?.myristic || 0,
+                palmitic: fatty?.palmitic || 0,
+                stearic: fatty?.stearic || 0,
+                ricinoleic: fatty?.ricinoleic || 0,
+                oleic: fatty?.oleic || 0,
+                linoleic: fatty?.linoleic || 0,
+                linolenic: fatty?.linolenic || 0
             };
-            const lauric = fatty.lauric || 0;
-            const myristic = fatty.myristic || 0;
-            const palmitic = fatty.palmitic || 0;
-            const stearic = fatty.stearic || 0;
-            const ricinoleic = fatty.ricinoleic || 0;
-            const oleic = fatty.oleic || 0;
-            const linoleic = fatty.linoleic || 0;
-            const linolenic = fatty.linolenic || 0;
-
+            const entries = Object.entries(values);
+            for (const [key, value] of entries) {
+                if (value < 0 || value > 100) {
+                    warn(`Valor de ácido graxo fora do intervalo (${key}=${value}) em ${name || 'ingrediente'}.`);
+                }
+            }
+            const total = values.lauric + values.myristic + values.palmitic + values.stearic
+                + values.ricinoleic + values.oleic + values.linoleic + values.linolenic;
+            if (total <= 0) return values;
+            if (Math.abs(total - 100) > 5) {
+                warn(`Soma de ácidos graxos ${total.toFixed(1)}% em ${name || 'ingrediente'} (normalizando para 100%).`);
+            }
+            const factor = 100 / total;
             return {
-                conditioning: oleic + linoleic + linolenic + ricinoleic,
-                cleansing: lauric + myristic,
-                bubbly: lauric + myristic + ricinoleic,
-                persistence: palmitic + stearic + ricinoleic,
-                hardness: lauric + myristic + palmitic + stearic
+                lauric: values.lauric * factor,
+                myristic: values.myristic * factor,
+                palmitic: values.palmitic * factor,
+                stearic: values.stearic * factor,
+                ricinoleic: values.ricinoleic * factor,
+                oleic: values.oleic * factor,
+                linoleic: values.linoleic * factor,
+                linolenic: values.linolenic * factor
             };
         };
 
@@ -177,7 +189,17 @@ export class CalculatorService {
         // 4. Calculate Properties (Weighted Average based on Fat amounts)
         if (totalFatsAmount > 0) {
             let weightedIodine = 0;
-            let weightedIns = 0;
+            let weightedSapKOH = 0;
+            const fattyMix = {
+                lauric: 0,
+                myristic: 0,
+                palmitic: 0,
+                stearic: 0,
+                ricinoleic: 0,
+                oleic: 0,
+                linoleic: 0,
+                linolenic: 0
+            };
 
             baseFats.forEach((item: RecipeIngredient) => {
                 const amount = item.amount || 0;
@@ -185,52 +207,52 @@ export class CalculatorService {
                 const ing = getIngredient(item);
 
                 if (ing) {
-                    weightedIodine += (ing.iodine || 0) * weightRatio;
-                    weightedIns += (ing.ins || 0) * weightRatio;
+                    const iodine = ing.iodine || 0;
+                    weightedIodine += iodine * weightRatio;
+                    const sapKOH = ing.sapKOH || (ing.sapNaOH ? ing.sapNaOH * 1.403 : 0);
+                    weightedSapKOH += sapKOH * weightRatio;
 
-                    const props = ing.properties || {
-                        conditioning: 0,
-                        cleansing: 0,
-                        bubbly: 0,
-                        stable: 0,
-                        hardness: 0
-                    };
-                    const derived = deriveProperties(ing);
-                    const hasPropertyData = [
-                        props.conditioning,
-                        props.cleansing,
-                        props.bubbly,
-                        props.stable,
-                        props.hardness
-                    ].some(value => (value || 0) > 0);
-
-                    const conditioning = hasPropertyData ? (props.conditioning || 0) : derived.conditioning;
-                    const cleansing = hasPropertyData ? (props.cleansing || 0) : derived.cleansing;
-                    const bubbles = hasPropertyData ? (props.bubbly || 0) : derived.bubbly;
-                    const persistence = hasPropertyData ? (props.stable || 0) : derived.persistence;
-                    const hardness = hasPropertyData ? (props.hardness || 0) : derived.hardness;
-
-                    results.properties.conditioning += conditioning * weightRatio;
-                    results.properties.cleansing += cleansing * weightRatio;
-                    results.properties.bubbles += bubbles * weightRatio;
-                    results.properties.persistence += persistence * weightRatio;
-                    results.properties.hardness += hardness * weightRatio;
                     results.properties.solubility += (ing.properties?.solubility || 0) * weightRatio;
                     results.properties.drying += (ing.properties?.drying || 0) * weightRatio;
 
-                    results.fattyAcids.lauric += (ing.fattyAcids?.lauric || 0) * weightRatio;
-                    results.fattyAcids.myristic += (ing.fattyAcids?.myristic || 0) * weightRatio;
-                    results.fattyAcids.palmitic += (ing.fattyAcids?.palmitic || 0) * weightRatio;
-                    results.fattyAcids.stearic += (ing.fattyAcids?.stearic || 0) * weightRatio;
-                    results.fattyAcids.oleic += (ing.fattyAcids?.oleic || 0) * weightRatio;
-                    results.fattyAcids.linoleic += (ing.fattyAcids?.linoleic || 0) * weightRatio;
-                    results.fattyAcids.linolenic += (ing.fattyAcids?.linolenic || 0) * weightRatio;
-                    results.fattyAcids.ricinoleic += (ing.fattyAcids?.ricinoleic || 0) * weightRatio;
+                    const normalized = normalizeFattyAcids(ing.fattyAcids, ing.name);
+                    fattyMix.lauric += normalized.lauric * weightRatio;
+                    fattyMix.myristic += normalized.myristic * weightRatio;
+                    fattyMix.palmitic += normalized.palmitic * weightRatio;
+                    fattyMix.stearic += normalized.stearic * weightRatio;
+                    fattyMix.oleic += normalized.oleic * weightRatio;
+                    fattyMix.linoleic += normalized.linoleic * weightRatio;
+                    fattyMix.linolenic += normalized.linolenic * weightRatio;
+                    fattyMix.ricinoleic += normalized.ricinoleic * weightRatio;
                 }
             });
 
             results.iodine = weightedIodine;
-            results.ins = weightedIns;
+            results.ins = weightedSapKOH - results.iodine;
+
+            const mixSum = fattyMix.lauric + fattyMix.myristic + fattyMix.palmitic + fattyMix.stearic
+                + fattyMix.ricinoleic + fattyMix.oleic + fattyMix.linoleic + fattyMix.linolenic;
+            if (mixSum > 0 && Math.abs(mixSum - 100) > 2) {
+                warn(`Soma dos ácidos graxos da mistura ${mixSum.toFixed(1)}% (normalizando para 100%).`);
+                const factor = 100 / mixSum;
+                fattyMix.lauric *= factor;
+                fattyMix.myristic *= factor;
+                fattyMix.palmitic *= factor;
+                fattyMix.stearic *= factor;
+                fattyMix.ricinoleic *= factor;
+                fattyMix.oleic *= factor;
+                fattyMix.linoleic *= factor;
+                fattyMix.linolenic *= factor;
+            } else if (mixSum <= 0) {
+                warn('Sem dados suficientes de ácidos graxos para calcular o perfil da mistura.');
+            }
+
+            results.fattyAcids = { ...fattyMix };
+            results.properties.hardness = fattyMix.lauric + fattyMix.myristic + fattyMix.palmitic + fattyMix.stearic;
+            results.properties.cleansing = fattyMix.lauric + fattyMix.myristic;
+            results.properties.bubbles = fattyMix.lauric + fattyMix.myristic + fattyMix.ricinoleic;
+            results.properties.persistence = fattyMix.palmitic + fattyMix.stearic + fattyMix.ricinoleic;
+            results.properties.conditioning = fattyMix.oleic + fattyMix.linoleic + fattyMix.linolenic + fattyMix.ricinoleic;
         }
 
         // 5. Total weight
