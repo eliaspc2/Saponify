@@ -2,7 +2,7 @@ import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Client } from '../../../../shared/types/Client';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
-import { Plus, Trash2, Edit2, Check, User, AlertTriangle, Beaker, Clock, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, User, AlertTriangle, Beaker, Clock, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
 import { QuestionnaireService } from '../../../../orchestrator/services/QuestionnaireService';
@@ -27,6 +27,8 @@ interface ClientsPageState extends BaseListPageState<Client> {
 }
 
 export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavigate: (page: string, params?: any) => void }> {
+    private importInputRef: HTMLInputElement | null = null;
+    private importJsonInputRef: HTMLInputElement | null = null;
     constructor(props: any) {
         super(props);
         this.state = {
@@ -89,6 +91,405 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                 withoutQuestionnaire
             }
         } as any);
+    }
+
+    private async readCsvFile(file: File): Promise<string> {
+        const buffer = await file.arrayBuffer();
+        try {
+            return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        } catch {
+            return new TextDecoder('windows-1252').decode(buffer);
+        }
+    }
+
+    private normalizeHeader(value: string): string {
+        return (value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+    }
+
+    private parseCsv(content: string): string[][] {
+        const rows: string[][] = [];
+        let currentRow: string[] = [];
+        let currentField = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < content.length; i += 1) {
+            const char = content[i];
+            const nextChar = content[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    currentField += '"';
+                    i += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (char === ',' && !inQuotes) {
+                currentRow.push(currentField);
+                currentField = '';
+                continue;
+            }
+
+            if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (char === '\r' && nextChar === '\n') {
+                    i += 1;
+                }
+                currentRow.push(currentField);
+                if (currentRow.some(value => value.trim() !== '')) {
+                    rows.push(currentRow);
+                }
+                currentRow = [];
+                currentField = '';
+                continue;
+            }
+
+            currentField += char;
+        }
+
+        if (currentField.length > 0 || currentRow.length > 0) {
+            currentRow.push(currentField);
+            if (currentRow.some(value => value.trim() !== '')) {
+                rows.push(currentRow);
+            }
+        }
+
+        return rows;
+    }
+
+    private splitMulti(value: string): string[] {
+        if (!value) return [];
+        return value
+            .split(',')
+            .map(entry => entry.trim())
+            .filter(entry => entry.length > 0);
+    }
+
+    private parseDateOnly(value: string): string {
+        if (!value) return '';
+        const datePart = value.trim().split(' ')[0];
+        if (!datePart) return '';
+        return datePart.replace(/\//g, '-');
+    }
+
+    private parseTimestampIso(value: string): string {
+        if (!value) return '';
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        const [datePart, timePart] = trimmed.split(' ');
+        const isoDate = datePart.replace(/\//g, '-');
+        const iso = timePart ? `${isoDate}T${timePart}` : isoDate;
+        const parsed = new Date(iso);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return parsed.toISOString();
+    }
+
+    private hashString(value: string): string {
+        let hash = 0;
+        for (let i = 0; i < value.length; i += 1) {
+            hash = ((hash << 5) - hash) + value.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash).toString(36);
+    }
+
+    private async handleImportCsvChange(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await this.readCsvFile(file);
+            const rows = this.parseCsv(text);
+            if (rows.length < 2) {
+                alert('CSV vazio ou invalido.');
+                return;
+            }
+
+            const header = rows[0];
+            const headerMap = new Map<string, number>();
+            header.forEach((name, index) => {
+                headerMap.set(this.normalizeHeader(name), index);
+            });
+
+            const findColumn = (needle: string) => {
+                const normalizedNeedle = this.normalizeHeader(needle);
+                for (const [key, index] of headerMap.entries()) {
+                    if (key.includes(normalizedNeedle)) {
+                        return index;
+                    }
+                }
+                return -1;
+            };
+
+            const cols = {
+                timestamp: findColumn('carimbo de data'),
+                email: findColumn('endereco de email'),
+                name: findColumn('nome completo'),
+                phone: findColumn('numero de telemovel'),
+                address: findColumn('morada completa'),
+                usageFrequency: findColumn('frequencia costumas usar sabonete'),
+                usageZones: findColumn('zonas do corpo pretendes usar o sabonete'),
+                previousReaction: findColumn('reacao'),
+                oiliness: findColumn('brilho oleoso'),
+                drynessAfterWash: findColumn('repuxa'),
+                irritationFrequency: findColumn('comichao'),
+                skinProblems: findColumn('problemas de pele'),
+                medications: findColumn('medicamentos'),
+                sleepQuality: findColumn('dormir bem'),
+                dietType: findColumn('tipo de alimentos'),
+                waterIntake: findColumn('copos de agua'),
+                sweatIntensity: findColumn('transpiras'),
+                environmentType: findColumn('tipo de ambiente'),
+                sunReaction: findColumn('ao sol'),
+                dailyProducts: findColumn('produto na pele'),
+                allergies: findColumn('alergia conhecida'),
+                animalRestrictions: findColumn('restricao quanto ao uso de ingredientes'),
+                consentsRequired: findColumn('informacoes importantes'),
+                extraSoapInfo: findColumn('a pele fala em silencio'),
+                skinCuriosity: findColumn('comportamento curioso'),
+                extraSkinDetails: findColumn('mais algum detalhe sobre a tua pele'),
+                extraEnvironmentInfo: findColumn('a pele tambem reage'),
+                specialCareHabits: findColumn('cuidado especial que resulta bem contigo'),
+                personalConvictions: findColumn('mais algum cuidado conviccao ou limite pessoal'),
+                consentsOptional: findColumn('consentimentos opcionais'),
+                ageGroup: findColumn('faixa etaria')
+            };
+
+            const getValue = (row: string[], index: number) => {
+                if (index < 0 || index >= row.length) return '';
+                return row[index]?.trim() || '';
+            };
+
+            const normalizeEmail = (value: string) => value.trim().toLowerCase();
+            const normalizePhone = (value: string) => value.replace(/\D+/g, '');
+
+            const existingClients = ClientService.getInstance().getAll();
+            const clientsByEmail = new Map(existingClients.filter(c => c.email).map(c => [normalizeEmail(c.email), c]));
+            const clientsByPhone = new Map(existingClients.filter(c => c.phone).map(c => [normalizePhone(c.phone), c]));
+
+            const existingQuestionnaires = await QuestionnaireService.getQuestionnaires();
+            const questionnaireIds = new Set(existingQuestionnaires.map(q => q.id));
+
+            let createdClients = 0;
+            let updatedClients = 0;
+            let createdQuestionnaires = 0;
+            let skippedRows = 0;
+
+            for (const row of rows.slice(1)) {
+                if (!row || row.length === 0) continue;
+
+                const name = getValue(row, cols.name);
+                const email = getValue(row, cols.email);
+                const phone = getValue(row, cols.phone);
+                const address = getValue(row, cols.address);
+
+                if (!name && !email && !phone) {
+                    skippedRows += 1;
+                    continue;
+                }
+
+                const emailKey = email ? normalizeEmail(email) : '';
+                const phoneKey = phone ? normalizePhone(phone) : '';
+                const existing = (emailKey && clientsByEmail.get(emailKey)) || (phoneKey && clientsByPhone.get(phoneKey));
+
+                const requiredConsentText = getValue(row, cols.consentsRequired);
+                const hasRequiredConsent = requiredConsentText.length > 0;
+                const optionalConsentText = getValue(row, cols.consentsOptional);
+                const consentFutureContact = /contactad|contacto|contacte/i.test(optionalConsentText);
+                const consentAdvertising = /publicit|autorizo/i.test(optionalConsentText);
+
+                const baseClient = {
+                    id: existing?.id || Math.random().toString(36).substr(2, 9),
+                    name: name || existing?.name || '',
+                    email: email || existing?.email || '',
+                    phone: phone || existing?.phone || '',
+                    address: address || existing?.address || '',
+                    consentCureProcess: existing?.consentCureProcess || hasRequiredConsent,
+                    consentDataTruth: existing?.consentDataTruth || hasRequiredConsent,
+                    consentRGPD: existing?.consentRGPD || hasRequiredConsent,
+                    consentFutureContact: existing?.consentFutureContact || consentFutureContact,
+                    consentAdvertising: existing?.consentAdvertising || consentAdvertising,
+                    createdAt: existing?.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                ClientService.getInstance().save(baseClient);
+
+                if (existing) {
+                    updatedClients += 1;
+                } else {
+                    createdClients += 1;
+                    if (emailKey) clientsByEmail.set(emailKey, baseClient);
+                    if (phoneKey) clientsByPhone.set(phoneKey, baseClient);
+                }
+
+                const timestampRaw = getValue(row, cols.timestamp);
+                const questionnaireIdBase = `${emailKey || phoneKey || name}-${timestampRaw}`;
+                const questionnaireId = `q_${this.hashString(questionnaireIdBase)}`;
+                if (questionnaireIds.has(questionnaireId)) {
+                    continue;
+                }
+
+                const rawProducts = getValue(row, cols.dailyProducts);
+                const productsList = this.splitMulti(rawProducts);
+                const dailyProductsOther = rawProducts.includes(':') ? rawProducts.split(':').slice(1).join(':').trim() : '';
+                const dailyProducts = rawProducts.toLowerCase().startsWith('nao') ? [] : productsList;
+
+                const timestampIso = this.parseTimestampIso(timestampRaw) || new Date().toISOString();
+                const questionnaire: Questionnaire = {
+                    id: questionnaireId,
+                    clientId: baseClient.id,
+                    clientName: baseClient.name,
+                    date: this.parseDateOnly(timestampRaw) || new Date().toISOString().split('T')[0],
+                    ageGroup: getValue(row, cols.ageGroup),
+                    usageFrequency: getValue(row, cols.usageFrequency),
+                    usageZones: this.splitMulti(getValue(row, cols.usageZones)),
+                    previousReaction: getValue(row, cols.previousReaction),
+                    extraSoapInfo: getValue(row, cols.extraSoapInfo) || undefined,
+                    oiliness: getValue(row, cols.oiliness),
+                    drynessAfterWash: getValue(row, cols.drynessAfterWash),
+                    irritationFrequency: getValue(row, cols.irritationFrequency),
+                    skinCuriosity: getValue(row, cols.skinCuriosity) || undefined,
+                    skinProblems: this.splitMulti(getValue(row, cols.skinProblems)),
+                    skinProblemsOther: undefined,
+                    medications: getValue(row, cols.medications),
+                    medicationsOther: undefined,
+                    extraSkinDetails: getValue(row, cols.extraSkinDetails) || undefined,
+                    sleepQuality: getValue(row, cols.sleepQuality),
+                    dietType: this.splitMulti(getValue(row, cols.dietType)),
+                    waterIntake: getValue(row, cols.waterIntake),
+                    sweatIntensity: getValue(row, cols.sweatIntensity),
+                    environmentType: this.splitMulti(getValue(row, cols.environmentType)),
+                    sunReaction: getValue(row, cols.sunReaction),
+                    extraEnvironmentInfo: getValue(row, cols.extraEnvironmentInfo) || undefined,
+                    dailyProducts,
+                    dailyProductsOther: dailyProductsOther || undefined,
+                    specialCareHabits: getValue(row, cols.specialCareHabits) || undefined,
+                    allergies: getValue(row, cols.allergies),
+                    allergiesOther: undefined,
+                    animalProductRestrictions: getValue(row, cols.animalRestrictions),
+                    animalProductRestrictionsOther: undefined,
+                    personalConvictions: getValue(row, cols.personalConvictions) || undefined,
+                    createdAt: timestampIso,
+                    updatedAt: timestampIso
+                };
+
+                await QuestionnaireService.saveQuestionnaire(questionnaire);
+                questionnaireIds.add(questionnaireId);
+                createdQuestionnaires += 1;
+            }
+
+            await this.loadClients();
+            alert(`Importacao concluida. Clientes novos: ${createdClients}, clientes atualizados: ${updatedClients}, questionarios novos: ${createdQuestionnaires}, linhas ignoradas: ${skippedRows}.`);
+        } catch (error) {
+            alert('Erro ao importar CSV.');
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    private normalizeImportedClient(client: Partial<Client>): Client {
+        const nowIso = new Date().toISOString();
+        return {
+            id: client.id || Math.random().toString(36).substr(2, 9),
+            name: client.name || '',
+            email: client.email || '',
+            phone: client.phone || '',
+            address: client.address || '',
+            consentCureProcess: client.consentCureProcess ?? false,
+            consentDataTruth: client.consentDataTruth ?? false,
+            consentRGPD: client.consentRGPD ?? false,
+            consentFutureContact: client.consentFutureContact ?? false,
+            consentAdvertising: client.consentAdvertising ?? false,
+            createdAt: client.createdAt || nowIso,
+            updatedAt: nowIso
+        };
+    }
+
+    private async handleImportClientJsonChange(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const payloadClient = parsed?.client || parsed;
+            const payloadClients = parsed?.clients;
+            const clients = Array.isArray(payloadClients)
+                ? payloadClients
+                : (payloadClient && payloadClient.name ? [payloadClient] : []);
+
+            if (clients.length === 0) {
+                alert('Ficheiro invalido para cliente.');
+                return;
+            }
+
+            const existingActivities = ClientService.getInstance().getAllActivities();
+            const activityIds = new Set(existingActivities.map(a => a.id));
+            const existingRecipes = RecipeService.getInstance().getAll();
+            const recipeIds = new Set(existingRecipes.map(r => r.id));
+            const existingQuestionnaires = await QuestionnaireService.getQuestionnaires();
+            const questionnaireIds = new Set(existingQuestionnaires.map(q => q.id));
+
+            for (const client of clients) {
+                const normalized = this.normalizeImportedClient(client);
+                const oldId = client.id || normalized.id;
+                ClientService.getInstance().save(normalized);
+
+                const activities = parsed?.activities || [];
+                if (Array.isArray(activities)) {
+                    activities
+                        .filter((activity: any) => !activity.clientId || activity.clientId === oldId)
+                        .forEach((activity: any) => {
+                            const id = activity.id || Math.random().toString(36).substr(2, 9);
+                            if (activityIds.has(id)) return;
+                            activityIds.add(id);
+                            ClientService.getInstance().addActivity({ ...activity, id, clientId: normalized.id });
+                        });
+                }
+
+                const recipes = parsed?.recipes || [];
+                if (Array.isArray(recipes)) {
+                    recipes
+                        .filter((recipe: any) => !recipe.clientId || recipe.clientId === oldId)
+                        .forEach((recipe: any) => {
+                            const id = recipe.id || Math.random().toString(36).substr(2, 9);
+                            if (recipeIds.has(id)) return;
+                            recipeIds.add(id);
+                            RecipeService.getInstance().save({ ...recipe, id, clientId: normalized.id });
+                        });
+                }
+
+                const questionnaires = parsed?.questionnaires || [];
+                if (Array.isArray(questionnaires)) {
+                    for (const questionnaire of questionnaires.filter((q: any) => !q.clientId || q.clientId === oldId)) {
+                        const id = questionnaire.id || Math.random().toString(36).substr(2, 9);
+                        if (questionnaireIds.has(id)) continue;
+                        questionnaireIds.add(id);
+                        await QuestionnaireService.saveQuestionnaire({ ...questionnaire, id, clientId: normalized.id, clientName: normalized.name });
+                    }
+                }
+            }
+
+            await this.loadClients();
+            alert('Importacao de cliente concluida.');
+        } catch (error) {
+            alert('Erro ao importar cliente.');
+        } finally {
+            event.target.value = '';
+        }
+    }
+
+    private handleImportCsvClick() {
+        this.importInputRef?.click();
+    }
+
+    private handleImportJsonClick() {
+        this.importJsonInputRef?.click();
     }
 
     private openModal(client: Client | null = null) {
@@ -181,6 +582,26 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
         return (
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1 }}>
                 <div style={{ flex: 1 }}></div>
+                <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportCsvClick()}>
+                    <Upload size={14} /> Importar CSV
+                </button>
+                <input
+                    ref={(el) => { this.importInputRef = el; }}
+                    type="file"
+                    accept=".csv,text/csv"
+                    style={{ display: 'none' }}
+                    onChange={(event) => this.handleImportCsvChange(event)}
+                />
+                <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleImportJsonClick()}>
+                    <Upload size={14} /> Importar Cliente
+                </button>
+                <input
+                    ref={(el) => { this.importJsonInputRef = el; }}
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: 'none' }}
+                    onChange={(event) => this.handleImportClientJsonChange(event)}
+                />
                 <button className="btn btn-primary" style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }} onClick={() => this.openModal()}>
                     <Plus size={18} /> Novo Cliente
                 </button>
@@ -215,7 +636,12 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                             return (
                                 <tr key={client.id} style={{ borderTop: '1px solid #f3f4f6' }}>
                                     <td style={{ padding: '1rem 1.5rem' }}>
-                                        <div style={{ fontWeight: 600 }}>{client.name}</div>
+                                        <div
+                                            style={{ fontWeight: 600, cursor: 'pointer' }}
+                                            onClick={() => this.setState({ selectedClientId: client.id, isDetailsOpen: true })}
+                                        >
+                                            {client.name}
+                                        </div>
                                         <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>{client.email}</div>
                                     </td>
                                     <td style={{ padding: '1rem 1.5rem' }}>

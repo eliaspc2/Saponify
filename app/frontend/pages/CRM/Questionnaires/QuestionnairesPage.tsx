@@ -204,7 +204,14 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                     <tbody>
                         {filteredData.map((q: Questionnaire) => (
                             <tr key={q.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }}>{q.clientName}</td>
+                                <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }}>
+                                    <span
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => this.openModal(q)}
+                                    >
+                                        {q.clientName}
+                                    </span>
+                                </td>
                                 <td style={{ padding: '1rem 1.5rem', color: 'var(--color-text-secondary)' }}>{q.date}</td>
                                 <td style={{ padding: '1rem 1.5rem' }}>{q.ageGroup}</td>
                                 <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>

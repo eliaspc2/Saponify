@@ -258,8 +258,18 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                     <tbody>
                         {filteredData.map(recipe => (
                             <tr key={recipe.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)' }}>RE{recipe.code.padStart(4, '0')}</td>
-                                <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 500 }}>{recipe.name || 'Sem nome'}</td>
+                                <td
+                                    style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)', cursor: 'pointer' }}
+                                    onClick={() => this.openEditModal(recipe)}
+                                >
+                                    RE{recipe.code.padStart(4, '0')}
+                                </td>
+                                <td
+                                    style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}
+                                    onClick={() => this.openEditModal(recipe)}
+                                >
+                                    {recipe.name || 'Sem nome'}
+                                </td>
                                 <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#6B7280' }}>{new Date(recipe.date).toLocaleDateString()}</td>
                                 <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

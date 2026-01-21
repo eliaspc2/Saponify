@@ -9,7 +9,7 @@ interface IngredientFormModalProps {
     onSave: (ingredient: Ingredient) => void;
 }
 
-import { INGREDIENT_CATEGORIES } from '../../shared/constants/Categories';
+import { INGREDIENT_CATEGORIES, formatCategoryLabel } from '../../shared/constants/Categories';
 
 // Remove local CATEGORIES definition and use imported one
 
@@ -231,7 +231,9 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
                                     className="form-control"
                                     style={{ width: '100%' }}
                                 >
-                                    {INGREDIENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    {INGREDIENT_CATEGORIES.map(cat => (
+                                        <option key={cat} value={cat}>{formatCategoryLabel(cat)}</option>
+                                    ))}
                                 </select>
                             </InputGroup>
                         </div>

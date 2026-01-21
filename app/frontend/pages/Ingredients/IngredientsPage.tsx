@@ -6,7 +6,7 @@ import { Ingredient } from '../../../shared/types/Ingredient';
 import { IngredientService } from '../../../orchestrator/services/IngredientService';
 import { Upload, Download, Plus, Trash2, Edit } from 'lucide-react';
 import { IngredientFormModal } from '../../components/IngredientFormModal';
-import { INGREDIENT_CATEGORIES } from '../../../shared/constants/Categories';
+import { INGREDIENT_CATEGORIES, formatCategoryLabel } from '../../../shared/constants/Categories';
 
 interface IngredientsPageState extends BaseListPageState<Ingredient> {
     editingItem: Ingredient | null;
@@ -208,7 +208,7 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                 >
                     <option value="all">Todas as Categorias</option>
                     {INGREDIENT_CATEGORIES.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                        <option key={cat} value={cat}>{formatCategoryLabel(cat)}</option>
                     ))}
                 </select>
 
@@ -288,9 +288,9 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                                                 fontSize: '0.75rem',
                                                 color: '#4B5563'
                                             }}>
-                                                {ing.category}
-                                            </span>
-                                        </td>
+                                            {formatCategoryLabel(ing.category)}
+                                        </span>
+                                    </td>
                                         <td style={{ padding: '1rem 1.5rem' }}>{ing.sapNaOH}</td>
                                         <td style={{ padding: '1rem 1.5rem' }}>{ing.sapKOH}</td>
                                         <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>

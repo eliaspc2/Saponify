@@ -4,6 +4,9 @@ import { ClientService } from '../../../orchestrator/services/ClientService';
 import { RecipeService } from '../../../orchestrator/services/RecipeService';
 import { IngredientService } from '../../../orchestrator/services/IngredientService';
 import { ClientActivity } from '../../../shared/types/ClientActivity';
+import { Recipe, RecipeIngredient } from '../../../shared/types/Recipe';
+import { Modal } from '../../components/Modal';
+import { ClientDetailsPage } from '../CRM/Clients/ClientDetailsPage';
 import {
     Users,
     Beaker,
@@ -29,6 +32,10 @@ interface HomePageState extends BasePageState {
     };
     recentActivities: ClientActivity[];
     productionActivities: ClientActivity[];
+    selectedClientId: string | null;
+    isClientDetailsOpen: boolean;
+    recipePreview: Recipe | null;
+    isRecipePreviewOpen: boolean;
 }
 
 export class HomePage extends BasePage<HomePageProps, HomePageState> {
@@ -47,6 +54,10 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
             },
             recentActivities: [],
             productionActivities: [],
+            selectedClientId: null,
+            isClientDetailsOpen: false,
+            recipePreview: null,
+            isRecipePreviewOpen: false,
             isLoading: true,
             error: null
         };
@@ -87,6 +98,106 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
             productionActivities,
             isLoading: false
         });
+    }
+
+    private openClientDetails(clientId: string) {
+        this.setState({ selectedClientId: clientId, isClientDetailsOpen: true });
+    }
+
+    private closeClientDetails() {
+        this.setState({ selectedClientId: null, isClientDetailsOpen: false });
+    }
+
+    private closeRecipePreview() {
+        this.setState({ recipePreview: null, isRecipePreviewOpen: false });
+    }
+
+    private handleRecentActivityClick(activity: ClientActivity) {
+        const recipeId = activity.details?.recipeId;
+        if (recipeId) {
+            const recipe = RecipeService.getInstance().getById(recipeId);
+            if (recipe) {
+                this.setState({ recipePreview: recipe, isRecipePreviewOpen: true });
+                return;
+            }
+        }
+        if (activity.clientId) {
+            this.openClientDetails(activity.clientId);
+        }
+    }
+
+    private renderRecipeGroup(title: string, items: RecipeIngredient[]) {
+        if (!items || items.length === 0) return null;
+        return (
+            <div>
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.5rem' }}>{title}</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                            <span>{item.name}</span>
+                            <span style={{ fontWeight: 700 }}>{item.amount}g</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    private renderRecipePreviewModal() {
+        const { recipePreview, isRecipePreviewOpen } = this.state;
+        if (!recipePreview) return null;
+
+        return (
+            <Modal
+                isOpen={isRecipePreviewOpen}
+                onClose={() => this.closeRecipePreview()}
+                title={`Receita: RE${recipePreview.code}`}
+                maxWidth="850px"
+                footer={
+                    <button className="btn btn-secondary" onClick={() => this.closeRecipePreview()}>Fechar</button>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                        <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.25rem' }}>Nome</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 700 }}>{recipePreview.name || 'Sem nome'}</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Alcali</label>
+                            <span style={{ fontWeight: 700 }}>{recipePreview.alkali}</span>
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Superfat</label>
+                            <span style={{ fontWeight: 700 }}>{recipePreview.superfat}%</span>
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Concentracao</label>
+                            <span style={{ fontWeight: 700 }}>{recipePreview.waterConcentration}%</span>
+                        </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {this.renderRecipeGroup('Fase 1: Gorduras', recipePreview.fats)}
+                            {this.renderRecipeGroup('Fase 2: Liquidos', recipePreview.liquids)}
+                            {this.renderRecipeGroup('Fase 2: Aditivos Funcionais', recipePreview.functionalAdditives)}
+                            {this.renderRecipeGroup('Fase 2: Aditivos da Lixivia', recipePreview.lyeAdditives)}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {this.renderRecipeGroup('Fase 3: Aditivos Traco', recipePreview.traceAdditives)}
+                            {this.renderRecipeGroup('Fase 3: Superfat Oils', recipePreview.superfatOils)}
+                            {this.renderRecipeGroup('Fase 3: Oleos Essenciais', recipePreview.essentialOils)}
+                        </div>
+                    </div>
+                    {recipePreview.notes ? (
+                        <div>
+                            <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.25rem' }}>Notas</div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{recipePreview.notes}</div>
+                        </div>
+                    ) : null}
+                </div>
+            </Modal>
+        );
     }
 
     renderContent() {
@@ -138,13 +249,17 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {recentActivities.map((activity, idx) => (
-                                    <div key={idx} style={{
+                                    <div
+                                        key={idx}
+                                        onClick={() => this.handleRecentActivityClick(activity)}
+                                        style={{
                                         display: 'flex',
                                         gap: '1rem',
                                         padding: '1rem',
                                         background: '#F9FAFB',
                                         borderRadius: 'var(--radius-md)',
-                                        border: '1px solid #F3F4F6'
+                                        border: '1px solid #F3F4F6',
+                                        cursor: activity.clientId || activity.details?.recipeId ? 'pointer' : 'default'
                                     }}>
                                         <div style={{
                                             width: '36px',
@@ -187,7 +302,21 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Produções em Curso</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {productionActivities.map((a, i) => (
-                                    <div key={i} style={{ padding: '0.75rem', background: 'rgba(90, 125, 76, 0.08)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
+                                    <div
+                                        key={i}
+                                        onClick={() => {
+                                            if (a.clientId) {
+                                                this.openClientDetails(a.clientId);
+                                            }
+                                        }}
+                                        style={{
+                                            padding: '0.75rem',
+                                            background: 'rgba(90, 125, 76, 0.08)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: '0.85rem',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
                                         <div style={{ fontWeight: 700 }}>{a.details?.recipeName}</div>
                                         <div style={{ opacity: 0.85, fontSize: '0.75rem' }}>
                                             Pronto em: {new Date(a.details?.physicalReadyDate || '').toLocaleDateString()}
@@ -249,6 +378,14 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         </div>
                     </div>
                 </div>
+                {this.state.selectedClientId && (
+                    <ClientDetailsPage
+                        clientId={this.state.selectedClientId}
+                        isOpen={this.state.isClientDetailsOpen}
+                        onClose={() => this.closeClientDetails()}
+                    />
+                )}
+                {this.renderRecipePreviewModal()}
             </div>
         );
     }
