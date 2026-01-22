@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Layout } from './core/Layout';
 import { HomePage } from './pages/Home/HomePage';
 import { CalculatorPage } from './pages/Calculator/CalculatorPage';
@@ -7,10 +7,17 @@ import { ClientsPage } from './pages/CRM/Clients/ClientsPage';
 import { QuestionnairesPage } from './pages/CRM/Questionnaires/QuestionnairesPage';
 import { SavedRecipesPage } from './pages/CRM/Recipes/SavedRecipesPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
+import { FirestoreSyncService } from '../orchestrator/services/FirestoreSyncService';
 
 function App() {
     const [activePage, setActivePage] = useState('home');
     const [pageParams, setPageParams] = useState<any>(null);
+
+    useEffect(() => {
+        FirestoreSyncService.getInstance().start().catch((error) => {
+            console.warn('Firestore sync init failed:', error);
+        });
+    }, []);
 
     const handleNavigate = (page: string, params: any = null) => {
         setActivePage(page);

@@ -4,6 +4,7 @@ import { IngredientService } from './IngredientService';
 import { SettingsService } from './SettingsService';
 import { QuestionnaireService } from './QuestionnaireService';
 import { CalculatorService } from './CalculatorService';
+import { FirestoreSyncService } from './FirestoreSyncService';
 
 export class BackupService {
     private static instance: BackupService;
@@ -120,13 +121,17 @@ export class BackupService {
                 ? this.simpleEncrypt(jsonData, settings.autoBackupPassword)
                 : jsonData;
 
+            const timestamp = new Date().toISOString();
+
             // Guardar em LocalStorage
             localStorage.setItem(BackupService.AUTO_BACKUP_KEY, finalData);
-            localStorage.setItem(`${BackupService.AUTO_BACKUP_KEY}_timestamp`, new Date().toISOString());
+            localStorage.setItem(`${BackupService.AUTO_BACKUP_KEY}_timestamp`, timestamp);
 
             // Atualizar timestamp nas configurações
-            settings.lastAutoBackup = new Date().toISOString();
+            settings.lastAutoBackup = timestamp;
             SettingsService.getInstance().updateSettings(settings);
+
+            await FirestoreSyncService.getInstance().pushAutoBackup(finalData, timestamp);
 
             console.log('Backup automático realizado com sucesso');
         } catch (error) {

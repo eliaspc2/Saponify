@@ -1,0 +1,168 @@
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
+
+type RemoteBackupPayload = {
+    data: string;
+    updatedAt: string;
+    deviceId: string;
+};
+
+const FIRESTORE_SYNC_ENABLED = typeof window !== 'undefined'
+    ? (window as any).__SAPONIFY_FIRESTORE_SYNC_ENABLED__ !== false
+    : true;
+
+const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyAF-gunjUtjfz4NouUulE3pfKylDKbrabw',
+    authDomain: 'saponify-sync.firebaseapp.com',
+    projectId: 'saponify-sync',
+    storageBucket: 'saponify-sync.firebasestorage.app',
+    messagingSenderId: '14943408423',
+    appId: '1:14943408423:web:590ec820e586f522e65902'
+};
+
+const AUTO_BACKUP_KEY = 'saponify_auto_backup';
+const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
+const DEVICE_ID_KEY = 'saponify_device_id';
+const USER_ID_KEY = 'saponify_sync_uid';
+
+export class FirestoreSyncService {
+    private static instance: FirestoreSyncService;
+    private app: FirebaseApp | null = null;
+    private db: Firestore | null = null;
+    private deviceId: string;
+    private uid: string | null = null;
+    private initPromise: Promise<void> | null = null;
+    private pendingTimer: number | null = null;
+    private pendingPayload: RemoteBackupPayload | null = null;
+
+    private constructor() {
+        this.deviceId = this.getOrCreateId(DEVICE_ID_KEY);
+    }
+
+    public static getInstance(): FirestoreSyncService {
+        if (!FirestoreSyncService.instance) {
+            FirestoreSyncService.instance = new FirestoreSyncService();
+        }
+        return FirestoreSyncService.instance;
+    }
+
+    public async start(): Promise<void> {
+        if (!FIRESTORE_SYNC_ENABLED) return;
+        await this.init();
+        await this.syncFromRemoteIfNewer();
+    }
+
+    public async pushAutoBackup(data: string, updatedAt: string): Promise<void> {
+        if (!FIRESTORE_SYNC_ENABLED) return;
+        await this.init();
+        const payload: RemoteBackupPayload = {
+            data,
+            updatedAt,
+            deviceId: this.deviceId
+        };
+
+        this.pendingPayload = payload;
+        if (this.pendingTimer) {
+            window.clearTimeout(this.pendingTimer);
+        }
+        this.pendingTimer = window.setTimeout(async () => {
+            const ref = this.getDocRef();
+            if (!ref || !this.pendingPayload) return;
+            const toSend = this.pendingPayload;
+            this.pendingPayload = null;
+            await setDoc(ref, toSend, { merge: false });
+        }, 500);
+    }
+
+    private async init(): Promise<void> {
+        if (this.db) return;
+        if (this.initPromise) return this.initPromise;
+        this.initPromise = (async () => {
+            this.app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+            this.db = getFirestore(this.app);
+            this.uid = this.resolveUid();
+        })();
+        return this.initPromise;
+    }
+
+    private async syncFromRemoteIfNewer(): Promise<void> {
+        const ref = this.getDocRef();
+        if (!ref) return;
+
+        const localData = this.safeGetItem(AUTO_BACKUP_KEY);
+        const localUpdatedAt = this.safeGetItem(AUTO_BACKUP_TS_KEY);
+        const localTime = localUpdatedAt ? Date.parse(localUpdatedAt) || 0 : 0;
+
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+            if (localData && localUpdatedAt) {
+                await this.pushAutoBackup(localData, localUpdatedAt);
+            }
+            return;
+        }
+
+        const remote = snap.data() as RemoteBackupPayload;
+        if (!remote?.data || !remote?.updatedAt) return;
+
+        const remoteTime = Date.parse(remote.updatedAt) || 0;
+        if (remote.deviceId === this.deviceId && localTime >= remoteTime) {
+            return;
+        }
+
+        if (remoteTime > localTime) {
+            this.safeSetItem(AUTO_BACKUP_KEY, remote.data);
+            this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
+            return;
+        }
+
+        if (localData && localUpdatedAt && localTime > remoteTime) {
+            await this.pushAutoBackup(localData, localUpdatedAt);
+        }
+    }
+
+    private getDocRef() {
+        if (!this.db || !this.uid) return null;
+        return doc(this.db, 'users', this.uid, 'appState', 'main');
+    }
+
+    private resolveUid(): string {
+        const configured = typeof window !== 'undefined'
+            ? (window as any).__SAPONIFY_SYNC_UID__
+            : null;
+        if (typeof configured === 'string' && configured.trim()) {
+            return configured.trim();
+        }
+        return this.getOrCreateId(USER_ID_KEY);
+    }
+
+    private getOrCreateId(key: string): string {
+        const existing = this.safeGetItem(key);
+        if (existing) return existing;
+        const generated = this.generateId();
+        this.safeSetItem(key, generated);
+        return generated;
+    }
+
+    private generateId(): string {
+        if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+            return crypto.randomUUID();
+        }
+        return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    private safeGetItem(key: string): string | null {
+        try {
+            return localStorage.getItem(key);
+        } catch {
+            return null;
+        }
+    }
+
+    private safeSetItem(key: string, value: string) {
+        try {
+            localStorage.setItem(key, value);
+        } catch {
+            // Ignore storage errors to avoid breaking the app.
+        }
+    }
+}
