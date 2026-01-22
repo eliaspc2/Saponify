@@ -37,6 +37,7 @@ const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
 const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
 const SYNC_PASSWORD_KEY = 'saponify_sync_password';
 const SYNC_ENC_PREFIX = 'SYNCENC1:';
+const SYNC_PENDING_IMPORT_KEY = 'saponify_sync_pending_import';
 const AUTH_REDIRECT_FLAG = 'saponify_auth_redirect_in_progress';
 const AUTH_LAST_ATTEMPT_KEY = 'saponify_auth_last_attempt';
 
@@ -238,6 +239,7 @@ export class FirestoreSyncService {
                 const decrypted = await this.decryptFromSync(remote.data);
                 this.safeSetItem(AUTO_BACKUP_KEY, decrypted);
                 this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
+                this.safeSetItem(SYNC_PENDING_IMPORT_KEY, 'true');
                 this.setLastSyncSuccess(new Date().toISOString());
                 this.setLastSyncError('');
                 return;
@@ -251,6 +253,7 @@ export class FirestoreSyncService {
                     const migratedAt = new Date().toISOString();
                     this.safeSetItem(AUTO_BACKUP_KEY, remote.data);
                     this.safeSetItem(AUTO_BACKUP_TS_KEY, migratedAt);
+                    this.safeSetItem(SYNC_PENDING_IMPORT_KEY, 'true');
                     await this.pushAutoBackup(remote.data, migratedAt);
                     this.setLastSyncSuccess(new Date().toISOString());
                     return;

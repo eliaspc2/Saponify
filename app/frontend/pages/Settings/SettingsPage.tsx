@@ -196,6 +196,15 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         if (!applied) {
             alert('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.');
         } else {
+            const data = localStorage.getItem(AUTO_BACKUP_KEY);
+            if (data) {
+                const ok = await BackupService.getInstance().importAllData(data);
+                if (ok) {
+                    localStorage.removeItem('saponify_sync_pending_import');
+                    location.reload();
+                    return;
+                }
+            }
             alert('Dados remotos aplicados ao backup local. Atualize a página para carregar o estado.');
         }
     }
@@ -435,8 +444,8 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                         <button
                                             type="button"
                                             onClick={() => this.setState(prev => ({ showBackupPassword: !prev.showBackupPassword }))}
-                                            className="btn btn-secondary"
-                                            style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)', padding: '0.35rem', minWidth: 'auto' }}
+                                            className="icon-button"
+                                            style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)' }}
                                             title={this.state.showBackupPassword ? 'Ocultar password' : 'Mostrar password'}
                                         >
                                             {this.state.showBackupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -597,8 +606,8 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                     <button
                                         type="button"
                                         onClick={() => this.setState(prev => ({ showSyncPassword: !prev.showSyncPassword }))}
-                                        className="btn btn-secondary"
-                                        style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)', padding: '0.3rem', minWidth: 'auto' }}
+                                        className="icon-button"
+                                        style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)' }}
                                         title={this.state.showSyncPassword ? 'Ocultar password' : 'Mostrar password'}
                                     >
                                         {this.state.showSyncPassword ? <EyeOff size={16} /> : <Eye size={16} />}

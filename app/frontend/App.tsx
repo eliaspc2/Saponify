@@ -8,15 +8,32 @@ import { QuestionnairesPage } from './pages/CRM/Questionnaires/QuestionnairesPag
 import { SavedRecipesPage } from './pages/CRM/Recipes/SavedRecipesPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
 import { FirestoreSyncService } from '../orchestrator/services/FirestoreSyncService';
+import { BackupService } from '../orchestrator/services/BackupService';
 
 function App() {
     const [activePage, setActivePage] = useState('home');
     const [pageParams, setPageParams] = useState<any>(null);
 
     useEffect(() => {
-        FirestoreSyncService.getInstance().start().catch((error) => {
-            console.warn('Firestore sync init failed:', error);
-        });
+        const run = async () => {
+            try {
+                await FirestoreSyncService.getInstance().start();
+                const pending = localStorage.getItem('saponify_sync_pending_import');
+                if (pending === 'true') {
+                    const data = localStorage.getItem('saponify_auto_backup');
+                    if (data) {
+                        const ok = await BackupService.getInstance().importAllData(data);
+                        if (ok) {
+                            localStorage.removeItem('saponify_sync_pending_import');
+                            location.reload();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Firestore sync init failed:', error);
+            }
+        };
+        void run();
     }, []);
 
     const handleNavigate = (page: string, params: any = null) => {
