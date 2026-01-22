@@ -1,5 +1,15 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
+import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signInWithRedirect,
+    onAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence,
+    type Auth
+} from 'firebase/auth';
 
 type RemoteBackupPayload = {
     data: string;
@@ -19,15 +29,14 @@ const FIREBASE_CONFIG = {
 const AUTO_BACKUP_KEY = 'saponify_auto_backup';
 const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
 const DEVICE_ID_KEY = 'saponify_device_id';
-const USER_ID_KEY = 'saponify_sync_uid';
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
 
 export class FirestoreSyncService {
     private static instance: FirestoreSyncService;
     private app: FirebaseApp | null = null;
     private db: Firestore | null = null;
+    private auth: Auth | null = null;
     private deviceId: string;
-    private uid: string | null = null;
     private initPromise: Promise<void> | null = null;
     private pendingTimer: number | null = null;
     private pendingPayload: RemoteBackupPayload | null = null;
@@ -46,12 +55,14 @@ export class FirestoreSyncService {
     public async start(): Promise<void> {
         if (!this.isSyncEnabled()) return;
         await this.init();
+        await this.ensureAuth();
         await this.syncFromRemoteIfNewer();
     }
 
     public async pushAutoBackup(data: string, updatedAt: string): Promise<void> {
         if (!this.isSyncEnabled()) return;
         await this.init();
+        await this.ensureAuth();
         const payload: RemoteBackupPayload = {
             data,
             updatedAt,
@@ -77,7 +88,8 @@ export class FirestoreSyncService {
         this.initPromise = (async () => {
             this.app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
             this.db = getFirestore(this.app);
-            this.uid = this.resolveUid();
+            this.auth = getAuth(this.app);
+            await setPersistence(this.auth, browserLocalPersistence);
         })();
         return this.initPromise;
     }
@@ -118,18 +130,9 @@ export class FirestoreSyncService {
     }
 
     private getDocRef() {
-        if (!this.db || !this.uid) return null;
-        return doc(this.db, 'users', this.uid, 'appState', 'main');
-    }
-
-    private resolveUid(): string {
-        const configured = typeof window !== 'undefined'
-            ? (window as any).__SAPONIFY_SYNC_UID__
-            : null;
-        if (typeof configured === 'string' && configured.trim()) {
-            return configured.trim();
-        }
-        return this.getOrCreateId(USER_ID_KEY);
+        const uid = this.auth?.currentUser?.uid;
+        if (!this.db || !uid) return null;
+        return doc(this.db, 'users', uid, 'appState', 'main');
     }
 
     private getOrCreateId(key: string): string {
@@ -171,5 +174,38 @@ export class FirestoreSyncService {
         const stored = this.safeGetItem(SYNC_ENABLED_KEY);
         if (stored === null) return true;
         return stored === 'true';
+    }
+
+    private async ensureAuth(): Promise<void> {
+        if (!this.auth) return;
+        if (this.auth.currentUser) return;
+
+        void this.signInWithGoogle();
+
+        await new Promise<void>((resolve, reject) => {
+            const unsubscribe = onAuthStateChanged(
+                this.auth!,
+                (user) => {
+                    if (user) {
+                        unsubscribe();
+                        resolve();
+                    }
+                },
+                (error) => {
+                    unsubscribe();
+                    reject(error);
+                }
+            );
+        });
+    }
+
+    private async signInWithGoogle(): Promise<void> {
+        if (!this.auth) return;
+        const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(this.auth, provider);
+        } catch (error) {
+            await signInWithRedirect(this.auth, provider);
+        }
     }
 }
