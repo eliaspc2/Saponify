@@ -1,10 +1,11 @@
 // Service Worker para Saponify PWA
 const CACHE_NAME = 'saponify-v2';
+const scopeUrl = new URL(self.registration.scope);
 const CORE_ASSETS = [
-    '/',
-    '/index.html',
-    '/manifest.json',
-    '/assets/brand/logo.png'
+    new URL('./', scopeUrl).toString(),
+    new URL('index.html', scopeUrl).toString(),
+    new URL('manifest.json', scopeUrl).toString(),
+    new URL('assets/brand/logo.png', scopeUrl).toString()
 ];
 
 // Instalacao - cachear recursos
