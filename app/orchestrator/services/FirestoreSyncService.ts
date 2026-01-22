@@ -3,6 +3,7 @@ import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/fire
 import {
     getAuth,
     GoogleAuthProvider,
+    getRedirectResult,
     signInWithPopup,
     signInWithRedirect,
     onAuthStateChanged,
@@ -30,6 +31,8 @@ const AUTO_BACKUP_KEY = 'saponify_auto_backup';
 const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
 const DEVICE_ID_KEY = 'saponify_device_id';
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
+const AUTH_REDIRECT_FLAG = 'saponify_auth_redirect_in_progress';
+const AUTH_LAST_ATTEMPT_KEY = 'saponify_auth_last_attempt';
 
 export class FirestoreSyncService {
     private static instance: FirestoreSyncService;
@@ -40,6 +43,7 @@ export class FirestoreSyncService {
     private initPromise: Promise<void> | null = null;
     private pendingTimer: number | null = null;
     private pendingPayload: RemoteBackupPayload | null = null;
+    private authAttempted = false;
 
     private constructor() {
         this.deviceId = this.getOrCreateId(DEVICE_ID_KEY);
@@ -90,6 +94,7 @@ export class FirestoreSyncService {
             this.db = getFirestore(this.app);
             this.auth = getAuth(this.app);
             await setPersistence(this.auth, browserLocalPersistence);
+            await this.consumeRedirectResult();
         })();
         return this.initPromise;
     }
@@ -180,16 +185,12 @@ export class FirestoreSyncService {
         if (!this.auth) return;
         if (this.auth.currentUser) return;
 
-        void this.signInWithGoogle();
-
-        await new Promise<void>((resolve, reject) => {
+        const user = await new Promise<ReturnType<Auth['currentUser']>>((resolve, reject) => {
             const unsubscribe = onAuthStateChanged(
                 this.auth!,
                 (user) => {
-                    if (user) {
-                        unsubscribe();
-                        resolve();
-                    }
+                    unsubscribe();
+                    resolve(user);
                 },
                 (error) => {
                     unsubscribe();
@@ -197,6 +198,15 @@ export class FirestoreSyncService {
                 }
             );
         });
+
+        if (user) return;
+        if (this.authAttempted || this.isLoginCooldownActive() || this.isRedirectInProgress()) {
+            return;
+        }
+
+        this.authAttempted = true;
+        this.markLoginAttempt();
+        await this.signInWithGoogle();
     }
 
     private async signInWithGoogle(): Promise<void> {
@@ -204,8 +214,63 @@ export class FirestoreSyncService {
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(this.auth, provider);
+            this.clearRedirectFlag();
         } catch (error) {
+            if (this.isRedirectInProgress()) return;
+            this.setRedirectFlag();
             await signInWithRedirect(this.auth, provider);
+        }
+    }
+
+    private async consumeRedirectResult(): Promise<void> {
+        if (!this.auth) return;
+        if (!this.isRedirectInProgress()) return;
+        try {
+            await getRedirectResult(this.auth);
+        } finally {
+            this.clearRedirectFlag();
+        }
+    }
+
+    private isRedirectInProgress(): boolean {
+        try {
+            return sessionStorage.getItem(AUTH_REDIRECT_FLAG) === 'true';
+        } catch {
+            return false;
+        }
+    }
+
+    private setRedirectFlag() {
+        try {
+            sessionStorage.setItem(AUTH_REDIRECT_FLAG, 'true');
+        } catch {
+            // ignore
+        }
+    }
+
+    private clearRedirectFlag() {
+        try {
+            sessionStorage.removeItem(AUTH_REDIRECT_FLAG);
+        } catch {
+            // ignore
+        }
+    }
+
+    private isLoginCooldownActive(): boolean {
+        try {
+            const last = parseInt(sessionStorage.getItem(AUTH_LAST_ATTEMPT_KEY) || '0', 10);
+            if (!last) return false;
+            return Date.now() - last < 5000;
+        } catch {
+            return false;
+        }
+    }
+
+    private markLoginAttempt() {
+        try {
+            sessionStorage.setItem(AUTH_LAST_ATTEMPT_KEY, String(Date.now()));
+        } catch {
+            // ignore
         }
     }
 }
