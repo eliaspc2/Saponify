@@ -210,7 +210,7 @@ export class FirestoreSyncService {
     }
 
     private async ensureAuth(): Promise<User | null> {
-        if (!this.auth) return;
+        if (!this.auth) return null;
         if (this.auth.currentUser) return this.auth.currentUser;
 
         const user = await new Promise<User | null>((resolve, reject) => {
@@ -275,16 +275,6 @@ export class FirestoreSyncService {
             sessionStorage.removeItem(AUTH_REDIRECT_FLAG);
         } catch {
             // ignore
-        }
-    }
-
-    private isLoginCooldownActive(): boolean {
-        try {
-            const last = parseInt(sessionStorage.getItem(AUTH_LAST_ATTEMPT_KEY) || '0', 10);
-            if (!last) return false;
-            return Date.now() - last < 5000;
-        } catch {
-            return false;
         }
     }
 
