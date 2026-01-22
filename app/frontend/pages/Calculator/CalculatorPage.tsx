@@ -506,7 +506,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
         const percentage = totalFats && totalFats > 0 ? ((item.amount || 0) / totalFats * 100).toFixed(1) : '0.0';
 
         return (
-            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 40px', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div key={item.id} className="ingredient-grid ingredient-grid-row">
                 <select
                     style={{ width: '100%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}
                     value={item.ingredientId}
@@ -585,18 +585,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
 
     private renderTableHeader() {
         return (
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 100px 80px 80px 40px',
-                gap: '0.75rem',
-                alignItems: 'center',
-                marginBottom: '0.75rem',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                color: '#9CA3AF',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em'
-            }}>
+            <div className="ingredient-grid ingredient-grid-header">
                 <div>Ingrediente</div>
                 <div style={{ textAlign: 'right' }}>Peso (g)</div>
                 <div style={{ textAlign: 'right' }}>SAP</div>
@@ -608,7 +597,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
 
     private renderReadOnlyRow(label: string, amount: number) {
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 40px', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div className="ingredient-grid ingredient-grid-row">
                 <select
                     style={{ width: '100%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}
                     value={label}
@@ -809,7 +798,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 titleColor={phaseHeaderText}
                             />
                             <div style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                <div className="modal-grid-2" style={{ gap: '2rem' }}>
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.8rem', fontSize: '0.85rem', fontWeight: 600 }}>Tipo de Álcali</label>
                                     <select
@@ -868,11 +857,9 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     padding: '1.25rem',
                                     background: 'var(--color-primary-light)',
                                     borderRadius: 'var(--radius-md)',
-                                    display: 'grid',
-                                    gridTemplateColumns: '1fr 1fr',
                                     gap: '1.5rem',
                                     border: '1px solid rgba(90, 125, 76, 0.1)'
-                                }}>
+                                }} className="modal-grid-2">
                                     <div>
                                         <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
                                             {recipe.alkali === 'NaOH' ? 'SODA CÁUSTICA (NaOH)' : 'POTASSA (KOH)'}
@@ -911,8 +898,10 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos Base</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ['Óleos Base'], results.totalFats))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ['Óleos Base'], results.totalFats))}
+                                </div>
                             </div>
                         </div>
 
@@ -942,30 +931,36 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {(recipe.liquids || []).map((l) => (
-                                    isWaterItem(l)
-                                        ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
-                                        : this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia'])
-                                ))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {(recipe.liquids || []).map((l) => (
+                                        isWaterItem(l)
+                                            ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
+                                            : this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia'])
+                                    ))}
+                                </div>
                             </div>
                             <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
+                                </div>
                             </div>
                             <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {this.renderReadOnlyRow(
-                                    recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
-                                    results.alkaliAmount
-                                )}
-                                {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {this.renderReadOnlyRow(
+                                        recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
+                                        results.alkaliAmount
+                                    )}
+                                    {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
+                                </div>
                             </div>
                         </div>
                         </div>
@@ -996,24 +991,30 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos & Botânicos</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ['Aditivos Traço']))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ['Aditivos Traço']))}
+                                </div>
                             </div>
 
                             <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos de Superfat</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ['Superfat']))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ['Superfat']))}
+                                </div>
                             </div>
 
                             <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aromas & O.E.</h4>
                                 </div>
-                                {this.renderTableHeader()}
-                                {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ['Óleos Essenciais']))}
+                                <div className="table-wrap">
+                                    {this.renderTableHeader()}
+                                    {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ['Óleos Essenciais']))}
+                                </div>
                             </div>
                         </div>
                         </div>
@@ -1059,7 +1060,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                     {this.renderProgressBar('Bolhas', results.properties.bubbles, QUALITY_RANGES.bubbles)}
                                     {this.renderProgressBar('Persistência', results.properties.persistence, QUALITY_RANGES.persistence)}
                                     {this.renderProgressBar('Dureza', results.properties.hardness, QUALITY_RANGES.hardness)}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
+                                    <div className="modal-grid-3" style={{ marginTop: '1.5rem' }}>
                                         <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
                                             <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
                                             <div style={{ fontWeight: 700 }}>{results.iodine.toFixed(0)}</div>
