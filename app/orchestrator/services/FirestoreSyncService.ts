@@ -7,10 +7,6 @@ type RemoteBackupPayload = {
     deviceId: string;
 };
 
-const FIRESTORE_SYNC_ENABLED = typeof window !== 'undefined'
-    ? (window as any).__SAPONIFY_FIRESTORE_SYNC_ENABLED__ !== false
-    : true;
-
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyAF-gunjUtjfz4NouUulE3pfKylDKbrabw',
     authDomain: 'saponify-sync.firebaseapp.com',
@@ -24,6 +20,7 @@ const AUTO_BACKUP_KEY = 'saponify_auto_backup';
 const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
 const DEVICE_ID_KEY = 'saponify_device_id';
 const USER_ID_KEY = 'saponify_sync_uid';
+const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
 
 export class FirestoreSyncService {
     private static instance: FirestoreSyncService;
@@ -47,13 +44,13 @@ export class FirestoreSyncService {
     }
 
     public async start(): Promise<void> {
-        if (!FIRESTORE_SYNC_ENABLED) return;
+        if (!this.isSyncEnabled()) return;
         await this.init();
         await this.syncFromRemoteIfNewer();
     }
 
     public async pushAutoBackup(data: string, updatedAt: string): Promise<void> {
-        if (!FIRESTORE_SYNC_ENABLED) return;
+        if (!this.isSyncEnabled()) return;
         await this.init();
         const payload: RemoteBackupPayload = {
             data,
@@ -164,5 +161,15 @@ export class FirestoreSyncService {
         } catch {
             // Ignore storage errors to avoid breaking the app.
         }
+    }
+
+    private isSyncEnabled(): boolean {
+        if (typeof window !== 'undefined') {
+            const override = (window as any).__SAPONIFY_FIRESTORE_SYNC_ENABLED__;
+            if (override === false) return false;
+        }
+        const stored = this.safeGetItem(SYNC_ENABLED_KEY);
+        if (stored === null) return true;
+        return stored === 'true';
     }
 }

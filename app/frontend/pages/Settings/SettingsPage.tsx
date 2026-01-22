@@ -1,18 +1,31 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
 import { SettingsService } from '../../../orchestrator/services/SettingsService';
 import { AppSettings } from '../../../shared/types/Settings';
-import { Save, RefreshCw, Upload, Download, Database, Lock } from 'lucide-react';
+import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud } from 'lucide-react';
 import { BackupService } from '../../../orchestrator/services/BackupService';
 
 interface SettingsState extends BasePageState {
     settings: AppSettings;
+    syncEnabled: boolean;
+    syncUid: string;
+    deviceId: string;
 }
+
+const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
+const SYNC_UID_KEY = 'saponify_sync_uid';
+const DEVICE_ID_KEY = 'saponify_device_id';
 
 export class SettingsPage extends BasePage<{}, SettingsState> {
 
     protected getInitialState(): Partial<SettingsState> {
+        const storedEnabled = localStorage.getItem(SYNC_ENABLED_KEY);
+        const storedUid = localStorage.getItem(SYNC_UID_KEY) || '';
+        const storedDeviceId = localStorage.getItem(DEVICE_ID_KEY) || '';
         return {
-            settings: SettingsService.getInstance().getSettings()
+            settings: SettingsService.getInstance().getSettings(),
+            syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
+            syncUid: storedUid,
+            deviceId: storedDeviceId
         };
     }
 
@@ -24,6 +37,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
 
     private async handleSave() {
         SettingsService.getInstance().updateSettings(this.state.settings);
+        this.persistSyncSettings();
 
         // Realizar backup automático se ativo
         if (this.state.settings.autoBackupEnabled) {
@@ -31,7 +45,10 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         }
 
         alert('Configurações guardadas com sucesso!');
-        this.setState({ settings: SettingsService.getInstance().getSettings() });
+        this.setState({
+            settings: SettingsService.getInstance().getSettings(),
+            deviceId: localStorage.getItem(DEVICE_ID_KEY) || this.state.deviceId
+        });
     }
 
     private async handleExport() {
@@ -83,12 +100,22 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         BackupService.getInstance().downloadAutoBackup();
     }
 
+    private persistSyncSettings() {
+        localStorage.setItem(SYNC_ENABLED_KEY, String(this.state.syncEnabled));
+        const trimmed = this.state.syncUid.trim();
+        if (trimmed) {
+            localStorage.setItem(SYNC_UID_KEY, trimmed);
+        } else {
+            localStorage.removeItem(SYNC_UID_KEY);
+        }
+    }
+
     protected renderActions() {
         return null;
     }
 
     renderContent() {
-        const { settings } = this.state;
+        const { settings, syncEnabled, syncUid, deviceId } = this.state;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -336,6 +363,57 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Firebase Sync */}
+                <div className="card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.8rem' }}>
+                        <Cloud size={20} color="var(--color-primary)" />
+                        <h3 style={{ margin: 0 }}>Sincronização Firebase (Firestore)</h3>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#FEF3C7', borderRadius: 'var(--radius-sm)', border: '1px solid #FDE68A' }}>
+                        <p style={{ fontSize: '0.85rem', color: '#92400E', margin: 0 }}>
+                            <strong>Nota:</strong> Se surgir “Missing or insufficient permissions”, é necessário configurar regras no Firestore para permitir leitura/escrita no caminho
+                            <strong> users/&lt;uid&gt;/appState/main</strong>.
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '520px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={syncEnabled}
+                                onChange={(e) => this.setState({ syncEnabled: e.target.checked })}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ativar sincronização Firestore</span>
+                        </label>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>UID de Sincronização</label>
+                            <input
+                                type="text"
+                                value={syncUid}
+                                onChange={(e) => this.setState({ syncUid: e.target.value })}
+                                placeholder="Ex: user_123 ou UID partilhado"
+                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                            />
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.5rem' }}>
+                                Se ficar vazio, será gerado automaticamente e guardado no browser.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Device ID</label>
+                            <input
+                                type="text"
+                                value={deviceId || 'Será gerado quando o sync iniciar'}
+                                readOnly
+                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb', background: '#F9FAFB', color: '#6B7280' }}
+                            />
                         </div>
                     </div>
                 </div>
