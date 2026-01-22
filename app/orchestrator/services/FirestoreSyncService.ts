@@ -33,6 +33,8 @@ const AUTO_BACKUP_KEY = 'saponify_auto_backup';
 const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
 const DEVICE_ID_KEY = 'saponify_device_id';
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
+const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
+const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
 const AUTH_REDIRECT_FLAG = 'saponify_auth_redirect_in_progress';
 const AUTH_LAST_ATTEMPT_KEY = 'saponify_auth_last_attempt';
 
@@ -85,7 +87,13 @@ export class FirestoreSyncService {
             if (!ref || !this.pendingPayload) return;
             const toSend = this.pendingPayload;
             this.pendingPayload = null;
-            await setDoc(ref, toSend, { merge: false });
+            try {
+                await setDoc(ref, toSend, { merge: false });
+                this.setLastSyncSuccess(new Date().toISOString());
+                this.setLastSyncError('');
+            } catch (error: any) {
+                this.setLastSyncError(error?.message || 'Erro ao sincronizar com o Firestore.');
+            }
         }, 500);
     }
 
@@ -105,6 +113,27 @@ export class FirestoreSyncService {
         await signOut(this.auth);
     }
 
+    public async forceSyncNow(): Promise<boolean> {
+        if (!this.isSyncEnabled()) return false;
+        await this.init();
+        const user = await this.ensureAuth();
+        if (!user) return false;
+        const data = this.safeGetItem(AUTO_BACKUP_KEY);
+        if (!data) return false;
+        const updatedAt = this.safeGetItem(AUTO_BACKUP_TS_KEY) || new Date().toISOString();
+        const ref = this.getDocRef();
+        if (!ref) return false;
+        try {
+            await setDoc(ref, { data, updatedAt, deviceId: this.deviceId }, { merge: false });
+            this.setLastSyncSuccess(new Date().toISOString());
+            this.setLastSyncError('');
+            return true;
+        } catch (error: any) {
+            this.setLastSyncError(error?.message || 'Erro ao sincronizar com o Firestore.');
+            return false;
+        }
+    }
+
     public getCurrentUser(): User | null {
         return this.auth?.currentUser || null;
     }
@@ -112,6 +141,26 @@ export class FirestoreSyncService {
     public async getCurrentUserAsync(): Promise<User | null> {
         await this.init();
         return this.auth?.currentUser || null;
+    }
+
+    public async getRemoteStatus(): Promise<{ updatedAt: string | null; deviceId: string | null } | null> {
+        await this.init();
+        const user = await this.ensureAuth();
+        if (!user) return null;
+        try {
+            const ref = this.getDocRef();
+            if (!ref) return null;
+            const snap = await getDoc(ref);
+            if (!snap.exists()) return { updatedAt: null, deviceId: null };
+            const data = snap.data() as RemoteBackupPayload;
+            return {
+                updatedAt: data?.updatedAt || null,
+                deviceId: data?.deviceId || null
+            };
+        } catch (error: any) {
+            this.setLastSyncError(error?.message || 'Erro ao obter estado remoto.');
+            return null;
+        }
     }
 
     private async init(): Promise<void> {
@@ -135,7 +184,13 @@ export class FirestoreSyncService {
         const localUpdatedAt = this.safeGetItem(AUTO_BACKUP_TS_KEY);
         const localTime = localUpdatedAt ? Date.parse(localUpdatedAt) || 0 : 0;
 
-        const snap = await getDoc(ref);
+        let snap;
+        try {
+            snap = await getDoc(ref);
+        } catch (error: any) {
+            this.setLastSyncError(error?.message || 'Erro ao ler do Firestore.');
+            return;
+        }
         if (!snap.exists()) {
             if (localData && localUpdatedAt) {
                 await this.pushAutoBackup(localData, localUpdatedAt);
@@ -154,6 +209,8 @@ export class FirestoreSyncService {
         if (remoteTime > localTime) {
             this.safeSetItem(AUTO_BACKUP_KEY, remote.data);
             this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
+            this.setLastSyncSuccess(new Date().toISOString());
+            this.setLastSyncError('');
             return;
         }
 
@@ -197,6 +254,14 @@ export class FirestoreSyncService {
         } catch {
             // Ignore storage errors to avoid breaking the app.
         }
+    }
+
+    private setLastSyncSuccess(timestamp: string) {
+        this.safeSetItem(SYNC_LAST_SUCCESS_KEY, timestamp);
+    }
+
+    private setLastSyncError(message: string) {
+        this.safeSetItem(SYNC_LAST_ERROR_KEY, message);
     }
 
     private isSyncEnabled(): boolean {

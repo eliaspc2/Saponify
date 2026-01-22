@@ -8,29 +8,37 @@ import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSy
 interface SettingsState extends BasePageState {
     settings: AppSettings;
     syncEnabled: boolean;
-    syncUid: string;
     deviceId: string;
     authEmail: string;
     authUid: string;
+    lastSyncSuccess: string;
+    lastSyncError: string;
+    remoteUpdatedAt: string;
+    remoteDeviceId: string;
 }
 
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
-const SYNC_UID_KEY = 'saponify_sync_uid';
 const DEVICE_ID_KEY = 'saponify_device_id';
+const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
+const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
 
 export class SettingsPage extends BasePage<{}, SettingsState> {
 
     protected getInitialState(): Partial<SettingsState> {
         const storedEnabled = localStorage.getItem(SYNC_ENABLED_KEY);
-        const storedUid = localStorage.getItem(SYNC_UID_KEY) || '';
         const storedDeviceId = localStorage.getItem(DEVICE_ID_KEY) || '';
+        const storedLastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
+        const storedLastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
         return {
             settings: SettingsService.getInstance().getSettings(),
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
-            syncUid: storedUid,
             deviceId: storedDeviceId,
             authEmail: '',
-            authUid: ''
+            authUid: '',
+            lastSyncSuccess: storedLastSync,
+            lastSyncError: storedLastError,
+            remoteUpdatedAt: '',
+            remoteDeviceId: ''
         };
     }
 
@@ -132,14 +140,28 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         });
     }
 
+    private async handleForceSync() {
+        const ok = await FirestoreSyncService.getInstance().forceSyncNow();
+        const lastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
+        const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
+        this.setState({ lastSyncSuccess: lastSync, lastSyncError: lastError });
+        if (!ok) {
+            alert('Não foi possível sincronizar agora. Confirme se há backup automático local e se está autenticado.');
+        }
+    }
+
+    private async handleRefreshRemoteStatus() {
+        const status = await FirestoreSyncService.getInstance().getRemoteStatus();
+        const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
+        this.setState({
+            remoteUpdatedAt: status?.updatedAt || '',
+            remoteDeviceId: status?.deviceId || '',
+            lastSyncError: lastError
+        });
+    }
+
     private persistSyncSettings() {
         localStorage.setItem(SYNC_ENABLED_KEY, String(this.state.syncEnabled));
-        const trimmed = this.state.syncUid.trim();
-        if (trimmed) {
-            localStorage.setItem(SYNC_UID_KEY, trimmed);
-        } else {
-            localStorage.removeItem(SYNC_UID_KEY);
-        }
     }
 
     protected renderActions() {
@@ -147,7 +169,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     renderContent() {
-        const { settings, syncEnabled, syncUid, deviceId, authEmail, authUid } = this.state;
+        const { settings, syncEnabled, deviceId, authEmail, authUid, lastSyncSuccess, lastSyncError, remoteUpdatedAt, remoteDeviceId } = this.state;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -406,14 +428,14 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                         <h3 style={{ margin: 0 }}>Sincronização Firebase (Firestore)</h3>
                     </div>
 
-                    <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#FEF3C7', borderRadius: 'var(--radius-sm)', border: '1px solid #FDE68A' }}>
-                        <p style={{ fontSize: '0.85rem', color: '#92400E', margin: 0 }}>
-                            <strong>Nota:</strong> Se surgir “Missing or insufficient permissions”, é necessário configurar regras no Firestore para permitir leitura/escrita no caminho
-                            <strong> users/&lt;uid&gt;/appState/main</strong>.
-                        </p>
-                    </div>
-
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '520px' }}>
+                        <div style={{ padding: '1rem', background: '#FEF3C7', borderRadius: 'var(--radius-sm)', border: '1px solid #FDE68A' }}>
+                            <p style={{ fontSize: '0.85rem', color: '#92400E', margin: 0 }}>
+                                <strong>Nota:</strong> Se surgir “Missing or insufficient permissions”, é necessário configurar regras no Firestore para permitir leitura/escrita no caminho
+                                <strong> users/&lt;uid&gt;/appState/main</strong>.
+                            </p>
+                        </div>
+
                         <div style={{ padding: '0.75rem', background: '#F3F4F6', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
                             <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '0.25rem' }}>Estado de Autenticação</div>
                             {authUid ? (
@@ -435,6 +457,36 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                             </div>
                         </div>
 
+                        <div style={{ padding: '0.75rem', background: '#F9FAFB', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                            <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '0.25rem' }}>Último sync com sucesso</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
+                                {lastSyncSuccess ? new Date(lastSyncSuccess).toLocaleString('pt-PT') : '—'}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                <button className="btn btn-secondary" onClick={() => this.handleForceSync()}>
+                                    Sincronizar Agora
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => this.handleRefreshRemoteStatus()}>
+                                    Verificar Estado
+                                </button>
+                            </div>
+                            {lastSyncError && (
+                                <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#B91C1C' }}>
+                                    Último erro: {lastSyncError}
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ padding: '0.75rem', background: '#F3F4F6', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                            <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '0.25rem' }}>Estado remoto (Firestore)</div>
+                            <div style={{ fontSize: '0.85rem', color: '#111827' }}>
+                                <strong>UpdatedAt:</strong> {remoteUpdatedAt ? new Date(remoteUpdatedAt).toLocaleString('pt-PT') : '—'}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#111827' }}>
+                                <strong>Device:</strong> {remoteDeviceId || '—'}
+                            </div>
+                        </div>
+
                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                             <input
                                 type="checkbox"
@@ -446,17 +498,13 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                         </label>
 
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>UID de Sincronização</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>UID Autenticado</label>
                             <input
                                 type="text"
-                                value={syncUid}
-                                onChange={(e) => this.setState({ syncUid: e.target.value })}
-                                placeholder="Ex: user_123 ou UID partilhado"
-                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                value={authUid || '—'}
+                                readOnly
+                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb', background: '#F9FAFB', color: '#6B7280' }}
                             />
-                            <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.5rem' }}>
-                                Se ficar vazio, será gerado automaticamente e guardado no browser.
-                            </p>
                         </div>
 
                         <div>
