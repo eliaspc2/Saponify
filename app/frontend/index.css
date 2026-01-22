@@ -142,6 +142,9 @@ body {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .stats-grid {
@@ -377,12 +380,17 @@ tr:hover td {
   align-items: start;
 }
 
+.calculator-layout > * {
+  min-width: 0;
+}
+
 .ingredient-grid {
   display: grid;
   grid-template-columns: 1fr 100px 80px 80px 40px;
   gap: 0.75rem;
   align-items: center;
   min-width: 520px;
+  width: max-content;
 }
 
 .ingredient-grid-header {
@@ -404,6 +412,7 @@ tr:hover td {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 
@@ -415,6 +424,7 @@ tr:hover td {
   border: 1px solid rgba(0, 0, 0, 0.05);
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius-md);
+  min-width: 0;
 }
 
 
@@ -690,6 +700,11 @@ tr:hover td {
     grid-template-columns: 1fr;
   }
 
+  .ingredient-grid {
+    grid-template-columns: 1fr 90px 70px 70px 36px;
+    min-width: 480px;
+  }
+
   .modal-container {
     width: 95% !important;
     max-width: 95% !important;
@@ -704,5 +719,10 @@ tr:hover td {
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ingredient-grid {
+    grid-template-columns: 1fr 80px 60px 60px 32px;
+    min-width: 440px;
   }
 }
