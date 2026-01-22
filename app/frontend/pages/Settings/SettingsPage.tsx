@@ -15,12 +15,16 @@ interface SettingsState extends BasePageState {
     lastSyncError: string;
     remoteUpdatedAt: string;
     remoteDeviceId: string;
+    localBackupUpdatedAt: string;
+    localBackupSize: string;
 }
 
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
 const DEVICE_ID_KEY = 'saponify_device_id';
 const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
 const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
+const AUTO_BACKUP_KEY = 'saponify_auto_backup';
+const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
 
 export class SettingsPage extends BasePage<{}, SettingsState> {
 
@@ -29,6 +33,8 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         const storedDeviceId = localStorage.getItem(DEVICE_ID_KEY) || '';
         const storedLastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
         const storedLastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
+        const storedLocalTs = localStorage.getItem(AUTO_BACKUP_TS_KEY) || '';
+        const storedLocalData = localStorage.getItem(AUTO_BACKUP_KEY) || '';
         return {
             settings: SettingsService.getInstance().getSettings(),
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
@@ -38,7 +44,9 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             lastSyncSuccess: storedLastSync,
             lastSyncError: storedLastError,
             remoteUpdatedAt: '',
-            remoteDeviceId: ''
+            remoteDeviceId: '',
+            localBackupUpdatedAt: storedLocalTs,
+            localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes'
         };
     }
 
@@ -65,6 +73,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         // Realizar backup automático se ativo
         if (this.state.settings.autoBackupEnabled) {
             await BackupService.getInstance().performAutoBackup();
+            this.refreshLocalBackupStatus();
         }
 
         alert('Configurações guardadas com sucesso!');
@@ -115,6 +124,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
 
     private async handleTestAutoBackup() {
         await BackupService.getInstance().performAutoBackup();
+        this.refreshLocalBackupStatus();
         this.setState({ settings: SettingsService.getInstance().getSettings() });
         alert('Backup automático realizado com sucesso! Verifique a data/hora abaixo.');
     }
@@ -141,10 +151,16 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     private async handleForceSync() {
+        await BackupService.getInstance().performAutoBackupNow();
         const ok = await FirestoreSyncService.getInstance().forceSyncNow();
         const lastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
         const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
-        this.setState({ lastSyncSuccess: lastSync, lastSyncError: lastError });
+        this.refreshLocalBackupStatus();
+        this.setState({
+            lastSyncSuccess: lastSync,
+            lastSyncError: lastError,
+            settings: SettingsService.getInstance().getSettings()
+        });
         if (!ok) {
             alert('Não foi possível sincronizar agora. Confirme se há backup automático local e se está autenticado.');
         }
@@ -160,6 +176,15 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         });
     }
 
+    private refreshLocalBackupStatus() {
+        const storedLocalTs = localStorage.getItem(AUTO_BACKUP_TS_KEY) || '';
+        const storedLocalData = localStorage.getItem(AUTO_BACKUP_KEY) || '';
+        this.setState({
+            localBackupUpdatedAt: storedLocalTs,
+            localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes'
+        });
+    }
+
     private persistSyncSettings() {
         localStorage.setItem(SYNC_ENABLED_KEY, String(this.state.syncEnabled));
     }
@@ -169,7 +194,19 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     renderContent() {
-        const { settings, syncEnabled, deviceId, authEmail, authUid, lastSyncSuccess, lastSyncError, remoteUpdatedAt, remoteDeviceId } = this.state;
+        const {
+            settings,
+            syncEnabled,
+            deviceId,
+            authEmail,
+            authUid,
+            lastSyncSuccess,
+            lastSyncError,
+            remoteUpdatedAt,
+            remoteDeviceId,
+            localBackupUpdatedAt,
+            localBackupSize
+        } = this.state;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -428,8 +465,8 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                         <h3 style={{ margin: 0 }}>Sincronização Firebase (Firestore)</h3>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '520px' }}>
-                        <div style={{ padding: '1rem', background: '#FEF3C7', borderRadius: 'var(--radius-sm)', border: '1px solid #FDE68A' }}>
+                    <div className="sync-grid">
+                        <div className="full" style={{ padding: '1rem', background: '#FEF3C7', borderRadius: 'var(--radius-sm)', border: '1px solid #FDE68A' }}>
                             <p style={{ fontSize: '0.85rem', color: '#92400E', margin: 0 }}>
                                 <strong>Nota:</strong> Se surgir “Missing or insufficient permissions”, é necessário configurar regras no Firestore para permitir leitura/escrita no caminho
                                 <strong> users/&lt;uid&gt;/appState/main</strong>.
@@ -462,6 +499,9 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                             <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
                                 {lastSyncSuccess ? new Date(lastSyncSuccess).toLocaleString('pt-PT') : '—'}
                             </div>
+                            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6B7280' }}>
+                                Backup local: {localBackupUpdatedAt ? new Date(localBackupUpdatedAt).toLocaleString('pt-PT') : '—'} · {localBackupSize}
+                            </div>
                             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
                                 <button className="btn btn-secondary" onClick={() => this.handleForceSync()}>
                                     Sincronizar Agora
@@ -487,34 +527,34 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                             </div>
                         </div>
 
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={syncEnabled}
-                                onChange={(e) => this.setState({ syncEnabled: e.target.checked })}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ativar sincronização Firestore</span>
-                        </label>
-
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>UID Autenticado</label>
-                            <input
-                                type="text"
-                                value={authUid || '—'}
-                                readOnly
-                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb', background: '#F9FAFB', color: '#6B7280' }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Device ID</label>
-                            <input
-                                type="text"
-                                value={deviceId || 'Será gerado quando o sync iniciar'}
-                                readOnly
-                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb', background: '#F9FAFB', color: '#6B7280' }}
-                            />
+                        <div style={{ padding: '0.75rem', background: '#F9FAFB', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '0.75rem' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={syncEnabled}
+                                    onChange={(e) => this.setState({ syncEnabled: e.target.checked })}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ativar sincronização Firestore</span>
+                            </label>
+                            <div style={{ marginBottom: '0.75rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>UID Autenticado</label>
+                                <input
+                                    type="text"
+                                    value={authUid || '—'}
+                                    readOnly
+                                    style={{ width: '100%', padding: '0.55rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb', background: '#F9FAFB', color: '#6B7280' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>Device ID</label>
+                                <input
+                                    type="text"
+                                    value={deviceId || 'Será gerado quando o sync iniciar'}
+                                    readOnly
+                                    style={{ width: '100%', padding: '0.55rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e5e7eb', background: '#F9FAFB', color: '#6B7280' }}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

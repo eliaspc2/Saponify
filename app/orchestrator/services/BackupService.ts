@@ -106,9 +106,20 @@ export class BackupService {
      * Guarda em LocalStorage (navegadores limitam escrita em disco)
      */
     public async performAutoBackup(): Promise<void> {
+        await this.performAutoBackupInternal(false);
+    }
+
+    /**
+     * Força a criação de backup automático local, mesmo se estiver desativado.
+     */
+    public async performAutoBackupNow(): Promise<void> {
+        await this.performAutoBackupInternal(true);
+    }
+
+    private async performAutoBackupInternal(force: boolean): Promise<void> {
         const settings = SettingsService.getInstance().getSettings();
 
-        if (!settings.autoBackupEnabled) {
+        if (!force && !settings.autoBackupEnabled) {
             return;
         }
 
