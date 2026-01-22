@@ -25,7 +25,7 @@ interface StatsHeaderProps {
 
 export const StatsHeader: React.FC<StatsHeaderProps> = ({ stats }) => {
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="stats-grid">
             {stats.map((stat, i) => (
                 <StatCard key={i} {...stat} />
             ))}

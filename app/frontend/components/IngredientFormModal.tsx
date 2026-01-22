@@ -178,7 +178,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
 
             <div style={{ minHeight: '400px', padding: '0 0.5rem' }}>
                 {activeTab === 'general' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="modal-grid-2" style={{ gap: '1rem' }}>
                         <div style={{ gridColumn: '1 / -1' }}>
                             <InputGroup label="Nome">
                                 <input
@@ -238,7 +238,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
                             </InputGroup>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', gridColumn: '1 / -1' }}>
+                        <div className="modal-grid-2" style={{ gap: '1rem', gridColumn: '1 / -1' }}>
                             <InputGroup label="SAP NaOH">
                                 <NumberInput value={formData.sapNaOH} onChange={(v) => handleChange('sapNaOH', v)} />
                             </InputGroup>
@@ -247,7 +247,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
                             </InputGroup>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', gridColumn: '1 / -1' }}>
+                        <div className="modal-grid-3" style={{ gap: '1rem', gridColumn: '1 / -1' }}>
                             <InputGroup label="Iodo">
                                 <NumberInput value={formData.iodine || 0} onChange={(v) => handleChange('iodine', v)} />
                             </InputGroup>
@@ -272,7 +272,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
                 )}
 
                 {activeTab === 'properties' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="modal-grid-2" style={{ gap: '1rem' }}>
                         {Object.keys(formData.properties).map(prop => (
                             <InputGroup key={prop} label={prop.charAt(0).toUpperCase() + prop.slice(1)}>
                                 <NumberInput
@@ -285,7 +285,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
                 )}
 
                 {activeTab === 'fattyAcids' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="modal-grid-2" style={{ gap: '1rem' }}>
                         {Object.keys(formData.fattyAcids).map(acid => (
                             <InputGroup key={acid} label={acid.charAt(0).toUpperCase() + acid.slice(1)}>
                                 <NumberInput

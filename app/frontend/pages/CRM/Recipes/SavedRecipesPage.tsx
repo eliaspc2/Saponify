@@ -194,7 +194,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             : 0;
 
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stats-grid">
                 <StatCard label="Receitas Guardadas" value={total} color="var(--color-primary)" />
                 <StatCard label="Superfat medio" value={`${avgSuperfat.toFixed(1)}%`} color="var(--color-accent)" />
                 <StatCard label="Com OEs" value={withEssentialOils} color="#3B82F6" />
@@ -253,7 +253,8 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
 
         return (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="table-wrap">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                         <tr>
                             <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>Código</th>
@@ -309,7 +310,8 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                             </tr>
                         ))}
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
         );
     }
@@ -376,7 +378,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                 }
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                    <div className="modal-grid-3" style={{ gap: '1rem' }}>
                         <div className="form-group">
                             <label className="form-label" style={{ fontWeight: 700 }}>Nome da Receita</label>
                             <input
@@ -410,7 +412,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
+                    <div className="modal-grid-3" style={{ gap: '1rem', background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
                         <div className="form-group">
                             <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Álcali</label>
                             <select
@@ -433,7 +435,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                    <div className="modal-grid-2" style={{ gap: '2rem' }}>
                         <div>
                             {this.renderIngredientList("Fase 1: Gorduras", editingRecipe.fats, 'fats')}
                             {this.renderIngredientList("Fase 2: Líquidos", editingRecipe.liquids, 'liquids')}

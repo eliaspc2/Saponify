@@ -115,7 +115,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                 </div>
 
                 {/* Grid de 2 colunas para Calculadora e Preferências */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div className="settings-grid">
                     {/* Calculadora Defaults */}
                     <div className="card">
                         <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>Calculadora Defaults</h3>
@@ -214,7 +214,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                         </p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                    <div className="settings-grid" style={{ gap: '2rem' }}>
                         {/* Configuração */}
                         <div>
                             <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-primary-dark)' }}>Configuração</h4>

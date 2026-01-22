@@ -163,7 +163,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.25rem' }}>Nome</div>
                         <div style={{ fontSize: '1rem', fontWeight: 700 }}>{recipePreview.name || 'Sem nome'}</div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
+                    <div className="modal-grid-3" style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
                         <div>
                             <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Alcali</label>
                             <span style={{ fontWeight: 700 }}>{recipePreview.alkali}</span>
@@ -177,7 +177,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                             <span style={{ fontWeight: 700 }}>{recipePreview.waterConcentration}%</span>
                         </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className="modal-grid-2">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {this.renderRecipeGroup('Fase 1: Gorduras', recipePreview.fats)}
                             {this.renderRecipeGroup('Fase 2: Liquidos', recipePreview.liquids)}
@@ -207,7 +207,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 {/* Stats Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem' }}>
+                <div className="stats-grid">
                     <StatCard
                         label="Clientes"
                         value={stats.totalClients}
@@ -234,7 +234,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                     />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem', alignItems: 'start' }}>
+                <div className="home-main-grid">
                     {/* Recent Events */}
                     <div className="card" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

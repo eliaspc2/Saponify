@@ -299,7 +299,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '2rem', alignItems: 'flex-start', flex: 1 }}>
+                    <div className="client-details-grid" style={{ flex: 1 }}>
                         {/* Left: Client Info */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <div className="card" style={{ padding: '1.5rem' }}>
@@ -447,16 +447,17 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                                     </div>
 
                                                     {a.details && (
-                                                        <div style={{
-                                                            marginTop: '1rem',
-                                                            padding: '1rem',
-                                                            background: '#F9FAFB',
-                                                            borderRadius: 'var(--radius-md)',
-                                                            border: '1px solid #E5E7EB',
-                                                            display: 'grid',
-                                                            gridTemplateColumns: 'repeat(2, 1fr)',
-                                                            gap: '1rem'
-                                                        }}>
+                                                        <div
+                                                            className="modal-grid-2"
+                                                            style={{
+                                                                marginTop: '1rem',
+                                                                padding: '1rem',
+                                                                background: '#F9FAFB',
+                                                                borderRadius: 'var(--radius-md)',
+                                                                border: '1px solid #E5E7EB',
+                                                                gap: '1rem'
+                                                            }}
+                                                        >
                                                             <div>
                                                                 <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--color-text-light)', marginBottom: '0.25rem' }}>Pesos Calculados</div>
                                                                 <div style={{ fontSize: '0.85rem' }}>Total: <strong>{a.details.plannedWeight.toFixed(0)}g</strong></div>
@@ -582,7 +583,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     {selectedRecipe && (
                         <div style={{ padding: '1rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-primary)' }}>
                             <h4 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--color-primary-dark)' }}>Impacto Estimado</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
+                            <div className="modal-grid-2" style={{ gap: '1rem', fontSize: '0.85rem' }}>
                                 <div>
                                     <div style={{ color: 'var(--color-text-secondary)' }}>Pronto a usar (Químico):</div>
                                     <div style={{ fontWeight: 700 }}>{estimates?.chemicalReadyDate.toLocaleDateString()}</div>
@@ -641,7 +642,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
+                    <div className="modal-grid-3" style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>
                         <div>
                             <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block' }}>Álcali</label>
                             <span style={{ fontWeight: 700 }}>{viewingRecipe.alkali}</span>
@@ -656,7 +657,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                    <div className="modal-grid-2" style={{ gap: '2rem' }}>
                         <div>
                             <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.75rem', borderBottom: '1px solid #eee', paddingBottom: '0.25rem' }}>Gorduras</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>

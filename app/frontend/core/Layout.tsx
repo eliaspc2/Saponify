@@ -1,5 +1,5 @@
-import React from 'react';
-import { Home, Calculator, Database, Users, FileText, Save, Settings } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Home, Calculator, Database, Users, FileText, Save, Settings, Menu } from 'lucide-react';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -41,19 +41,20 @@ const SidebarItem = ({
 );
 
 export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [activePage]);
+
+    const handleNavigate = (page: string) => {
+        onNavigate(page);
+        setSidebarOpen(false);
+    };
+
     return (
-        <div className="layout" style={{ display: 'flex', minHeight: '100vh' }}>
-            <aside className="sidebar" style={{
-                width: '260px',
-                borderRight: '1px solid #e5e7eb',
-                backgroundColor: '#fff',
-                padding: '1.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'sticky',
-                top: 0,
-                height: '100vh'
-            }}>
+        <div className="layout" style={{ display: 'flex', minHeight: 'var(--vh)' }}>
+            <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="logo" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <img src={`${import.meta.env.BASE_URL}assets/brand/logo.png`} alt="Saponify Logo" style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover' }} />
                     <div>
@@ -62,21 +63,30 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
                 </div>
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                    <SidebarItem icon={Home} label="Home" pageId="home" active={activePage === 'home'} onClick={onNavigate} />
-                    <SidebarItem icon={Calculator} label="Calculadora" pageId="calculator" active={activePage === 'calculator'} onClick={onNavigate} />
-                    <SidebarItem icon={Database} label="Ingredientes" pageId="ingredients" active={activePage === 'ingredients'} onClick={onNavigate} />
+                    <SidebarItem icon={Home} label="Home" pageId="home" active={activePage === 'home'} onClick={handleNavigate} />
+                    <SidebarItem icon={Calculator} label="Calculadora" pageId="calculator" active={activePage === 'calculator'} onClick={handleNavigate} />
+                    <SidebarItem icon={Database} label="Ingredientes" pageId="ingredients" active={activePage === 'ingredients'} onClick={handleNavigate} />
 
                     <div style={{ margin: '1rem 0', borderTop: '1px solid #f3f4f6' }}></div>
 
-                    <SidebarItem icon={Users} label="Clientes" pageId="clients" active={activePage === 'clients'} onClick={onNavigate} />
-                    <SidebarItem icon={FileText} label="Questionários" pageId="questionnaires" active={activePage === 'questionnaires'} onClick={onNavigate} />
-                    <SidebarItem icon={Save} label="Receitas Guardadas" pageId="recipes" active={activePage === 'recipes'} onClick={onNavigate} />
+                    <SidebarItem icon={Users} label="Clientes" pageId="clients" active={activePage === 'clients'} onClick={handleNavigate} />
+                    <SidebarItem icon={FileText} label="Questionários" pageId="questionnaires" active={activePage === 'questionnaires'} onClick={handleNavigate} />
+                    <SidebarItem icon={Save} label="Receitas Guardadas" pageId="recipes" active={activePage === 'recipes'} onClick={handleNavigate} />
                 </nav>
 
                 <div className="profile">
-                    <SidebarItem icon={Settings} label="Configurações" pageId="settings" active={activePage === 'settings'} onClick={onNavigate} />
+                    <SidebarItem icon={Settings} label="Configurações" pageId="settings" active={activePage === 'settings'} onClick={handleNavigate} />
                 </div>
             </aside>
+
+            <button
+                className="sidebar-toggle"
+                onClick={() => setSidebarOpen(prev => !prev)}
+                aria-label="Abrir menu"
+            >
+                <Menu size={20} />
+            </button>
+            <div className={`sidebar-backdrop ${sidebarOpen ? 'show' : ''}`} onClick={() => setSidebarOpen(false)}></div>
 
             <main className="main-content">
                 {children}

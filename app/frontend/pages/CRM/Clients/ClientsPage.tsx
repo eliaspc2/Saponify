@@ -556,7 +556,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
     renderStats() {
         const { stats } = this.state;
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
                 <StatCard label="Total Clientes" value={this.state.data.length} color="var(--color-primary)" icon={<User size={20} />} />
                 <StatCard label="Receitas em Curso" value={stats.activeBatches} color="var(--color-accent)" icon={<Beaker size={20} />} />
                 <StatCard
@@ -626,7 +626,8 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
 
         return (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="table-wrap">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
                             <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>Nome</th>
@@ -684,7 +685,8 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                             );
                         })}
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
         );
     }
@@ -717,7 +719,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="modal-grid-2" style={{ gap: '1rem' }}>
                         <div className="form-group">
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Email *</label>
                             <input

@@ -145,7 +145,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
         const irritationCount = this.state.data.filter(q => (q.irritationFrequency || '').toLowerCase().startsWith('com')).length;
 
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stats-grid">
                 <StatCard label="Total Questionarios" value={total} color="var(--color-primary)" />
                 <StatCard label="Pele seca" value={drynessCount} color="#F59E0B" />
                 <StatCard label="Pele oleosa" value={oilinessCount} color="#3B82F6" />
@@ -192,7 +192,8 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
 
         return (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="table-wrap">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #eee', background: '#F9FAFB' }}>
                             <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '0.85rem' }}>Cliente</th>
@@ -233,7 +234,8 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                             </tr>
                         ))}
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
         );
     }
@@ -339,7 +341,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                     <div style={{ flex: 1 }}>
                         {activeSection === 0 && (
                             <>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                <div className="modal-grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
                                     <div className="form-group">
                                         <label className="form-label" style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>Selecionar Cliente *</label>
                                         <select
@@ -457,7 +459,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
 
                         {activeSection === 4 && (
                             <>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                <div className="modal-grid-2" style={{ gap: '1.5rem' }}>
                                     {this.renderQuestionGroup("Dorme bem e com regularidade?", [
                                         "Sim", "Mais ou menos", "Mal"
                                     ].map(val => this.renderRadio('sleep', val, editingQuestionnaire.sleepQuality || '', (v) => updateField('sleepQuality', v))))}
@@ -471,7 +473,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                                     "Frutas e legumes", "Açúcares e doces", "Alimentos fritos ou processados", "Lacticínios", "Nenhum destes em excesso"
                                 ].map(val => this.renderCheckbox(val, editingQuestionnaire.dietType || [], (v) => updateField('dietType', v))))}
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                <div className="modal-grid-2" style={{ gap: '1.5rem' }}>
                                     {this.renderQuestionGroup("Ambiente onde vives? (Escolha múltipla)", [
                                         "Húmido", "Seco", "Muito frio", "Muito quente"
                                     ].map(val => this.renderCheckbox(val, editingQuestionnaire.environmentType || [], (v) => updateField('environmentType', v))))}

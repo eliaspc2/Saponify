@@ -721,7 +721,7 @@ export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorSt
                                 titleColor={phaseHeaderText}
                             />
                             <div style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '150px 200px 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                <div className="recipe-meta-grid">
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}># Número</label>
                                     <div style={{

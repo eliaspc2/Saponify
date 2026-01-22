@@ -171,7 +171,7 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
         ).length;
 
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stats-grid">
                 <StatCard label="Total Ingredientes" value={total} color="var(--color-primary)" />
                 <StatCard label="Fase 1: Saponificação" subtext="Óleos & Gorduras" value={countPhase1} color="var(--color-accent)" />
                 <StatCard label="Fase 2: Lixívia" subtext="Líquidos & Funcionais" value={countPhase2} />
@@ -253,7 +253,8 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
             <>
                 {this.renderEditModal()}
                 <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: '1rem' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="table-wrap">
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem', background: '#f9fafb', fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>#</th>
@@ -332,7 +333,8 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                                 ))
                             )}
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
                 </div>
             </>
         );
