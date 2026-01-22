@@ -11,8 +11,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        const swUrl = new URL('sw.js', import.meta.env.BASE_URL);
-        navigator.serviceWorker.register(swUrl).catch((error) => {
+        navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch((error) => {
             console.warn('Service worker registration failed:', error);
         });
     });

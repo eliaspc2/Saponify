@@ -28,7 +28,7 @@ export class IngredientService extends BaseService {
             this.initialized = true;
             const storedIngredients = [...this.ingredients];
             this.log('Fetching ingredients csv...');
-            const response = await fetch(new URL('data/ingredients.csv', import.meta.env.BASE_URL));
+            const response = await fetch(`${import.meta.env.BASE_URL}data/ingredients.csv`);
             const csvText = await response.text();
             const csvIngredients = this.parseCSV(csvText).map(ingredient => this.normalizeIngredient(ingredient));
             if (storedIngredients.length > 0) {

@@ -2,14 +2,14 @@
     "name": "Saponify - Calculadora de Saponificacao",
     "short_name": "Saponify",
     "description": "PWA profissional para calculo e gestao de receitas de sabao artesanal",
-    "start_url": "/",
+    "start_url": "./",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#16a34a",
     "orientation": "portrait-primary",
     "icons": [
         {
-            "src": "/assets/brand/logo.png",
+            "src": "assets/brand/logo.png",
             "sizes": "1024x1024",
             "purpose": "any maskable"
         }
@@ -19,7 +19,7 @@
         "business",
         "utilities"
     ],
-    "scope": "/",
+    "scope": "./",
     "lang": "pt-PT",
     "dir": "ltr"
 }
