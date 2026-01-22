@@ -1,7 +1,7 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
 import { SettingsService } from '../../../orchestrator/services/SettingsService';
 import { AppSettings } from '../../../shared/types/Settings';
-import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud } from 'lucide-react';
+import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff } from 'lucide-react';
 import { BackupService } from '../../../orchestrator/services/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
 
@@ -12,6 +12,8 @@ interface SettingsState extends BasePageState {
     authEmail: string;
     authUid: string;
     syncPassword: string;
+    showSyncPassword: boolean;
+    showBackupPassword: boolean;
     lastSyncSuccess: string;
     lastSyncError: string;
     remoteUpdatedAt: string;
@@ -45,6 +47,8 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             authEmail: '',
             authUid: '',
             syncPassword: storedSyncPassword,
+            showSyncPassword: false,
+            showBackupPassword: false,
             lastSyncSuccess: storedLastSync,
             lastSyncError: storedLastError,
             remoteUpdatedAt: '',
@@ -420,13 +424,24 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                             {settings.autoBackupEncrypted && settings.autoBackupEnabled && (
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Palavra-passe de Encriptação</label>
-                                    <input
-                                        type="password"
-                                        value={settings.autoBackupPassword}
-                                        onChange={(e) => this.handleUpdate('autoBackupPassword', e.target.value)}
-                                        placeholder="Defina uma palavra-passe segura"
-                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                    />
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type={this.state.showBackupPassword ? 'text' : 'password'}
+                                            value={settings.autoBackupPassword}
+                                            onChange={(e) => this.handleUpdate('autoBackupPassword', e.target.value)}
+                                            placeholder="Defina uma palavra-passe segura"
+                                            style={{ width: '100%', padding: '0.6rem 2.5rem 0.6rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => this.setState(prev => ({ showBackupPassword: !prev.showBackupPassword }))}
+                                            className="btn btn-secondary"
+                                            style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)', padding: '0.35rem', minWidth: 'auto' }}
+                                            title={this.state.showBackupPassword ? 'Ocultar password' : 'Mostrar password'}
+                                        >
+                                            {this.state.showBackupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
                                     <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.5rem' }}>
                                         Esta palavra-passe será necessária para restaurar o backup. Guarde-a num local seguro.
                                     </p>
@@ -568,13 +583,27 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                             </label>
                             <div style={{ marginBottom: '0.75rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>Password de Sincronização (E2E)</label>
-                                <input
-                                    type="password"
-                                    value={syncPassword}
-                                    onChange={(e) => this.setState({ syncPassword: e.target.value })}
-                                    placeholder="Defina uma password para encriptação ponta a ponta"
-                                    style={{ width: '100%', padding: '0.55rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={this.state.showSyncPassword ? 'text' : 'password'}
+                                        value={syncPassword}
+                                        onChange={(e) => {
+                                            this.setState({ syncPassword: e.target.value });
+                                            localStorage.setItem(SYNC_PASSWORD_KEY, e.target.value.trim());
+                                        }}
+                                        placeholder="Defina uma password para encriptação ponta a ponta"
+                                        style={{ width: '100%', padding: '0.55rem 2.5rem 0.55rem 0.55rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => this.setState(prev => ({ showSyncPassword: !prev.showSyncPassword }))}
+                                        className="btn btn-secondary"
+                                        style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)', padding: '0.3rem', minWidth: 'auto' }}
+                                        title={this.state.showSyncPassword ? 'Ocultar password' : 'Mostrar password'}
+                                    >
+                                        {this.state.showSyncPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
                                 <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
                                     Esta password é diferente do backup local e nunca é enviada ao servidor.
                                 </p>
