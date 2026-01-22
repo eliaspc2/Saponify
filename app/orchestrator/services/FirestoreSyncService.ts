@@ -185,7 +185,7 @@ export class FirestoreSyncService {
         if (!this.auth) return;
         if (this.auth.currentUser) return;
 
-        const user = await new Promise<ReturnType<Auth['currentUser']>>((resolve, reject) => {
+        const user = await new Promise<Auth['currentUser']>((resolve, reject) => {
             const unsubscribe = onAuthStateChanged(
                 this.auth!,
                 (user) => {
