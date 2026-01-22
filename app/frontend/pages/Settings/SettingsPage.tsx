@@ -3,12 +3,15 @@ import { SettingsService } from '../../../orchestrator/services/SettingsService'
 import { AppSettings } from '../../../shared/types/Settings';
 import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud } from 'lucide-react';
 import { BackupService } from '../../../orchestrator/services/BackupService';
+import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
 
 interface SettingsState extends BasePageState {
     settings: AppSettings;
     syncEnabled: boolean;
     syncUid: string;
     deviceId: string;
+    authEmail: string;
+    authUid: string;
 }
 
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
@@ -25,8 +28,20 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             settings: SettingsService.getInstance().getSettings(),
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
             syncUid: storedUid,
-            deviceId: storedDeviceId
+            deviceId: storedDeviceId,
+            authEmail: '',
+            authUid: ''
         };
+    }
+
+    async componentDidMount() {
+        const user = await FirestoreSyncService.getInstance().getCurrentUserAsync();
+        if (user) {
+            this.setState({
+                authEmail: user.email || '',
+                authUid: user.uid || ''
+            });
+        }
     }
 
     private handleUpdate(field: keyof AppSettings, value: any) {
@@ -100,6 +115,23 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         BackupService.getInstance().downloadAutoBackup();
     }
 
+    private async handleSignIn() {
+        await FirestoreSyncService.getInstance().signIn();
+        const user = FirestoreSyncService.getInstance().getCurrentUser();
+        this.setState({
+            authEmail: user?.email || '',
+            authUid: user?.uid || ''
+        });
+    }
+
+    private async handleSignOut() {
+        await FirestoreSyncService.getInstance().signOut();
+        this.setState({
+            authEmail: '',
+            authUid: ''
+        });
+    }
+
     private persistSyncSettings() {
         localStorage.setItem(SYNC_ENABLED_KEY, String(this.state.syncEnabled));
         const trimmed = this.state.syncUid.trim();
@@ -115,7 +147,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     renderContent() {
-        const { settings, syncEnabled, syncUid, deviceId } = this.state;
+        const { settings, syncEnabled, syncUid, deviceId, authEmail, authUid } = this.state;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -382,6 +414,27 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '520px' }}>
+                        <div style={{ padding: '0.75rem', background: '#F3F4F6', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                            <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '0.25rem' }}>Estado de Autenticação</div>
+                            {authUid ? (
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
+                                    {authEmail || 'Utilizador autenticado'} ({authUid})
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#B45309' }}>
+                                    Não autenticado
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                <button className="btn btn-primary" onClick={() => this.handleSignIn()}>
+                                    Iniciar Sessão Google
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => this.handleSignOut()} disabled={!authUid}>
+                                    Terminar Sessão
+                                </button>
+                            </div>
+                        </div>
+
                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                             <input
                                 type="checkbox"

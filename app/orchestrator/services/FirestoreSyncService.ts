@@ -7,9 +7,11 @@ import {
     signInWithPopup,
     signInWithRedirect,
     onAuthStateChanged,
+    signOut,
     setPersistence,
     browserLocalPersistence,
-    type Auth
+    type Auth,
+    type User
 } from 'firebase/auth';
 
 type RemoteBackupPayload = {
@@ -43,7 +45,6 @@ export class FirestoreSyncService {
     private initPromise: Promise<void> | null = null;
     private pendingTimer: number | null = null;
     private pendingPayload: RemoteBackupPayload | null = null;
-    private authAttempted = false;
 
     private constructor() {
         this.deviceId = this.getOrCreateId(DEVICE_ID_KEY);
@@ -59,14 +60,16 @@ export class FirestoreSyncService {
     public async start(): Promise<void> {
         if (!this.isSyncEnabled()) return;
         await this.init();
-        await this.ensureAuth();
+        const user = await this.ensureAuth();
+        if (!user) return;
         await this.syncFromRemoteIfNewer();
     }
 
     public async pushAutoBackup(data: string, updatedAt: string): Promise<void> {
         if (!this.isSyncEnabled()) return;
         await this.init();
-        await this.ensureAuth();
+        const user = await this.ensureAuth();
+        if (!user) return;
         const payload: RemoteBackupPayload = {
             data,
             updatedAt,
@@ -84,6 +87,31 @@ export class FirestoreSyncService {
             this.pendingPayload = null;
             await setDoc(ref, toSend, { merge: false });
         }, 500);
+    }
+
+    public async signIn(): Promise<void> {
+        if (!this.isSyncEnabled()) return;
+        await this.init();
+        await this.signInWithGoogle();
+        const user = await this.ensureAuth();
+        if (user) {
+            await this.syncFromRemoteIfNewer();
+        }
+    }
+
+    public async signOut(): Promise<void> {
+        await this.init();
+        if (!this.auth) return;
+        await signOut(this.auth);
+    }
+
+    public getCurrentUser(): User | null {
+        return this.auth?.currentUser || null;
+    }
+
+    public async getCurrentUserAsync(): Promise<User | null> {
+        await this.init();
+        return this.auth?.currentUser || null;
     }
 
     private async init(): Promise<void> {
@@ -181,11 +209,11 @@ export class FirestoreSyncService {
         return stored === 'true';
     }
 
-    private async ensureAuth(): Promise<void> {
+    private async ensureAuth(): Promise<User | null> {
         if (!this.auth) return;
-        if (this.auth.currentUser) return;
+        if (this.auth.currentUser) return this.auth.currentUser;
 
-        const user = await new Promise<Auth['currentUser']>((resolve, reject) => {
+        const user = await new Promise<User | null>((resolve, reject) => {
             const unsubscribe = onAuthStateChanged(
                 this.auth!,
                 (user) => {
@@ -198,26 +226,20 @@ export class FirestoreSyncService {
                 }
             );
         });
-
-        if (user) return;
-        if (this.authAttempted || this.isLoginCooldownActive() || this.isRedirectInProgress()) {
-            return;
-        }
-
-        this.authAttempted = true;
-        this.markLoginAttempt();
-        await this.signInWithGoogle();
+        return user;
     }
 
     private async signInWithGoogle(): Promise<void> {
         if (!this.auth) return;
         const provider = new GoogleAuthProvider();
         try {
+            this.markLoginAttempt();
             await signInWithPopup(this.auth, provider);
             this.clearRedirectFlag();
         } catch (error) {
             if (this.isRedirectInProgress()) return;
             this.setRedirectFlag();
+            this.markLoginAttempt();
             await signInWithRedirect(this.auth, provider);
         }
     }
