@@ -35,6 +35,8 @@ const DEVICE_ID_KEY = 'saponify_device_id';
 const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
 const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
 const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
+const SYNC_PASSWORD_KEY = 'saponify_sync_password';
+const SYNC_ENC_PREFIX = 'SYNCENC1:';
 const AUTH_REDIRECT_FLAG = 'saponify_auth_redirect_in_progress';
 const AUTH_LAST_ATTEMPT_KEY = 'saponify_auth_last_attempt';
 
@@ -72,8 +74,15 @@ export class FirestoreSyncService {
         await this.init();
         const user = await this.ensureAuth();
         if (!user) return;
+        let encryptedData: string;
+        try {
+            encryptedData = await this.encryptForSync(data);
+        } catch (error: any) {
+            this.setLastSyncError(error?.message || 'Password de sincronização inválida.');
+            return;
+        }
         const payload: RemoteBackupPayload = {
-            data,
+            data: encryptedData,
             updatedAt,
             deviceId: this.deviceId
         };
@@ -121,10 +130,17 @@ export class FirestoreSyncService {
         const data = this.safeGetItem(AUTO_BACKUP_KEY);
         if (!data) return false;
         const updatedAt = this.safeGetItem(AUTO_BACKUP_TS_KEY) || new Date().toISOString();
+        let encryptedData: string;
+        try {
+            encryptedData = await this.encryptForSync(data);
+        } catch (error: any) {
+            this.setLastSyncError(error?.message || 'Password de sincronização inválida.');
+            return false;
+        }
         const ref = this.getDocRef();
         if (!ref) return false;
         try {
-            await setDoc(ref, { data, updatedAt, deviceId: this.deviceId }, { merge: false });
+            await setDoc(ref, { data: encryptedData, updatedAt, deviceId: this.deviceId }, { merge: false });
             this.setLastSyncSuccess(new Date().toISOString());
             this.setLastSyncError('');
             return true;
@@ -161,6 +177,17 @@ export class FirestoreSyncService {
             this.setLastSyncError(error?.message || 'Erro ao obter estado remoto.');
             return null;
         }
+    }
+
+    public async pullRemoteNow(): Promise<boolean> {
+        if (!this.isSyncEnabled()) return false;
+        await this.init();
+        const user = await this.ensureAuth();
+        if (!user) return false;
+        const before = this.safeGetItem(AUTO_BACKUP_TS_KEY) || '';
+        await this.syncFromRemoteIfNewer();
+        const after = this.safeGetItem(AUTO_BACKUP_TS_KEY) || '';
+        return after !== before;
     }
 
     private async init(): Promise<void> {
@@ -207,11 +234,30 @@ export class FirestoreSyncService {
         }
 
         if (remoteTime > localTime) {
-            this.safeSetItem(AUTO_BACKUP_KEY, remote.data);
-            this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
-            this.setLastSyncSuccess(new Date().toISOString());
-            this.setLastSyncError('');
-            return;
+            try {
+                const decrypted = await this.decryptFromSync(remote.data);
+                this.safeSetItem(AUTO_BACKUP_KEY, decrypted);
+                this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
+                this.setLastSyncSuccess(new Date().toISOString());
+                this.setLastSyncError('');
+                return;
+            } catch (error: any) {
+                if (error?.message === 'REMOTE_NOT_ENCRYPTED') {
+                    const password = this.getSyncPassword();
+                    if (!password) {
+                        this.setLastSyncError('Defina a password de sincronização para importar dados remotos.');
+                        return;
+                    }
+                    const migratedAt = new Date().toISOString();
+                    this.safeSetItem(AUTO_BACKUP_KEY, remote.data);
+                    this.safeSetItem(AUTO_BACKUP_TS_KEY, migratedAt);
+                    await this.pushAutoBackup(remote.data, migratedAt);
+                    this.setLastSyncSuccess(new Date().toISOString());
+                    return;
+                }
+                this.setLastSyncError(error?.message || 'Erro ao desencriptar dados remotos.');
+                return;
+            }
         }
 
         if (localData && localUpdatedAt && localTime > remoteTime) {
@@ -262,6 +308,94 @@ export class FirestoreSyncService {
 
     private setLastSyncError(message: string) {
         this.safeSetItem(SYNC_LAST_ERROR_KEY, message);
+    }
+
+    private getSyncPassword(): string | null {
+        const stored = this.safeGetItem(SYNC_PASSWORD_KEY);
+        if (!stored || !stored.trim()) return null;
+        return stored.trim();
+    }
+
+    private async encryptForSync(data: string): Promise<string> {
+        const password = this.getSyncPassword();
+        if (!password) {
+            throw new Error('Defina a password de sincronização.');
+        }
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const key = await this.deriveKeyFromPassword(password, salt);
+        const encoded = new TextEncoder().encode(data);
+        const cipher = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            key,
+            encoded
+        );
+        const combined = new Uint8Array(salt.length + iv.length + cipher.byteLength);
+        combined.set(salt, 0);
+        combined.set(iv, salt.length);
+        combined.set(new Uint8Array(cipher), salt.length + iv.length);
+        return `${SYNC_ENC_PREFIX}${this.bytesToBase64(combined)}`;
+    }
+
+    private async decryptFromSync(payload: string): Promise<string> {
+        if (!payload.startsWith(SYNC_ENC_PREFIX)) {
+            throw new Error('REMOTE_NOT_ENCRYPTED');
+        }
+        const password = this.getSyncPassword();
+        if (!password) {
+            throw new Error('Defina a password de sincronização.');
+        }
+        const raw = this.base64ToBytes(payload.slice(SYNC_ENC_PREFIX.length));
+        const salt = raw.slice(0, 16);
+        const iv = raw.slice(16, 28);
+        const cipher = raw.slice(28);
+        const key = await this.deriveKeyFromPassword(password, salt);
+        const plain = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv },
+            key,
+            cipher
+        );
+        return new TextDecoder().decode(plain);
+    }
+
+    private async deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
+        const baseKey = await window.crypto.subtle.importKey(
+            'raw',
+            new TextEncoder().encode(password),
+            'PBKDF2',
+            false,
+            ['deriveKey']
+        );
+        const saltBuffer = salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer;
+        return window.crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt: saltBuffer,
+                iterations: 120000,
+                hash: 'SHA-256'
+            },
+            baseKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    private bytesToBase64(bytes: Uint8Array): string {
+        let binary = '';
+        bytes.forEach((b) => {
+            binary += String.fromCharCode(b);
+        });
+        return btoa(binary);
+    }
+
+    private base64ToBytes(value: string): Uint8Array {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
     }
 
     private isSyncEnabled(): boolean {

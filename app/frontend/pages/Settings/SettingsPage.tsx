@@ -11,6 +11,7 @@ interface SettingsState extends BasePageState {
     deviceId: string;
     authEmail: string;
     authUid: string;
+    syncPassword: string;
     lastSyncSuccess: string;
     lastSyncError: string;
     remoteUpdatedAt: string;
@@ -25,6 +26,7 @@ const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
 const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
 const AUTO_BACKUP_KEY = 'saponify_auto_backup';
 const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
+const SYNC_PASSWORD_KEY = 'saponify_sync_password';
 
 export class SettingsPage extends BasePage<{}, SettingsState> {
 
@@ -35,12 +37,14 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         const storedLastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
         const storedLocalTs = localStorage.getItem(AUTO_BACKUP_TS_KEY) || '';
         const storedLocalData = localStorage.getItem(AUTO_BACKUP_KEY) || '';
+        const storedSyncPassword = localStorage.getItem(SYNC_PASSWORD_KEY) || '';
         return {
             settings: SettingsService.getInstance().getSettings(),
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
             deviceId: storedDeviceId,
             authEmail: '',
             authUid: '',
+            syncPassword: storedSyncPassword,
             lastSyncSuccess: storedLastSync,
             lastSyncError: storedLastError,
             remoteUpdatedAt: '',
@@ -58,6 +62,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                 authUid: user.uid || ''
             });
         }
+        this.refreshLocalBackupStatus();
     }
 
     private handleUpdate(field: keyof AppSettings, value: any) {
@@ -140,6 +145,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             authEmail: user?.email || '',
             authUid: user?.uid || ''
         });
+        this.refreshLocalBackupStatus();
     }
 
     private async handleSignOut() {
@@ -151,6 +157,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     private async handleForceSync() {
+        this.persistSyncSettings();
         await BackupService.getInstance().performAutoBackupNow();
         const ok = await FirestoreSyncService.getInstance().forceSyncNow();
         const lastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
@@ -174,6 +181,19 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             remoteDeviceId: status?.deviceId || '',
             lastSyncError: lastError
         });
+        this.refreshLocalBackupStatus();
+    }
+
+    private async handlePullRemote() {
+        const applied = await FirestoreSyncService.getInstance().pullRemoteNow();
+        const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
+        this.refreshLocalBackupStatus();
+        this.setState({ lastSyncError: lastError });
+        if (!applied) {
+            alert('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.');
+        } else {
+            alert('Dados remotos aplicados ao backup local. Atualize a página para carregar o estado.');
+        }
     }
 
     private refreshLocalBackupStatus() {
@@ -187,6 +207,11 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
 
     private persistSyncSettings() {
         localStorage.setItem(SYNC_ENABLED_KEY, String(this.state.syncEnabled));
+        if (this.state.syncPassword.trim()) {
+            localStorage.setItem(SYNC_PASSWORD_KEY, this.state.syncPassword.trim());
+        } else {
+            localStorage.removeItem(SYNC_PASSWORD_KEY);
+        }
     }
 
     protected renderActions() {
@@ -200,6 +225,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             deviceId,
             authEmail,
             authUid,
+            syncPassword,
             lastSyncSuccess,
             lastSyncError,
             remoteUpdatedAt,
@@ -509,6 +535,9 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                 <button className="btn btn-secondary" onClick={() => this.handleRefreshRemoteStatus()}>
                                     Verificar Estado
                                 </button>
+                                <button className="btn btn-secondary" onClick={() => this.handlePullRemote()}>
+                                    Puxar Remoto
+                                </button>
                             </div>
                             {lastSyncError && (
                                 <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#B91C1C' }}>
@@ -537,6 +566,19 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                 />
                                 <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ativar sincronização Firestore</span>
                             </label>
+                            <div style={{ marginBottom: '0.75rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>Password de Sincronização (E2E)</label>
+                                <input
+                                    type="password"
+                                    value={syncPassword}
+                                    onChange={(e) => this.setState({ syncPassword: e.target.value })}
+                                    placeholder="Defina uma password para encriptação ponta a ponta"
+                                    style={{ width: '100%', padding: '0.55rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
+                                    Esta password é diferente do backup local e nunca é enviada ao servidor.
+                                </p>
+                            </div>
                             <div style={{ marginBottom: '0.75rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>UID Autenticado</label>
                                 <input
