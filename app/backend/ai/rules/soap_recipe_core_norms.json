@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "id": "noviessence_soap_recipe_core_norms_v1",
+    "version": "1.0.0",
+    "language": "pt-PT",
+    "strict": true,
+    "scope": "Criação de fórmulas de sabonete artesanal e contexto do projeto/público-alvo",
+    "applies_to": "geração_automática_de_receitas_por_IA"
+  },
+  "project_context": {
+    "name": "Noviessence",
+    "description": "Projeto de formulação artesanal de sabonetes personalizados, orientado para cuidados naturais da pele, com foco em segurança, suavidade e adequação individual.",
+    "objectives": [
+      "formular sabonetes caso a caso",
+      "respeitar normas técnicas e de segurança",
+      "priorizar funcionalidade e compatibilidade com a pele"
+    ],
+    "non_objectives": [
+      "maximizar perfume",
+      "maximizar espuma",
+      "otimizar aparência estética industrial"
+    ],
+    "guiding_principles": [
+      "artesanal",
+      "personalizado",
+      "transparente",
+      "equilibrado",
+      "funcional"
+    ]
+  },
+  "target_audience_context": {
+    "demographic_profile": {
+      "gender": ["feminino", "masculino"],
+      "predominant_age_range": [25, 55]
+    },
+    "lifestyle_and_interests": [
+      "cuidados naturais",
+      "fitoterapia",
+      "aromaterapia",
+      "terapias holísticas",
+      "produtos artesanais",
+      "sustentabilidade"
+    ],
+    "values_and_attitudes": [
+      "preferência por marcas pequenas e humanas",
+      "procura de transparência nos ingredientes",
+      "evitar químicos percebidos como agressivos",
+      "cuidado pessoal como ritual de bem-estar"
+    ],
+    "technical_note": "Este contexto orienta escolhas quando existem múltiplas opções técnicas válidas, mas não impõe regras químicas por si só."
+  },
+  "general_formulation_principles": {
+    "ingredient_source": {
+      "authoritative_source": "lista_de_ingredientes_da_aplicacao",
+      "dynamic": true,
+      "rule": "apenas ingredientes disponíveis na aplicação podem ser usados"
+    },
+    "base_oils": {
+      "percentage_total_must_equal": 100
+    },
+    "alkali": {
+      "allowed_types": ["NaOH"]
+    },
+    "water": {
+      "concentration_constraints": "deve respeitar intervalos seguros definidos pelo cálculo técnico"
+    },
+    "superfat": {
+      "must_be_within_safe_limits": true,
+      "adjustment_basis": [
+        "perfil_da_pele",
+        "frequência_de_uso",
+        "idade"
+      ]
+    },
+    "formulation_goals": [
+      "suavidade",
+      "estabilidade",
+      "compatibilidade_com_uso_frequente"
+    ]
+  },
+  "mandatory_recipe_structure": {
+    "phase_1_base_fatty": {
+      "required_fields": [
+        "ingrediente",
+        "percentagem",
+        "peso",
+        "função"
+      ],
+      "description": "Óleos e gorduras que compõem a base da fórmula."
+    },
+    "phase_2_lye_solution": {
+      "required_fields": [
+        "líquido",
+        "NaOH_calculado",
+        "compensações_aplicadas"
+      ],
+      "description": "Lixívia composta por água ou infusão, NaOH e aditivos solúveis quando aplicável."
+    },
+    "phase_3_trace": {
+      "required_fields": [
+        "óleos_de_superfat",
+        "pós_funcionais",
+        "óleos_essenciais_se_aplicável"
+      ],
+      "description": "Ingredientes adicionados ao traço com função terapêutica, funcional ou aromática."
+    },
+    "technical_notes": {
+      "required_fields": [
+        "superfat_inicial",
+        "superfat_final",
+        "concentração_da_lixívia",
+        "justificações_técnicas"
+      ]
+    }
+  },
+  "citric_acid_rules": {
+    "purpose": [
+      "quelante",
+      "suavizar_sensação_em_água_dura"
+    ],
+    "application_method": {
+      "step_order": [
+        "dissolver_ácido_cítrico_na_água",
+        "adicionar_NaOH"
+      ]
+    },
+    "naoh_adjustment": {
+      "formula": "NaOH_final = NaOH_base + (ácido_cítrico * 0.625)",
+      "water_change": false
+    }
+  },
+  "essential_oils_rules": {
+    "default_percentage_of_total_formula": 1,
+    "adjustment_factors": [
+      "idade",
+      "sensibilidade_cutânea",
+      "zonas_íntimas",
+      "frequência_de_uso"
+    ],
+    "exclusion_allowed": true
+  },
+  "age_based_constraints": {
+    "baby": {
+      "age_range_years": [0, 2],
+      "essential_oils_allowed": false,
+      "colorants_allowed": false,
+      "notes": "Formulações extremamente suaves."
+    },
+    "child": {
+      "age_range_years": [3, 12],
+      "essential_oils_allowed": true,
+      "essential_oils_max_percentage": "muito_reduzida",
+      "notes": "Aplicar prudência máxima."
+    },
+    "adult": {
+      "age_range_years": [13, 120],
+      "essential_oils_allowed": true,
+      "notes": "Sempre dentro de limites seguros."
+    }
+  },
+  "curing_time_rules": {
+    "base_formula": "cura_dias = 27.79 + 0.358 * HR - 1.003 * T",
+    "variables": {
+      "HR": "humidade_relativa_percentual",
+      "T": "temperatura_média_celsius"
+    },
+    "adjustments": {
+      "humid_environment_add_days": 10,
+      "dehumidifier_subtract_days": 8,
+      "high_olive_content_add_days": 7
+    },
+    "minimum_days": 14,
+    "rounding": "arredondar_para_cima"
+  },
+  "output_constraints": {
+    "format": "json_only",
+    "content": "apenas_receita",
+    "no_explanations": true,
+    "must_be_importable": true
+  }
+}

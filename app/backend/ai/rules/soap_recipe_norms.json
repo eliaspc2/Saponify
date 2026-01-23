@@ -1,0 +1,239 @@
+{
+  "meta": {
+    "id": "soap_recipe_norms_v1",
+    "version": "1.0.0",
+    "language": "pt-PT",
+    "source_documents": [
+      "Normas de Formulação.txt",
+      "Análise das Respostas.txt",
+      "De acordo com a Idade.txt"
+    ],
+    "author": "Noviessence",
+    "description": "Normas completas e obrigatórias para geração de receitas de sabonetes personalizados",
+    "strict": true,
+    "last_review": "2026-01-23"
+  },
+
+  "global_principles": {
+    "priority_rules": [
+      "sinais_reais_da_pele_sobrepoem_classificacoes_genericas",
+      "seguranca_sobre_estetica",
+      "simplicidade_sobre_complexidade",
+      "em_caso_de_duvida_optar_formula_mais_suave"
+    ],
+    "warnings": [
+      "estas_normas_nao_substituem_acompanhamento_medico",
+      "todas_as_formulas_devem_ser_testadas_em_pequena_escala",
+      "ingredientes_podem_variar_em_pureza_e_origem"
+    ]
+  },
+
+  "formulation_norms": {
+    "general_constraints": {
+      "total_percentage_must_equal": 100,
+      "lye_type_allowed": ["NaOH"],
+      "synthetic_fragrances_allowed": false,
+      "non_listed_ingredients_prohibited": true
+    },
+
+    "superfat_rules": {
+      "description": "Superfat inicial antes do traço, não inclui superfat final",
+      "ranges": {
+        "very_sensitive": { "min": 8, "max": 12 },
+        "dry": { "min": 7, "max": 10 },
+        "normal": { "min": 5, "max": 7 },
+        "oily": { "min": 2, "max": 4 }
+      },
+      "notes": [
+        "superfat_demasiado_baixo_pode_comprometer_barreira_cutanea",
+        "superfat_demasiado_alto_pode_comprometer_durabilidade"
+      ]
+    },
+
+    "water_and_solution": {
+      "water_percentage_of_oils": {
+        "min": 25,
+        "max": 40
+      },
+      "salt_usage": {
+        "allowed": true,
+        "recommended_ratio": "5g_por_500g_de_oleos",
+        "types_allowed": ["sal_grosso_natural", "sal_rosa_himalaias"]
+      },
+      "sugar_or_honey": {
+        "allowed": true,
+        "recommended_amount": "5g",
+        "preference": "mel",
+        "notes": [
+          "aumenta_espuma",
+          "mel_contribui_para_hidratacao"
+        ]
+      }
+    },
+
+    "base_oils_guidelines": {
+      "minimum_oils": 1,
+      "maximum_oils": 6,
+      "recommended_oils": [
+        "azeite",
+        "oleo_de_coco",
+        "oleo_de_girassol",
+        "banha",
+        "sebo"
+      ],
+      "functional_notes": {
+        "azeite": "suavidade_e_tolerancia",
+        "coco": "limpeza_e_espuma",
+        "banha": "regeneracao_e_barreira",
+        "sebo": "dureza_e_durabilidade"
+      }
+    },
+
+    "trace_and_final_additives": {
+      "powders_allowed": [
+        "aveia",
+        "argila_branca",
+        "zeolite",
+        "curcuma"
+      ],
+      "botanicals_allowed": [
+        "camomila",
+        "malvas",
+        "tília",
+        "hibisco",
+        "lavanda",
+        "rosa"
+      ],
+      "final_superfat_oils": [
+        "amendoas_doces",
+        "sesamo",
+        "ricino",
+        "abacate",
+        "girassol_virgem"
+      ]
+    },
+
+    "essential_oils": {
+      "general_rules": {
+        "allowed": true,
+        "max_total_percentage": 3
+      },
+      "profiles": {
+        "sensitive": ["lavanda", "camomila", "rosa"],
+        "oily_acne": ["tea_tree", "limao", "alecrim"],
+        "mature": ["olibano", "geranio", "patchouli"]
+      },
+      "warnings": [
+        "respeitar_idade_e_sensibilidade",
+        "evitar_em_pele_fragilizada"
+      ]
+    }
+  },
+
+  "age_based_norms": {
+    "groups": [
+      {
+        "label": "0_6_meses",
+        "age_range_months": [0, 6],
+        "rules": {
+          "essential_oils": false,
+          "colorants": false,
+          "superfat": { "min": 12, "max": 15 },
+          "notes": "uso_muito_excecional_e_minimo"
+        }
+      },
+      {
+        "label": "6_12_meses",
+        "age_range_months": [6, 12],
+        "rules": {
+          "essential_oils": false,
+          "superfat": { "min": 10, "max": 12 }
+        }
+      },
+      {
+        "label": "1_2_anos",
+        "age_range_years": [1, 2],
+        "rules": {
+          "essential_oils": false,
+          "superfat": { "min": 10, "max": 12 }
+        }
+      },
+      {
+        "label": "2_3_anos",
+        "age_range_years": [2, 3],
+        "rules": {
+          "essential_oils": false,
+          "superfat": { "min": 8, "max": 10 }
+        }
+      },
+      {
+        "label": "3_5_anos",
+        "age_range_years": [3, 5],
+        "rules": {
+          "essential_oils": true,
+          "essential_oils_max_percentage": 0.5,
+          "allowed_essential_oils": ["lavanda", "laranja_doce"]
+        }
+      },
+      {
+        "label": "5_plus",
+        "age_range_years": [5, 120],
+        "rules": {
+          "essential_oils": true,
+          "essential_oils_max_percentage": 3
+        }
+      }
+    ]
+  },
+
+  "questionnaire_analysis_norms": {
+    "skin_type": {
+      "seca": {
+        "recommended_oils": ["azeite", "abacate"],
+        "avoid": ["coco_acima_20"],
+        "superfat_adjustment": "+2"
+      },
+      "oleosa": {
+        "recommended_oils": ["girassol", "arroz"],
+        "superfat_adjustment": "-1"
+      },
+      "sensivel": {
+        "essential_oils": false,
+        "notes": "prioridade_a_calmar_e_regenerar"
+      }
+    },
+
+    "usage_and_habits": {
+      "frequency": {
+        "mais_de_2x_dia": "aumentar_superfat_e_suavidade"
+      },
+      "environment": {
+        "frio_seco": "reforco_lipidico",
+        "quente_humido": "regulacao_sebacea"
+      }
+    },
+
+    "clinical_history": {
+      "acne": "evitar_comedogenicos",
+      "eczema": "ingredientes_calmantes",
+      "rosacea": "evitar_estimulos"
+    }
+  },
+
+  "ethical_and_personal_constraints": {
+    "vegan": {
+      "exclude": ["banha", "sebo", "cera_de_abelha", "mel"]
+    },
+    "religious": {
+      "exclude": ["porco"]
+    }
+  },
+
+  "output_requirements": {
+    "format": "json_only",
+    "recipe_only": true,
+    "no_explanations": true,
+    "must_be_importable": true,
+    "language": "pt-PT"
+  }
+}
