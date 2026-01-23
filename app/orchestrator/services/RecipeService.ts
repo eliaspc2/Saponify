@@ -3,6 +3,7 @@ import { Recipe } from '../../shared/types/Recipe';
 import { ClientService } from './ClientService';
 import { SettingsService } from './SettingsService';
 import { formatRecipeReferenceOrFallback } from '../../shared/utils/recipeFormat';
+import { touchDataVersion } from '../utils/dataVersion';
 
 export class RecipeService extends BaseService {
     private recipes: Recipe[] = [];
@@ -36,6 +37,7 @@ export class RecipeService extends BaseService {
 
     private saveToStorage() {
         localStorage.setItem('saponify_recipes', JSON.stringify(this.recipes));
+        touchDataVersion();
     }
 
     getAll(): Recipe[] {
@@ -84,6 +86,11 @@ export class RecipeService extends BaseService {
 
         const maxCode = Math.max(...codes);
         return (maxCode + 1).toString().padStart(4, '0');
+    }
+
+    replaceAll(recipes: Recipe[]): void {
+        this.recipes = (recipes || []).map((recipe) => this.normalizeRecipe(recipe));
+        this.saveToStorage();
     }
     private normalizeRecipe(recipe: Recipe): Recipe {
         const settings = SettingsService.getInstance().getSettings();

@@ -1,5 +1,6 @@
 import { BaseService } from '../core/BaseService';
 import { AppSettings, DEFAULT_SETTINGS } from '../../shared/types/Settings';
+import { touchDataVersion } from '../utils/dataVersion';
 
 export class SettingsService extends BaseService {
     private settings: AppSettings = DEFAULT_SETTINGS;
@@ -30,6 +31,7 @@ export class SettingsService extends BaseService {
 
     private saveToStorage() {
         localStorage.setItem('saponify_settings', JSON.stringify(this.settings));
+        touchDataVersion();
     }
 
     getSettings(): AppSettings {
@@ -38,6 +40,11 @@ export class SettingsService extends BaseService {
 
     updateSettings(updates: Partial<AppSettings>) {
         this.settings = { ...this.settings, ...updates };
+        this.saveToStorage();
+    }
+
+    replaceSettings(settings: AppSettings) {
+        this.settings = { ...DEFAULT_SETTINGS, ...settings };
         this.saveToStorage();
     }
 }

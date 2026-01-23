@@ -59,23 +59,22 @@ export class BackupService {
             }
 
             // 1. Settings
-            SettingsService.getInstance().updateSettings(data.settings);
+            SettingsService.getInstance().replaceSettings(data.settings);
 
-            // 2. Clients
-            const clientService = ClientService.getInstance();
-            data.clients.forEach((c: any) => clientService.save(c));
+            // 2. Ingredients (replace all)
+            IngredientService.getInstance().replaceAll(Array.isArray(data.ingredients) ? data.ingredients : [], true);
 
-            // 2.1 Activities
-            (data.activities || []).forEach((activity: any) => clientService.addActivity(activity));
+            // 3. Clients + Activities (replace all)
+            ClientService.getInstance().replaceAll(
+                Array.isArray(data.clients) ? data.clients : [],
+                Array.isArray(data.activities) ? data.activities : []
+            );
 
-            // 3. Recipes
-            const recipeService = RecipeService.getInstance();
-            data.recipes.forEach((r: any) => recipeService.save(r));
+            // 4. Recipes (replace all)
+            RecipeService.getInstance().replaceAll(Array.isArray(data.recipes) ? data.recipes : []);
 
-            // 4. Questionnaires
-            for (const q of (data.questionnaires || [])) {
-                await QuestionnaireService.saveQuestionnaire(q);
-            }
+            // 5. Questionnaires (replace all)
+            QuestionnaireService.replaceAll(Array.isArray(data.questionnaires) ? data.questionnaires : []);
 
             return true;
         } catch (e) {

@@ -1,6 +1,7 @@
 import { BaseService } from '../core/BaseService';
 import { Client } from '../../shared/types/Client';
 import { ClientActivity } from '../../shared/types/ClientActivity';
+import { touchDataVersion } from '../utils/dataVersion';
 
 export class ClientService extends BaseService {
     private static instance: ClientService;
@@ -42,6 +43,7 @@ export class ClientService extends BaseService {
     private saveToStorage() {
         localStorage.setItem('saponify_clients', JSON.stringify(this.clients));
         localStorage.setItem('saponify_activities', JSON.stringify(this.activities));
+        touchDataVersion();
     }
 
     public getAll(): Client[] {
@@ -106,5 +108,11 @@ export class ClientService extends BaseService {
 
     public getAllActivities(): ClientActivity[] {
         return this.activities;
+    }
+
+    public replaceAll(clients: Client[], activities: ClientActivity[] = []): void {
+        this.clients = clients || [];
+        this.activities = activities || [];
+        this.saveToStorage();
     }
 }

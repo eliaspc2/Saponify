@@ -40,6 +40,7 @@ const SYNC_ENC_PREFIX = 'SYNCENC1:';
 const SYNC_PENDING_IMPORT_KEY = 'saponify_sync_pending_import';
 const AUTH_REDIRECT_FLAG = 'saponify_auth_redirect_in_progress';
 const AUTH_LAST_ATTEMPT_KEY = 'saponify_auth_last_attempt';
+const REMOTE_POLL_INTERVAL_MS = 30000;
 
 export class FirestoreSyncService {
     private static instance: FirestoreSyncService;
@@ -50,6 +51,8 @@ export class FirestoreSyncService {
     private initPromise: Promise<void> | null = null;
     private pendingTimer: number | null = null;
     private pendingPayload: RemoteBackupPayload | null = null;
+    private remotePollTimer: number | null = null;
+    private initialSyncDone = false;
 
     private constructor() {
         this.deviceId = this.getOrCreateId(DEVICE_ID_KEY);
@@ -68,6 +71,8 @@ export class FirestoreSyncService {
         const user = await this.ensureAuth();
         if (!user) return;
         await this.syncFromRemoteIfNewer();
+        this.initialSyncDone = true;
+        this.startRemotePolling();
     }
 
     public async pushAutoBackup(data: string, updatedAt: string): Promise<void> {
@@ -114,6 +119,8 @@ export class FirestoreSyncService {
         const user = await this.ensureAuth();
         if (user) {
             await this.syncFromRemoteIfNewer();
+            this.initialSyncDone = true;
+            this.startRemotePolling();
         }
     }
 
@@ -153,6 +160,14 @@ export class FirestoreSyncService {
 
     public getCurrentUser(): User | null {
         return this.auth?.currentUser || null;
+    }
+
+    public isSyncActive(): boolean {
+        return this.isSyncEnabled();
+    }
+
+    public hasCompletedInitialSync(): boolean {
+        return this.initialSyncDone;
     }
 
     public async getCurrentUserAsync(): Promise<User | null> {
@@ -298,6 +313,17 @@ export class FirestoreSyncService {
         if (localData && localUpdatedAt && localTime > remoteTime) {
             await this.pushAutoBackup(localData, localUpdatedAt);
         }
+    }
+
+    private startRemotePolling(): void {
+        if (this.remotePollTimer) return;
+        this.remotePollTimer = window.setInterval(async () => {
+            if (!this.isSyncEnabled()) return;
+            await this.init();
+            const user = await this.ensureAuth();
+            if (!user) return;
+            await this.syncFromRemoteIfNewer();
+        }, REMOTE_POLL_INTERVAL_MS);
     }
 
     private getDocRef() {

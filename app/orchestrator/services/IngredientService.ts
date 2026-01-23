@@ -1,5 +1,6 @@
 import { BaseService } from '../core/BaseService';
 import { Ingredient } from '../../shared/types/Ingredient';
+import { touchDataVersion } from '../utils/dataVersion';
 
 export class IngredientService extends BaseService {
     private ingredients: Ingredient[] = [];
@@ -83,6 +84,14 @@ export class IngredientService extends BaseService {
             this.ingredients[index] = normalized;
         } else {
             this.ingredients.push(normalized);
+        }
+        this.saveToStorage();
+    }
+
+    replaceAll(ingredients: Ingredient[], markInitialized = true): void {
+        this.ingredients = (ingredients || []).map((ingredient) => this.normalizeIngredient(ingredient));
+        if (markInitialized) {
+            this.initialized = true;
         }
         this.saveToStorage();
     }
@@ -190,6 +199,7 @@ export class IngredientService extends BaseService {
             items: this.ingredients
         };
         localStorage.setItem(IngredientService.STORAGE_KEY, JSON.stringify(payload));
+        touchDataVersion();
     }
 
     private normalizeIngredient(ingredient: Ingredient): Ingredient {

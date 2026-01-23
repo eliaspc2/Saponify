@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Layout } from './core/Layout';
 import { FirestoreSyncService } from '../orchestrator/services/FirestoreSyncService';
 import { BackupService } from '../orchestrator/services/BackupService';
 import { SettingsService } from '../orchestrator/services/SettingsService';
+import { getDataVersion } from '../orchestrator/utils/dataVersion';
 
 const HomePage = lazy(() => import('./pages/Home/HomePage').then((m) => ({ default: m.HomePage })));
 const CalculatorPage = lazy(() => import('./pages/Calculator/CalculatorPage').then((m) => ({ default: m.CalculatorPage })));
@@ -15,6 +16,8 @@ const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m)
 function App() {
     const [activePage, setActivePage] = useState('home');
     const [pageParams, setPageParams] = useState<any>(null);
+    const lastDataVersion = useRef<string>(getDataVersion());
+    const pendingBackupTimer = useRef<number | null>(null);
 
     useEffect(() => {
         const run = async () => {
@@ -40,6 +43,32 @@ function App() {
             }
         };
         void run();
+    }, []);
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            const currentVersion = getDataVersion();
+            if (currentVersion && currentVersion !== lastDataVersion.current) {
+                lastDataVersion.current = currentVersion;
+                if (pendingBackupTimer.current) {
+                    window.clearTimeout(pendingBackupTimer.current);
+                }
+                pendingBackupTimer.current = window.setTimeout(async () => {
+                    const sync = FirestoreSyncService.getInstance();
+                    if (!sync.isSyncActive()) return;
+                    if (!sync.getCurrentUser()) return;
+                    if (!sync.hasCompletedInitialSync()) return;
+                    await BackupService.getInstance().performAutoBackupNow();
+                }, 800);
+            }
+        }, 2000);
+
+        return () => {
+            window.clearInterval(interval);
+            if (pendingBackupTimer.current) {
+                window.clearTimeout(pendingBackupTimer.current);
+            }
+        };
     }, []);
 
     const handleNavigate = (page: string, params: any = null) => {

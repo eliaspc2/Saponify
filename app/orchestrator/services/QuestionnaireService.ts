@@ -1,7 +1,13 @@
 import { Questionnaire } from '../../shared/types/Questionnaire';
+import { touchDataVersion } from '../utils/dataVersion';
 
 export class QuestionnaireService {
     private static STORAGE_KEY = 'saponify_questionnaires';
+
+    static replaceAll(questionnaires: Questionnaire[]): void {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(questionnaires || []));
+        touchDataVersion();
+    }
 
     static async getQuestionnaires(): Promise<Questionnaire[]> {
         const stored = localStorage.getItem(this.STORAGE_KEY);
@@ -31,12 +37,14 @@ export class QuestionnaireService {
         }
 
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(questionnaires));
+        touchDataVersion();
     }
 
     static async deleteQuestionnaire(id: string): Promise<void> {
         const questionnaires = await this.getQuestionnaires();
         const filtered = questionnaires.filter(q => q.id !== id);
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filtered));
+        touchDataVersion();
     }
 
     static async getQuestionnaireById(id: string): Promise<Questionnaire | undefined> {
