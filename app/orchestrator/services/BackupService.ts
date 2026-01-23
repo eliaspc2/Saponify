@@ -3,6 +3,8 @@ import { FirestoreSyncService } from './FirestoreSyncService';
 import { BackupComposer } from './BackupComposer';
 import { AutoBackupStorage } from './AutoBackupStorage';
 import { BackupFileTransfer } from './BackupFileTransfer';
+import type { IEncryptionProvider } from './IEncryptionProvider';
+import { WebCryptoEncryptionProvider } from './WebCryptoEncryptionProvider';
 
 export class BackupService {
     private static instance: BackupService;
@@ -62,7 +64,7 @@ export class BackupService {
 
             // Encriptar se necessário
             const finalData = settings.autoBackupEncrypted && settings.autoBackupPassword
-                ? this.simpleEncrypt(jsonData, settings.autoBackupPassword)
+                ? await this.getEncryptionProvider(settings.autoBackupPassword).encrypt(jsonData)
                 : jsonData;
 
             const timestamp = new Date().toISOString();
@@ -77,7 +79,7 @@ export class BackupService {
             let syncPayload = finalData;
             if (finalData.startsWith('ENCRYPTED:') && settings.autoBackupPassword) {
                 try {
-                    syncPayload = this.simpleDecrypt(finalData, settings.autoBackupPassword);
+                    syncPayload = await this.getEncryptionProvider(settings.autoBackupPassword).decrypt(finalData);
                 } catch (decryptError) {
                     console.error('Erro ao desencriptar backup local para sync:', decryptError);
                     return;
@@ -107,7 +109,7 @@ export class BackupService {
 
             // Desencriptar se necessário
             const jsonData = settings.autoBackupEncrypted && password
-                ? this.simpleDecrypt(data, password)
+                ? await this.getEncryptionProvider(password).decrypt(data)
                 : data;
 
             return await this.importAllData(jsonData);
@@ -131,29 +133,6 @@ export class BackupService {
         this.getFileTransfer().downloadAutoBackup(data, timestamp);
     }
 
-    // ============ ENCRIPTAÇÃO SIMPLES ============
-    // Nota: Isto é encriptação básica. Para produção, usar crypto-js ou similar
-
-    private simpleEncrypt(text: string, password: string): string {
-        const encrypted = btoa(unescape(encodeURIComponent(text + '::' + password)));
-        return `ENCRYPTED:${encrypted}`;
-    }
-
-    private simpleDecrypt(encryptedText: string, password: string): string {
-        if (!encryptedText.startsWith('ENCRYPTED:')) {
-            return encryptedText; // Não encriptado
-        }
-
-        const encrypted = encryptedText.replace('ENCRYPTED:', '');
-        const decrypted = decodeURIComponent(escape(atob(encrypted)));
-
-        if (!decrypted.endsWith('::' + password)) {
-            throw new Error('Palavra-passe incorreta');
-        }
-
-        return decrypted.replace('::' + password, '');
-    }
-
     private getComposer() {
         if (!this.composer) {
             this.composer = new BackupComposer();
@@ -173,5 +152,9 @@ export class BackupService {
             this.fileTransfer = new BackupFileTransfer();
         }
         return this.fileTransfer;
+    }
+
+    private getEncryptionProvider(password: string): IEncryptionProvider {
+        return new WebCryptoEncryptionProvider(password);
     }
 }
