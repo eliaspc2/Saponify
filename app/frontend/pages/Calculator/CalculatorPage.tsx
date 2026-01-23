@@ -4,13 +4,12 @@ import { IngredientService } from '../../../orchestrator/services/IngredientServ
 import { RecipeService } from '../../../orchestrator/services/RecipeService';
 import { RecipeDomainService } from '../../../orchestrator/services/RecipeDomainService';
 import { SettingsService } from '../../../orchestrator/services/SettingsService';
-import { CalculatorService } from '../../../orchestrator/services/CalculatorService';
+import { CalculatorEngine } from '../../../orchestrator/calculator/CalculatorEngine';
+import type { QualityRange } from '../../../orchestrator/calculator/CalculatorRules';
 import { Ingredient } from '../../../shared/types/Ingredient';
-import { TEASPOON_WEIGHTS, DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } from '../../../shared/constants/RecipeConstants';
 import { Beaker, ShieldCheck, Plus, Trash2, Save, FileText } from 'lucide-react';
 import { Client } from '../../../shared/types/Client';
 import { ClientService } from '../../../orchestrator/services/ClientService';
-import { formatRecipeCodeForFile, formatRecipeReference } from '../../../shared/utils/recipeFormat';
 
 interface CalculatorPageProps extends BasePageProps {
     recipeId?: string;
@@ -97,64 +96,6 @@ const PhaseAddMenu = ({
         </div>
     </details>
 );
-
-const QUALITY_RANGES = {
-    cleansing: {
-        min: 0,
-        max: 26,
-        thresholds: [
-            { max: 12, tone: 'danger', inclusive: false },
-            { max: 16, tone: 'warning', inclusive: false },
-            { max: 22, tone: 'good', inclusive: false },
-            { max: 26, tone: 'warning', inclusive: true },
-            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
-        ]
-    },
-    bubbles: {
-        min: 0,
-        max: 55,
-        thresholds: [
-            { max: 14, tone: 'danger', inclusive: false },
-            { max: 20, tone: 'warning', inclusive: false },
-            { max: 46, tone: 'good', inclusive: false },
-            { max: 55, tone: 'warning', inclusive: true },
-            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
-        ]
-    },
-    hardness: {
-        min: 0,
-        max: 60,
-        thresholds: [
-            { max: 29, tone: 'danger', inclusive: false },
-            { max: 35, tone: 'warning', inclusive: false },
-            { max: 54, tone: 'good', inclusive: false },
-            { max: 60, tone: 'warning', inclusive: true },
-            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
-        ]
-    },
-    persistence: {
-        min: 0,
-        max: 55,
-        thresholds: [
-            { max: 25, tone: 'danger', inclusive: false },
-            { max: 30, tone: 'warning', inclusive: false },
-            { max: 50, tone: 'good', inclusive: false },
-            { max: 55, tone: 'warning', inclusive: true },
-            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
-        ]
-    },
-    conditioning: {
-        min: 0,
-        max: 75,
-        thresholds: [
-            { max: 44, tone: 'danger', inclusive: false },
-            { max: 50, tone: 'warning', inclusive: false },
-            { max: 69, tone: 'good', inclusive: false },
-            { max: 75, tone: 'warning', inclusive: true },
-            { max: Number.POSITIVE_INFINITY, tone: 'danger', inclusive: true }
-        ]
-    }
-} as const;
 
 
 export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorState> {
@@ -249,78 +190,14 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleRecipeChange(field: keyof Recipe, value: any) {
         this.setState(prev => {
-            let updatedRecipe = { ...prev.recipe, [field]: value };
-
-            // Recalculate water if concentration or superfat changes
-            if (field === 'waterConcentration' || field === 'superfat' || field === 'alkali' || field === 'alkaliPurity') {
-                updatedRecipe = this.recalculateWater(updatedRecipe);
-            }
-
+            const updatedRecipe = CalculatorEngine.applyRecipeChange(
+                prev.recipe,
+                field,
+                value,
+                prev.availableIngredients
+            );
             return { recipe: updatedRecipe };
         });
-    }
-
-    private recalculateWater(recipe: Recipe): Recipe {
-        const fats = recipe.fats || [];
-        const totalFats = fats.reduce((acc, f) => acc + (f.amount || 0), 0);
-        const { availableIngredients } = this.state;
-        const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        const isBaseOil = (ing?: Ingredient) => {
-            if (!ing) return false;
-            if (ing.menuKey && ing.menuKey.toLowerCase() === 'baseoils') return true;
-            if (!ing.category) return false;
-            const category = normalizeCategory(ing.category);
-            return category.includes('oleos base') || category.includes('oleo base') || category.includes('leos base');
-        };
-        const isCitricAcid = (ing?: Ingredient) => {
-            if (!ing) return false;
-            if (ing.flags?.citricAcid) return true;
-            const text = `${ing.name} ${ing.inci}`.toLowerCase();
-            return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido citrico');
-        };
-        const getSapKOH = (ing?: Ingredient) => {
-            if (!ing) return 0;
-            if (ing.sapKOH) return ing.sapKOH;
-            return ing.sapNaOH ? ing.sapNaOH * 1.403 : 0;
-        };
-        const naohConversion = 0.713;
-        let totalSapKOH = 0;
-
-        const normalizeLabel = (value?: string) =>
-            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-        fats.forEach((fat) => {
-            if ((fat.amount || 0) <= 0) return;
-            const ing = availableIngredients.find(i => i.id === fat.ingredientId)
-                || availableIngredients.find(i => normalizeLabel(i.name) === normalizeLabel(fat.name));
-            if (!ing || !isBaseOil(ing)) return;
-            totalSapKOH += (fat.amount || 0) * getSapKOH(ing);
-        });
-
-        const superfatRatio = 1 - (recipe.superfat / 100);
-        const lyeBase = totalSapKOH * (recipe.alkali === 'NaOH' ? naohConversion : 1);
-        const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
-            const ing = availableIngredients.find(i => i.id === item.id || i.id === item.ingredientId);
-            return isCitricAcid(ing) ? sum + (item.amount || 0) : sum;
-        }, 0);
-        const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
-        const citricLye = citricAcidAmount * citricLyeFactor;
-        const alkaliPurity = recipe.alkaliPurity ?? 100;
-        const purityRatio = alkaliPurity > 0 ? (alkaliPurity / 100) : 1;
-        const lyeAmount = purityRatio > 0
-            ? ((lyeBase * superfatRatio) + citricLye) / purityRatio
-            : (lyeBase * superfatRatio) + citricLye;
-        const lyeRatio = recipe.waterConcentration / 100;
-        const fallbackWaterAmount = parseFloat((totalFats * (recipe.waterConcentration / 100)).toFixed(1));
-        const newWaterAmount = lyeAmount > 0 && lyeRatio > 0
-            ? parseFloat((lyeAmount * (1 / lyeRatio - 1)).toFixed(1))
-            : fallbackWaterAmount;
-
-        const liquids = recipe.liquids || [];
-        const updatedLiquids = liquids.length > 0
-            ? liquids.map(l => l.name.toLowerCase().includes('água') ? { ...l, amount: newWaterAmount } : l)
-            : [{ id: generateId(), ingredientId: '12', name: 'Água', amount: newWaterAmount, percentage: 0 }];
-
-        return { ...recipe, fats, liquids: updatedLiquids };
     }
 
     private addItem(type: keyof Recipe) {
@@ -338,7 +215,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 ...prev.recipe,
                 [type]: [...currentArray, newItem]
             };
-            return { recipe: type === 'fats' ? this.recalculateWater(updatedRecipe) : updatedRecipe };
+            return {
+                recipe: type === 'fats'
+                    ? CalculatorEngine.recalculateWater(updatedRecipe, prev.availableIngredients)
+                    : updatedRecipe
+            };
         });
     }
 
@@ -349,7 +230,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 [type]: (prev.recipe[type] as any[]).filter(item => item.id !== id)
             };
             if (type === 'fats' || type === 'lyeAdditives') {
-                return { recipe: this.recalculateWater(updatedRecipe) };
+                return { recipe: CalculatorEngine.recalculateWater(updatedRecipe, prev.availableIngredients) };
             }
             return { recipe: updatedRecipe };
         });
@@ -362,11 +243,10 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             const ing = availableIngredients.find(i => i.id === updates.ingredientId);
             if (ing) {
                 updates.name = ing.name;
-                const tsWeight = this.getTeaspoonWeight(ing.name);
-                if (tsWeight !== null && (!updates.amount || updates.amount === 0)) {
-                    const totalFats = this.state.recipe.fats.reduce((acc, f) => acc + (f.amount || 0), 0);
-                    const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
-                    updates.amount = parseFloat((tsWeight * ratio).toFixed(2));
+                const totalFats = this.state.recipe.fats.reduce((acc, f) => acc + (f.amount || 0), 0);
+                const suggestedAmount = CalculatorEngine.getSuggestedAmount(ing.name, totalFats);
+                if (suggestedAmount !== null && (!updates.amount || updates.amount === 0)) {
+                    updates.amount = suggestedAmount;
                 }
             }
         }
@@ -377,21 +257,10 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             );
             let updatedRecipe = { ...prev.recipe, [type]: updatedItems };
             if ((type === 'fats' && updates.amount !== undefined) || type === 'lyeAdditives') {
-                updatedRecipe = this.recalculateWater(updatedRecipe);
+                updatedRecipe = CalculatorEngine.recalculateWater(updatedRecipe, prev.availableIngredients);
             }
             return { recipe: updatedRecipe };
         });
-    }
-
-    private getTeaspoonWeight(name: string): number | null {
-        const lowerName = name.toLowerCase();
-        for (const key in TEASPOON_WEIGHTS) {
-            if (lowerName.includes(key)) return TEASPOON_WEIGHTS[key];
-        }
-        if (lowerName.includes('infusão') || lowerName.includes('seco') || lowerName.includes('seca')) {
-            return DEFAULT_HERB_WEIGHT;
-        }
-        return null;
     }
 
     private async handleSaveRecipe() {
@@ -411,61 +280,12 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleDownloadMarkdown() {
         const { recipe, availableIngredients } = this.state;
-        const results = CalculatorService.calculate(recipe, availableIngredients);
-        const recipeRef = formatRecipeReference(recipe.code);
-
-        let md = `# Receita: ${recipe.name || 'Sem Nome'} \n`;
-        if (recipeRef) {
-            md += `Codigo: ${recipeRef} | Data: ${recipe.date} \n\n`;
-        } else {
-            md += `Data: ${recipe.date} \n\n`;
-        }
-
-        md += `## Configurações\n`;
-        md += `- Álcali: ${recipe.alkali} \n`;
-        md += `- Superfat: ${recipe.superfat}%\n`;
-        md += `- Concentração de Água: ${recipe.waterConcentration}%\n`;
-        md += `- Pureza do Álcali: ${recipe.alkaliPurity ?? 100}%\n\n`;
-
-        md += `## Composição\n`;
-        md += `### Fase 1: Gorduras\n`;
-        recipe.fats.forEach(f => {
-            md += `- ${f.name}: ${f.amount} g(${((f.amount / results.totalFats) * 100).toFixed(1)}%) \n`;
-        });
-
-        md += `\n### Fase 2: Lixívia & Aditivos\n`;
-        recipe.liquids.forEach(l => md += `- ${l.name}: ${l.amount} g\n`);
-        recipe.functionalAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
-        md += `- ${recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}: ${results.alkaliAmount.toFixed(2)} g\n`;
-        recipe.lyeAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
-
-        md += `\n### Fase 3: No Traço\n`;
-        recipe.traceAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
-        recipe.superfatOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
-        recipe.essentialOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
-
-        md += `\n## Resultados Técnicos\n`;
-        md += `- Total de Gorduras: ${results.totalFats.toFixed(1)} g\n`;
-        md += `- Lixívia(${recipe.alkali}): ${results.alkaliAmount.toFixed(2)} g\n`;
-        md += `- Água: ${results.waterAmount.toFixed(1)} g\n`;
-        md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n\n`;
-
-        md += `## Qualidade Prevista\n`;
-        md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)} \n`;
-        md += `- Limpeza: ${results.properties.cleansing.toFixed(0)} \n`;
-        md += `- Bolhas: ${results.properties.bubbles.toFixed(0)} \n`;
-        md += `- Persistência: ${results.properties.persistence.toFixed(0)} \n`;
-        md += `- Dureza: ${results.properties.hardness.toFixed(0)} \n\n`;
-
-        md += `## INCI\n`;
-        md += `${results.inciList.join(', ')} \n`;
-
-        const blob = new Blob([md], { type: 'text/markdown' });
+        const exportData = CalculatorEngine.buildMarkdown(recipe, availableIngredients);
+        const blob = new Blob([exportData.content], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const codePrefix = formatRecipeCodeForFile(recipe.code);
-        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.md`;
+        a.download = exportData.filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -474,26 +294,12 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleDownloadJSON() {
         const { recipe, availableIngredients } = this.state;
-        const results = CalculatorService.calculate(recipe, availableIngredients);
-        const payload = {
-            ...recipe,
-            calculations: {
-                alkaliAmount: results.alkaliAmount,
-                alkaliPure: results.alkaliPure,
-                alkaliPurity: results.alkaliPurity,
-                sapAverage: results.sapAverage,
-                waterAmount: results.waterAmount,
-                iodine: results.iodine,
-                ins: results.ins,
-                glycerin: results.glycerin
-            }
-        };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const exportData = CalculatorEngine.buildJson(recipe, availableIngredients);
+        const blob = new Blob([exportData.content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const codePrefix = formatRecipeCodeForFile(recipe.code);
-        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.json`;
+        a.download = exportData.filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -505,10 +311,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const choices = categories
             ? availableIngredients.filter(i => categories.includes(i.category))
             : availableIngredients;
-
-        const selectedIng = availableIngredients.find(i => i.id === item.ingredientId);
-        const sapValue = selectedIng ? (recipe.alkali === 'NaOH' ? selectedIng.sapNaOH : selectedIng.sapKOH) : 0;
-        const percentage = totalFats && totalFats > 0 ? ((item.amount || 0) / totalFats * 100).toFixed(1) : '0.0';
+        const { sapValue, percentage } = CalculatorEngine.getIngredientRowMeta(item, recipe, availableIngredients, totalFats);
 
         return (
             <div key={item.id} className="ingredient-grid ingredient-grid-row">
@@ -552,24 +355,9 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
     private renderProgressBar(
         label: string,
         value: number,
-        range: {
-            min: number;
-            max: number;
-            thresholds: ReadonlyArray<{ max: number; tone: 'danger' | 'warning' | 'good'; inclusive: boolean }>;
-        }
+        range: QualityRange
     ) {
-        const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
-        const denom = range.max - range.min;
-        const score = denom > 0 ? clamp(((value - range.min) / denom) * 100, 0, 100) : 0;
-        let tone: 'danger' | 'warning' | 'good' = 'good';
-
-        for (const threshold of range.thresholds) {
-            if (threshold.inclusive ? value <= threshold.max : value < threshold.max) {
-                tone = threshold.tone;
-                break;
-            }
-        }
-
+        const { score, tone } = CalculatorEngine.getQualityProgress(value, range);
         const colorClass = tone === 'warning' ? 'warning' : tone === 'danger' ? 'danger' : '';
 
         return (
@@ -626,61 +414,15 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         );
     }
 
-    private getDayOfYear(date: Date): number {
-        const start = new Date(date.getFullYear(), 0, 0);
-        const diff = date.getTime() - start.getTime();
-        return Math.floor(diff / (1000 * 60 * 60 * 24));
-    }
-
-    private getPhysicalCureDays(date: Date): number {
-        const minDays = 30;
-        const maxDays = 45;
-        const dayOfYear = this.getDayOfYear(date);
-        const radians = (2 * Math.PI * (dayOfYear - 172)) / 365;
-        const seasonalFactor = (1 - Math.cos(radians)) / 2;
-        return Math.round(minDays + (maxDays - minDays) * seasonalFactor);
-    }
-
     renderContent() {
         if (this.state.loading) return <div>Carregando calculadora...</div>;
 
         const { recipe, availableIngredients } = this.state;
-        const results = CalculatorService.calculate(recipe, availableIngredients);
-        const today = new Date();
-        const physicalDays = this.getPhysicalCureDays(today);
+        const calc = CalculatorEngine.calculate({ recipe, ingredients: availableIngredients });
+        const { results, phaseTotals, qualityRanges, fattyAcidLabels } = calc;
+        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, physicalDays, physicalReadyDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
-        const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
-        const normalizeLabel = (value?: string) =>
-            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-        const isWaterItem = (item: RecipeIngredient) => {
-            const label = normalizeLabel(item.name);
-            return label.includes('agua') || label.includes('water');
-        };
-        const phase1Total = sumAmounts(recipe.fats);
-        const nonWaterLiquids = (recipe.liquids || []).filter(item => !isWaterItem(item));
-        const phase2Total = sumAmounts(nonWaterLiquids)
-            + results.waterAmount
-            + sumAmounts(recipe.functionalAdditives)
-            + sumAmounts(recipe.lyeAdditives)
-            + results.alkaliAmount;
-        const phase3Total = sumAmounts(recipe.traceAdditives) + sumAmounts(recipe.superfatOils) + sumAmounts(recipe.essentialOils);
-        const physicalReadyDate = new Date(today.getTime());
-        physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
-        const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
-        const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
-        const fattyAcidLabels = [
-            { key: 'lauric', label: 'Láurico' },
-            { key: 'myristic', label: 'Mirístico' },
-            { key: 'palmitic', label: 'Palmítico' },
-            { key: 'stearic', label: 'Esteárico' },
-            { key: 'oleic', label: 'Oleico' },
-            { key: 'linoleic', label: 'Linoleico' },
-            { key: 'linolenic', label: 'Linolênico' },
-            { key: 'ricinoleic', label: 'Ricinoleico' },
-            { key: 'gadoleic', label: 'Gadoleico' },
-            { key: 'other', label: 'Outros' }
-        ] as const;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -939,7 +681,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
                                     {(recipe.liquids || []).map((l) => (
-                                        isWaterItem(l)
+                                        CalculatorEngine.isWaterItem(l)
                                             ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
                                             : this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia'])
                                     ))}
@@ -1060,11 +802,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                             ) : (
                                 <>
-                                    {this.renderProgressBar('Condicionamento', results.properties.conditioning, QUALITY_RANGES.conditioning)}
-                                    {this.renderProgressBar('Limpeza', results.properties.cleansing, QUALITY_RANGES.cleansing)}
-                                    {this.renderProgressBar('Bolhas', results.properties.bubbles, QUALITY_RANGES.bubbles)}
-                                    {this.renderProgressBar('Persistência', results.properties.persistence, QUALITY_RANGES.persistence)}
-                                    {this.renderProgressBar('Dureza', results.properties.hardness, QUALITY_RANGES.hardness)}
+                                    {this.renderProgressBar('Condicionamento', results.properties.conditioning, qualityRanges.conditioning)}
+                                    {this.renderProgressBar('Limpeza', results.properties.cleansing, qualityRanges.cleansing)}
+                                    {this.renderProgressBar('Bolhas', results.properties.bubbles, qualityRanges.bubbles)}
+                                    {this.renderProgressBar('Persistência', results.properties.persistence, qualityRanges.persistence)}
+                                    {this.renderProgressBar('Dureza', results.properties.hardness, qualityRanges.hardness)}
                                     <div className="modal-grid-3" style={{ marginTop: '1.5rem' }}>
                                         <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
                                             <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
@@ -1091,7 +833,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                             ) : (
                                 <div style={{ display: 'flex', flexWrap: 'wrap' }}>
                                     {fattyAcidLabels.map(({ key, label }) => {
-                                        const value = results.fattyAcids[key];
+                                        const value = results.fattyAcids[key as keyof typeof results.fattyAcids];
                                         if (value <= 0) return null;
                                         return (
                                             <span key={key} className="fatty-acid-tag">
