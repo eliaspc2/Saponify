@@ -23,4 +23,11 @@ export class FirestoreSyncProvider implements ISyncProvider {
         if (!applied) return null;
         return this.storage.getData();
     }
+
+    public isReady(): boolean {
+        const service = FirestoreSyncService.getInstance();
+        return service.isSyncActive()
+            && !!service.getCurrentUser()
+            && service.hasCompletedInitialSync();
+    }
 }

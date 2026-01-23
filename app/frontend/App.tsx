@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Layout } from './core/Layout';
-import { FirestoreSyncService } from '../orchestrator/services/FirestoreSyncService';
 import { BackupService } from '../orchestrator/services/BackupService';
 import { SettingsService } from '../orchestrator/services/SettingsService';
-import { getDataVersion } from '../orchestrator/utils/dataVersion';
+import { AppController } from '../orchestrator/services/AppController';
+import { FirestoreSyncProvider } from '../orchestrator/services/FirestoreSyncProvider';
 
 const HomePage = lazy(() => import('./pages/Home/HomePage').then((m) => ({ default: m.HomePage })));
 const CalculatorPage = lazy(() => import('./pages/Calculator/CalculatorPage').then((m) => ({ default: m.CalculatorPage })));
@@ -16,59 +16,27 @@ const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m)
 function App() {
     const [activePage, setActivePage] = useState('home');
     const [pageParams, setPageParams] = useState<any>(null);
-    const lastDataVersion = useRef<string>(getDataVersion());
-    const pendingBackupTimer = useRef<number | null>(null);
+    const controllerRef = useRef<AppController | null>(null);
 
     useEffect(() => {
+        if (!controllerRef.current) {
+            controllerRef.current = new AppController({
+                backupService: BackupService.getInstance(),
+                syncProvider: new FirestoreSyncProvider(),
+                settingsService: SettingsService.getInstance()
+            });
+        }
         const run = async () => {
             try {
-                await FirestoreSyncService.getInstance().start();
-                const pending = localStorage.getItem('saponify_sync_pending_import');
-                if (pending === 'true') {
-                    const data = localStorage.getItem('saponify_auto_backup');
-                    let ok = false;
-                    if (data && data.startsWith('ENCRYPTED:')) {
-                        const settings = SettingsService.getInstance().getSettings();
-                        ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
-                    } else if (data) {
-                        ok = await BackupService.getInstance().importAllData(data);
-                    }
-                    if (ok) {
-                        localStorage.removeItem('saponify_sync_pending_import');
-                        location.reload();
-                    }
+                const shouldReload = await controllerRef.current!.init();
+                if (shouldReload) {
+                    location.reload();
                 }
             } catch (error) {
-                console.warn('Firestore sync init failed:', error);
+                console.warn('App init failed:', error);
             }
         };
         void run();
-    }, []);
-
-    useEffect(() => {
-        const interval = window.setInterval(() => {
-            const currentVersion = getDataVersion();
-            if (currentVersion && currentVersion !== lastDataVersion.current) {
-                lastDataVersion.current = currentVersion;
-                if (pendingBackupTimer.current) {
-                    window.clearTimeout(pendingBackupTimer.current);
-                }
-                pendingBackupTimer.current = window.setTimeout(async () => {
-                    const sync = FirestoreSyncService.getInstance();
-                    if (!sync.isSyncActive()) return;
-                    if (!sync.getCurrentUser()) return;
-                    if (!sync.hasCompletedInitialSync()) return;
-                    await BackupService.getInstance().performAutoBackupNow();
-                }, 800);
-            }
-        }, 2000);
-
-        return () => {
-            window.clearInterval(interval);
-            if (pendingBackupTimer.current) {
-                window.clearTimeout(pendingBackupTimer.current);
-            }
-        };
     }, []);
 
     const handleNavigate = (page: string, params: any = null) => {
