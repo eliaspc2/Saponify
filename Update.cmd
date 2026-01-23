@@ -10,7 +10,7 @@ git push gitlab main
 
 echo Deploy concluído.
 
-start "Preview" cmd /k npm run preview
+cmd /c npm run preview
 
 echo.
 echo Preview aberto noutra janela.

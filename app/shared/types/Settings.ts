@@ -15,6 +15,10 @@ export interface AppSettings {
     autoBackupEncrypted: boolean;
     autoBackupPassword: string;
     lastAutoBackup: string | null;
+
+    // Integrações externas (IA)
+    openaiApiKey: string;
+    openaiModel: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -31,5 +35,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     autoBackupPath: '',
     autoBackupEncrypted: true,
     autoBackupPassword: '',
-    lastAutoBackup: null
+    lastAutoBackup: null,
+    openaiApiKey: '',
+    openaiModel: 'gpt-4o-mini'
 };

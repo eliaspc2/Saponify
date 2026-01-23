@@ -7,6 +7,7 @@ import type { CalculatorUseCase } from '../../backend/calculator/CalculatorUseCa
 import type { CalculatorInput, CalculatorResult } from '../../backend/calculator/CalculatorModels';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
+import { OpenAIProvider } from '../../backend/integrations/OpenAIProvider';
 
 type AppControllerDeps = {
     backupService: BackupService;
@@ -26,6 +27,7 @@ export class AppController {
     private dataVersionTimer: number | null = null;
     private pendingBackupTimer: number | null = null;
     private calculatorUseCase: CalculatorUseCase;
+    private openAIProvider: OpenAIProvider;
 
     constructor({ backupService, syncProvider, settingsService, calculatorUseCase }: AppControllerDeps) {
         this.backupService = backupService;
@@ -34,6 +36,7 @@ export class AppController {
         this.storage = new AutoBackupStorage();
         this.lastDataVersion = getDataVersion();
         this.calculatorUseCase = calculatorUseCase;
+        this.openAIProvider = new OpenAIProvider(this.settingsService);
     }
 
     // Contract: initialize orchestration (sync bootstrap + pending import handling).
@@ -53,6 +56,11 @@ export class AppController {
     // Contract: calculate recipe using backend use-case (no UI logic).
     public calculateRecipe(input: CalculatorInput): CalculatorResult {
         return this.calculatorUseCase.calculate(input);
+    }
+
+    // Contract: high-level status for external integrations (no IO, no side-effects).
+    public hasAIConfigured(): boolean {
+        return this.openAIProvider.isConfigured();
     }
 
     private onStateChanged(): void {
