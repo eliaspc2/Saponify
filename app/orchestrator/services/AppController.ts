@@ -36,6 +36,7 @@ export class AppController {
         this.calculatorUseCase = calculatorUseCase;
     }
 
+    // Contract: initialize orchestration (sync bootstrap + pending import handling).
     public async init(): Promise<boolean> {
         this.backupService.setSyncProvider(this.syncProvider);
         if (this.syncProvider) {
@@ -49,7 +50,12 @@ export class AppController {
         return shouldReload;
     }
 
-    public onStateChanged(): void {
+    // Contract: calculate recipe using backend use-case (no UI logic).
+    public calculateRecipe(input: CalculatorInput): CalculatorResult {
+        return this.calculatorUseCase.calculate(input);
+    }
+
+    private onStateChanged(): void {
         if (!this.shouldSyncOnChange()) return;
         if (this.pendingBackupTimer) {
             window.clearTimeout(this.pendingBackupTimer);
@@ -60,12 +66,8 @@ export class AppController {
         }, AppConstants.APP_STATE_BACKUP_DEBOUNCE_MS);
     }
 
-    public onBackupCompleted(): void {
+    private onBackupCompleted(): void {
         // Hook for future orchestration steps
-    }
-
-    public calculateRecipe(input: CalculatorInput): CalculatorResult {
-        return this.calculatorUseCase.calculate(input);
     }
 
     private startWatchingState(): void {

@@ -10,7 +10,12 @@ git push gitlab main
 
 echo Deploy concluído.
 
-start /wait npm run preview
+start "Preview" cmd /k npm run preview
+
+echo.
+echo Preview aberto noutra janela.
+echo Fecha-a e prime qualquer tecla para reiniciar o ciclo.
+pause
 
 echo.
 echo A reiniciar o ciclo...
