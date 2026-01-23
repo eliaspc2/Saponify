@@ -1,5 +1,6 @@
 @echo off
 
+:LOOP
 call npm run build || exit /b
 echo Build concluído.
 pause
@@ -10,5 +11,8 @@ git push gitlab main
 echo Deploy concluído.
 
 npm run preview
-exit
 
+echo.
+echo A reiniciar o ciclo...
+echo.
+goto LOOP

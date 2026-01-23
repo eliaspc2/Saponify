@@ -1,25 +1,51 @@
 import { Questionnaire } from '../../shared/types/Questionnaire';
-import { touchDataVersion } from '../utils/dataVersion';
+import { AbstractConfigService } from './AbstractConfigService';
 
-export class QuestionnaireService {
-    private static STORAGE_KEY = 'saponify_questionnaires';
+export type QuestionnaireState = Questionnaire[];
+
+export class QuestionnaireService extends AbstractConfigService<QuestionnaireState> {
+    private static instance: QuestionnaireService;
+
+    private constructor() {
+        super('QuestionnaireService', 'saponify_questionnaires', [], { silentParseErrors: true });
+    }
+
+    static getInstance(): QuestionnaireService {
+        if (!QuestionnaireService.instance) {
+            QuestionnaireService.instance = new QuestionnaireService();
+        }
+        return QuestionnaireService.instance;
+    }
 
     static replaceAll(questionnaires: Questionnaire[]): void {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(questionnaires || []));
-        touchDataVersion();
+        QuestionnaireService.getInstance().replaceAll(questionnaires);
     }
 
     static async getQuestionnaires(): Promise<Questionnaire[]> {
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        if (!stored) return [];
-        try {
-            return JSON.parse(stored);
-        } catch {
-            return [];
-        }
+        return QuestionnaireService.getInstance().getQuestionnaires();
     }
 
     static async saveQuestionnaire(questionnaire: Questionnaire): Promise<void> {
+        await QuestionnaireService.getInstance().saveQuestionnaire(questionnaire);
+    }
+
+    static async deleteQuestionnaire(id: string): Promise<void> {
+        await QuestionnaireService.getInstance().deleteQuestionnaire(id);
+    }
+
+    static async getQuestionnaireById(id: string): Promise<Questionnaire | undefined> {
+        return QuestionnaireService.getInstance().getQuestionnaireById(id);
+    }
+
+    replaceAll(questionnaires: Questionnaire[]): void {
+        this.setData((questionnaires || []).map(item => ({ ...item })));
+    }
+
+    async getQuestionnaires(): Promise<Questionnaire[]> {
+        return JSON.parse(JSON.stringify(this.getData() || []));
+    }
+
+    async saveQuestionnaire(questionnaire: Questionnaire): Promise<void> {
         const questionnaires = await this.getQuestionnaires();
         const index = questionnaires.findIndex(q => q.id === questionnaire.id);
 
@@ -36,18 +62,16 @@ export class QuestionnaireService {
             questionnaires.push(data);
         }
 
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(questionnaires));
-        touchDataVersion();
+        this.setData(questionnaires);
     }
 
-    static async deleteQuestionnaire(id: string): Promise<void> {
+    async deleteQuestionnaire(id: string): Promise<void> {
         const questionnaires = await this.getQuestionnaires();
         const filtered = questionnaires.filter(q => q.id !== id);
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filtered));
-        touchDataVersion();
+        this.setData(filtered);
     }
 
-    static async getQuestionnaireById(id: string): Promise<Questionnaire | undefined> {
+    async getQuestionnaireById(id: string): Promise<Questionnaire | undefined> {
         const questionnaires = await this.getQuestionnaires();
         return questionnaires.find(q => q.id === id);
     }
