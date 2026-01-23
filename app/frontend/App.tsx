@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Layout } from './core/Layout';
-import { HomePage } from './pages/Home/HomePage';
-import { CalculatorPage } from './pages/Calculator/CalculatorPage';
-import { IngredientsPage } from './pages/Ingredients/IngredientsPage';
-import { ClientsPage } from './pages/CRM/Clients/ClientsPage';
-import { QuestionnairesPage } from './pages/CRM/Questionnaires/QuestionnairesPage';
-import { SavedRecipesPage } from './pages/CRM/Recipes/SavedRecipesPage';
-import { SettingsPage } from './pages/Settings/SettingsPage';
 import { FirestoreSyncService } from '../orchestrator/services/FirestoreSyncService';
 import { BackupService } from '../orchestrator/services/BackupService';
 import { SettingsService } from '../orchestrator/services/SettingsService';
+
+const HomePage = lazy(() => import('./pages/Home/HomePage').then((m) => ({ default: m.HomePage })));
+const CalculatorPage = lazy(() => import('./pages/Calculator/CalculatorPage').then((m) => ({ default: m.CalculatorPage })));
+const IngredientsPage = lazy(() => import('./pages/Ingredients/IngredientsPage').then((m) => ({ default: m.IngredientsPage })));
+const ClientsPage = lazy(() => import('./pages/CRM/Clients/ClientsPage').then((m) => ({ default: m.ClientsPage })));
+const QuestionnairesPage = lazy(() => import('./pages/CRM/Questionnaires/QuestionnairesPage').then((m) => ({ default: m.QuestionnairesPage })));
+const SavedRecipesPage = lazy(() => import('./pages/CRM/Recipes/SavedRecipesPage').then((m) => ({ default: m.SavedRecipesPage })));
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 function App() {
     const [activePage, setActivePage] = useState('home');
@@ -21,8 +22,14 @@ function App() {
                 await FirestoreSyncService.getInstance().start();
                 const pending = localStorage.getItem('saponify_sync_pending_import');
                 if (pending === 'true') {
-                    const settings = SettingsService.getInstance().getSettings();
-                    const ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+                    const data = localStorage.getItem('saponify_auto_backup');
+                    let ok = false;
+                    if (data && data.startsWith('ENCRYPTED:')) {
+                        const settings = SettingsService.getInstance().getSettings();
+                        ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+                    } else if (data) {
+                        ok = await BackupService.getInstance().importAllData(data);
+                    }
                     if (ok) {
                         localStorage.removeItem('saponify_sync_pending_import');
                         location.reload();
@@ -75,7 +82,9 @@ function App() {
 
     return (
         <Layout activePage={activePage} onNavigate={handleNavigate}>
-            {renderPage()}
+            <Suspense fallback={<div className="card">A carregar...</div>}>
+                {renderPage()}
+            </Suspense>
         </Layout>
     );
 }

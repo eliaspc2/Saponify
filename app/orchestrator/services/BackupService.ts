@@ -142,7 +142,17 @@ export class BackupService {
             settings.lastAutoBackup = timestamp;
             SettingsService.getInstance().updateSettings(settings);
 
-            await FirestoreSyncService.getInstance().pushAutoBackup(finalData, timestamp);
+            let syncPayload = finalData;
+            if (finalData.startsWith('ENCRYPTED:') && settings.autoBackupPassword) {
+                try {
+                    syncPayload = this.simpleDecrypt(finalData, settings.autoBackupPassword);
+                } catch (decryptError) {
+                    console.error('Erro ao desencriptar backup local para sync:', decryptError);
+                    return;
+                }
+            }
+
+            await FirestoreSyncService.getInstance().pushAutoBackup(syncPayload, timestamp);
 
             console.log('Backup automático realizado com sucesso');
         } catch (error) {

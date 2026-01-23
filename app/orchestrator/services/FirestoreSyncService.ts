@@ -185,10 +185,42 @@ export class FirestoreSyncService {
         await this.init();
         const user = await this.ensureAuth();
         if (!user) return false;
-        const before = this.safeGetItem(AUTO_BACKUP_TS_KEY) || '';
-        await this.syncFromRemoteIfNewer();
-        const after = this.safeGetItem(AUTO_BACKUP_TS_KEY) || '';
-        return after !== before;
+        const ref = this.getDocRef();
+        if (!ref) return false;
+        let snap;
+        try {
+            snap = await getDoc(ref);
+        } catch (error: any) {
+            this.setLastSyncError(error?.message || 'Erro ao ler do Firestore.');
+            return false;
+        }
+        if (!snap.exists()) return false;
+        const remote = snap.data() as RemoteBackupPayload;
+        if (!remote?.data || !remote?.updatedAt) return false;
+        try {
+            const decrypted = await this.decryptFromSync(remote.data);
+            this.safeSetItem(AUTO_BACKUP_KEY, decrypted);
+            this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
+            this.safeSetItem(SYNC_PENDING_IMPORT_KEY, 'true');
+            this.setLastSyncSuccess(new Date().toISOString());
+            this.setLastSyncError('');
+            return true;
+        } catch (error: any) {
+            if (error?.message === 'REMOTE_NOT_ENCRYPTED') {
+                const password = this.getSyncPassword();
+                if (!password) {
+                    this.setLastSyncError('Defina a password de sincronização para importar dados remotos.');
+                    return false;
+                }
+                this.safeSetItem(AUTO_BACKUP_KEY, remote.data);
+                this.safeSetItem(AUTO_BACKUP_TS_KEY, remote.updatedAt);
+                this.safeSetItem(SYNC_PENDING_IMPORT_KEY, 'true');
+                this.setLastSyncSuccess(new Date().toISOString());
+                return true;
+            }
+            this.setLastSyncError(error?.message || 'Erro ao desencriptar dados remotos.');
+            return false;
+        }
     }
 
     private async init(): Promise<void> {
@@ -314,6 +346,12 @@ export class FirestoreSyncService {
     }
 
     private getSyncPassword(): string | null {
+        const globalOverride = typeof window !== 'undefined'
+            ? (window as any).__SAPONIFY_SYNC_PASSWORD__
+            : null;
+        if (typeof globalOverride === 'string' && globalOverride.trim()) {
+            return globalOverride.trim();
+        }
         const stored = this.safeGetItem(SYNC_PASSWORD_KEY);
         if (!stored || !stored.trim()) return null;
         return stored.trim();

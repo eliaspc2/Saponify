@@ -19,8 +19,9 @@ import {
     Clock,
     ArrowRight
 } from 'lucide-react';
+import type { BasePageProps } from '../../core/BasePage';
 
-interface HomePageProps {
+interface HomePageProps extends BasePageProps {
     onNavigate: (page: string, params?: any) => void;
 }
 

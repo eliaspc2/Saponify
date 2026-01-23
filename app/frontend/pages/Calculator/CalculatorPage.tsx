@@ -1,4 +1,4 @@
-import { BasePage, BasePageState } from '../../core/BasePage';
+import { BasePage, BasePageProps, BasePageState } from '../../core/BasePage';
 import { Recipe, RecipeIngredient } from '../../../shared/types/Recipe';
 import { IngredientService } from '../../../orchestrator/services/IngredientService';
 import { RecipeService } from '../../../orchestrator/services/RecipeService';
@@ -10,6 +10,10 @@ import { Beaker, ShieldCheck, Plus, Trash2, Save, FileText } from 'lucide-react'
 import { Client } from '../../../shared/types/Client';
 import { ClientService } from '../../../orchestrator/services/ClientService';
 import { formatRecipeCodeForFile, formatRecipeReference } from '../../../shared/utils/recipeFormat';
+
+interface CalculatorPageProps extends BasePageProps {
+    recipeId?: string;
+}
 
 interface CalculatorState extends BasePageState {
     recipe: Recipe;
@@ -152,10 +156,10 @@ const QUALITY_RANGES = {
 } as const;
 
 
-export class CalculatorPage extends BasePage<{ recipeId?: string }, CalculatorState> {
+export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorState> {
     private autoSaveTimer: number | null = null;
 
-    constructor(props: { recipeId?: string }) {
+    constructor(props: CalculatorPageProps) {
         super(props);
         this.state = {
             ...this.getInitialState() as CalculatorState,

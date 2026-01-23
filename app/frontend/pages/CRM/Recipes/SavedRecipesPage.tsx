@@ -1,5 +1,6 @@
 import type { ChangeEvent } from 'react';
 import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
+import type { BasePageProps } from '../../../core/BasePage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Recipe } from '../../../../shared/types/Recipe';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
@@ -11,7 +12,7 @@ import { CalculatorService } from '../../../../orchestrator/services/CalculatorS
 import { IngredientService } from '../../../../orchestrator/services/IngredientService';
 import { formatRecipeCodeForFile, formatRecipeReference, formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 
-export interface SavedRecipesProps {
+export interface SavedRecipesProps extends BasePageProps {
     onNavigate: (page: string, params?: any) => void;
 }
 

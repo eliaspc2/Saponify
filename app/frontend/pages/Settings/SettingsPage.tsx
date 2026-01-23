@@ -196,8 +196,14 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         if (!applied) {
             alert('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.');
         } else {
-            const settings = SettingsService.getInstance().getSettings();
-            const ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+            const data = localStorage.getItem(AUTO_BACKUP_KEY);
+            let ok = false;
+            if (data && data.startsWith('ENCRYPTED:')) {
+                const settings = SettingsService.getInstance().getSettings();
+                ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+            } else if (data) {
+                ok = await BackupService.getInstance().importAllData(data);
+            }
             if (ok) {
                 localStorage.removeItem('saponify_sync_pending_import');
                 location.reload();
