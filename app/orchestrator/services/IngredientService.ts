@@ -49,10 +49,12 @@ export class IngredientService extends BaseService {
                 const customIngredients = storedIngredients
                     .filter(ingredient => !csvIds.has(ingredient.id))
                     .map(ingredient => this.normalizeIngredient(ingredient));
-                this.repository.replaceAll([...csvIngredients, ...customIngredients]);
+                const merged = [...csvIngredients, ...customIngredients];
+                this.repository.replaceAll(merged);
             } else {
                 this.repository.replaceAll(csvIngredients);
             }
+            this.persistKindMigration();
             this.log(`Loaded ${this.repository.getAll().length} ingredients.`);
         } catch (error) {
             this.handleError(error as Error);
@@ -93,6 +95,19 @@ export class IngredientService extends BaseService {
             this.initialized = true;
         }
         this.repository.replaceAll(normalized);
+    }
+
+    private persistKindMigration(): void {
+        const items = this.repository.getAll();
+        let changed = false;
+        const migrated = items.map((ingredient) => {
+            if (ingredient.kind) return ingredient;
+            changed = true;
+            return this.normalizeIngredient(ingredient);
+        });
+        if (changed) {
+            this.repository.replaceAll(migrated);
+        }
     }
 
     exportToCSV(): string {
@@ -173,7 +188,6 @@ export class IngredientService extends BaseService {
     }
 
     private normalizeIngredient(ingredient: Ingredient): Ingredient {
-        const WATER_INGREDIENT_ID = '12';
         const defaultProperties = {
             hardness: 0,
             cleansing: 0,
@@ -195,17 +209,31 @@ export class IngredientService extends BaseService {
             gadoleic: 0,
             other: 0
         };
-        const kind = ingredient.kind
-            ? ingredient.kind
-            : ingredient.id === WATER_INGREDIENT_ID
-                ? 'water'
-                : 'other';
+        const kind = ingredient.kind ?? this.inferKind(ingredient);
         return {
             ...ingredient,
             kind,
             properties: { ...defaultProperties, ...ingredient.properties },
             fattyAcids: { ...defaultFattyAcids, ...ingredient.fattyAcids }
         };
+    }
+
+    private inferKind(ingredient: Ingredient): Ingredient['kind'] {
+        const normalize = (value?: string) =>
+            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const name = normalize(ingredient.name);
+        const inci = normalize(ingredient.inci);
+        const category = normalize(ingredient.category);
+        const menuKey = normalize(ingredient.menuKey);
+
+        if (name.includes('agua') || inci === 'aqua') return 'water';
+        if (menuKey.includes('baseoils') || menuKey.includes('superfatoils')) return 'oil';
+        if (category.includes('oleos base') || category.includes('oleo base') || category.includes('leos base')) return 'oil';
+        if (category.includes('superfat')) return 'oil';
+        if (category.includes('aditivos') || category.includes('botanicos') || category.includes('aromas') || category.includes('essenciais')) return 'additive';
+        if (category.includes('lixivia') || category.includes('lye')) return 'additive';
+
+        return 'other';
     }
 
     private parseCSV(csvText: string): Ingredient[] {

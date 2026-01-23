@@ -1,4 +1,4 @@
-export type IngredientKind = 'water' | 'other';
+export type IngredientKind = 'water' | 'oil' | 'additive' | 'lye' | 'other';
 
 export interface Ingredient {
     id: string;

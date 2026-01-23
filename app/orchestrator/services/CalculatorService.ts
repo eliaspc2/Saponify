@@ -45,7 +45,6 @@ export class CalculatorService {
             if (!ing) return false;
             return !!ing.flags?.citricAcid;
         };
-        const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         const getIngredient = (item: RecipeIngredient) => {
             const ref = item.ingredientId || item.id;
             if (!ref) return undefined;
@@ -67,20 +66,8 @@ export class CalculatorService {
             if (ing.sapKOH) return ing.sapKOH;
             return ing.sapNaOH ? ing.sapNaOH * 1.403 : 0;
         };
-        const isBaseOil = (ing?: Ingredient) => {
-            if (!ing) return false;
-            if (ing.menuKey && ing.menuKey.toLowerCase() === 'baseoils') return true;
-            if (!ing.category) return false;
-            const category = normalizeCategory(ing.category);
-            return category.includes('oleos base') || category.includes('oleo base') || category.includes('leos base');
-        };
-        const isTraceOil = (ing?: Ingredient) => {
-            if (!ing) return false;
-            if (ing.menuKey && ing.menuKey.toLowerCase() === 'superfatoils') return true;
-            if (!ing.category) return false;
-            const category = normalizeCategory(ing.category);
-            return category.includes('superfat');
-        };
+        const isBaseOil = (ing?: Ingredient) => ing?.kind === 'oil';
+        const isTraceOil = (ing?: Ingredient) => ing?.kind === 'oil';
         const getBaseOils = () => {
             const diagnostics: string[] = [];
             const oils = (recipe.fats || []).flatMap((item) => {
