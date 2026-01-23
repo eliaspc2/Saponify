@@ -1,15 +1,14 @@
-import { RecipeService } from './RecipeService';
-import { ClientService } from './ClientService';
-import { ClientActivityService } from './ClientActivityService';
-import { IngredientService } from './IngredientService';
 import { SettingsService } from './SettingsService';
-import { QuestionnaireService } from './QuestionnaireService';
-import { CalculatorService } from './CalculatorService';
 import { FirestoreSyncService } from './FirestoreSyncService';
+import { BackupComposer } from './BackupComposer';
+import { AutoBackupStorage } from './AutoBackupStorage';
+import { BackupFileTransfer } from './BackupFileTransfer';
 
 export class BackupService {
     private static instance: BackupService;
-    private static AUTO_BACKUP_KEY = 'saponify_auto_backup';
+    private composer: BackupComposer | null = null;
+    private storage: AutoBackupStorage | null = null;
+    private fileTransfer: BackupFileTransfer | null = null;
 
     private constructor() { }
 
@@ -21,80 +20,16 @@ export class BackupService {
     }
 
     public async exportAllData(): Promise<string> {
-        const ingredients = IngredientService.getInstance().getAll();
-        const recipes = RecipeService.getInstance().getAll();
-        const recipeCalculations = recipes.map(recipe => {
-            const results = CalculatorService.calculate(recipe, ingredients);
-            return {
-                recipeId: recipe.id,
-                code: recipe.code,
-                name: recipe.name,
-                alkaliAmount: results.alkaliAmount,
-                alkaliPure: results.alkaliPure,
-                alkaliPurity: results.alkaliPurity,
-                waterAmount: results.waterAmount
-            };
-        });
-
-        const data = {
-            version: '1.0.0',
-            timestamp: new Date().toISOString(),
-            recipes,
-            recipeCalculations,
-            clients: ClientService.getInstance().getAll(),
-            activities: ClientActivityService.getInstance().getAllActivities(),
-            ingredients: IngredientService.getInstance().getAll(),
-            settings: SettingsService.getInstance().getSettings(),
-            questionnaires: await QuestionnaireService.getQuestionnaires()
-        };
-
-        return JSON.stringify(data, null, 2);
+        return this.getComposer().exportAllData();
     }
 
     public async importAllData(jsonString: string): Promise<boolean> {
-        try {
-            const data = JSON.parse(jsonString);
-
-            if (!data.recipes || !data.clients || !data.settings) {
-                throw new Error('Formato de backup inválido');
-            }
-
-            // 1. Settings
-            SettingsService.getInstance().replaceSettings(data.settings);
-
-            // 2. Ingredients (replace all)
-            IngredientService.getInstance().replaceAll(Array.isArray(data.ingredients) ? data.ingredients : [], true);
-
-            // 3. Clients + Activities (replace all)
-            ClientService.getInstance().replaceAll(Array.isArray(data.clients) ? data.clients : []);
-            ClientActivityService.getInstance().replaceAll(Array.isArray(data.activities) ? data.activities : []);
-
-            // 4. Recipes (replace all)
-            RecipeService.getInstance().replaceAll(Array.isArray(data.recipes) ? data.recipes : []);
-
-            // 5. Questionnaires (replace all)
-            QuestionnaireService.replaceAll(Array.isArray(data.questionnaires) ? data.questionnaires : []);
-
-            return true;
-        } catch (e) {
-            console.error('Falha ao importar backup:', e);
-            return false;
-        }
+        return this.getComposer().importAllData(jsonString);
     }
 
     // Helper to download the file
     public downloadBackup(json: string) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const filename = `saponify_backup_${timestamp}.json`;
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        this.getFileTransfer().downloadBackup(json);
     }
 
     // ============ BACKUP AUTOMÁTICO ============
@@ -133,8 +68,7 @@ export class BackupService {
             const timestamp = new Date().toISOString();
 
             // Guardar em LocalStorage
-            localStorage.setItem(BackupService.AUTO_BACKUP_KEY, finalData);
-            localStorage.setItem(`${BackupService.AUTO_BACKUP_KEY}_timestamp`, timestamp);
+            this.getStorage().setData(finalData, timestamp);
 
             // Atualizar timestamp nas configurações
             settings.lastAutoBackup = timestamp;
@@ -163,7 +97,7 @@ export class BackupService {
      */
     public async restoreAutoBackup(password?: string): Promise<boolean> {
         try {
-            const data = localStorage.getItem(BackupService.AUTO_BACKUP_KEY);
+            const data = this.getStorage().getData();
             if (!data) {
                 console.warn('Nenhum backup automático encontrado');
                 return false;
@@ -187,24 +121,14 @@ export class BackupService {
      * Descarrega o backup automático como ficheiro
      */
     public downloadAutoBackup() {
-        const data = localStorage.getItem(BackupService.AUTO_BACKUP_KEY);
+        const data = this.getStorage().getData();
         if (!data) {
             alert('Nenhum backup automático encontrado!');
             return;
         }
 
-        const timestamp = localStorage.getItem(`${BackupService.AUTO_BACKUP_KEY}_timestamp`) || new Date().toISOString();
-        const filename = `saponify_auto_backup_${timestamp.replace(/[:.]/g, '-').slice(0, 19)}.json`;
-
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const timestamp = this.getStorage().getTimestamp() || new Date().toISOString();
+        this.getFileTransfer().downloadAutoBackup(data, timestamp);
     }
 
     // ============ ENCRIPTAÇÃO SIMPLES ============
@@ -228,5 +152,26 @@ export class BackupService {
         }
 
         return decrypted.replace('::' + password, '');
+    }
+
+    private getComposer() {
+        if (!this.composer) {
+            this.composer = new BackupComposer();
+        }
+        return this.composer;
+    }
+
+    private getStorage() {
+        if (!this.storage) {
+            this.storage = new AutoBackupStorage();
+        }
+        return this.storage;
+    }
+
+    private getFileTransfer() {
+        if (!this.fileTransfer) {
+            this.fileTransfer = new BackupFileTransfer();
+        }
+        return this.fileTransfer;
     }
 }

@@ -467,7 +467,18 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
             for (const client of clients) {
                 const normalized = this.normalizeImportedClient(client);
                 const oldId = client.id || normalized.id;
+                const existingClient = ClientService.getInstance().getById(normalized.id);
                 ClientService.getInstance().save(normalized);
+                if (!existingClient) {
+                    ClientActivityService.getInstance().addActivity({
+                        id: '',
+                        clientId: normalized.id,
+                        timestamp: new Date().toISOString(),
+                        type: 'system',
+                        title: 'Cliente Criado',
+                        content: 'A ficha de cliente foi aberta no sistema.'
+                    });
+                }
 
                 const activities = parsed?.activities || [];
                 if (Array.isArray(activities)) {
