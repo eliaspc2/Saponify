@@ -1,6 +1,7 @@
 import { BaseService } from '../core/BaseService';
 import { Client } from '../../shared/types/Client';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
+import { prepareClientForSave } from '../clients/ClientNormalizer';
 
 export class ClientService extends BaseService {
     private static instance: ClientService;
@@ -30,17 +31,12 @@ export class ClientService extends BaseService {
     }
 
     public save(client: Client): void {
-        const index = this.repository.getAll().findIndex(c => c.id === client.id);
-        if (index >= 0) {
-            this.repository.update({ ...client, updatedAt: new Date().toISOString() });
+        const exists = this.repository.getAll().some(c => c.id === client.id);
+        const normalized = prepareClientForSave(client, exists);
+        if (exists) {
+            this.repository.update(normalized);
         } else {
-            const newClient = {
-                ...client,
-                id: client.id || Math.random().toString(36).substr(2, 9),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            this.repository.add(newClient);
+            this.repository.add(normalized);
         }
     }
 
