@@ -1,14 +1,14 @@
 import { BasePage, BasePageProps, BasePageState } from '../../core/BasePage';
 import { Recipe, RecipeIngredient } from '../../../shared/types/Recipe';
-import { IngredientService } from '../../../orchestrator/services/IngredientService';
-import { RecipeService } from '../../../orchestrator/services/RecipeService';
-import { RecipeDomainService } from '../../../orchestrator/services/RecipeDomainService';
-import { SettingsService } from '../../../orchestrator/services/SettingsService';
+import { IngredientService } from '../../../backend/services/IngredientService';
+import { RecipeService } from '../../../backend/services/RecipeService';
+import { RecipeDomainService } from '../../../backend/services/RecipeDomainService';
+import { SettingsService } from '../../../backend/services/SettingsService';
 import { AppController } from '../../../orchestrator/services/AppController';
 import { Ingredient } from '../../../shared/types/Ingredient';
 import { Beaker, ShieldCheck, Plus, Trash2, Save, FileText } from 'lucide-react';
 import { Client } from '../../../shared/types/Client';
-import { ClientService } from '../../../orchestrator/services/ClientService';
+import { ClientService } from '../../../backend/services/ClientService';
 
 interface CalculatorPageProps extends BasePageProps {
     recipeId?: string;

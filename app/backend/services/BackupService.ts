@@ -3,7 +3,6 @@ import { BackupComposer } from './BackupComposer';
 import { AutoBackupStorage } from './AutoBackupStorage';
 import { BackupFileTransfer } from './BackupFileTransfer';
 import type { ISyncProvider } from './ISyncProvider';
-import { FirestoreSyncProvider } from './FirestoreSyncProvider';
 import type { IEncryptionProvider } from './IEncryptionProvider';
 import { WebCryptoEncryptionProvider } from './WebCryptoEncryptionProvider';
 
@@ -170,11 +169,8 @@ export class BackupService {
     }
 
     private getSyncProvider(): ISyncProvider | null {
-        if (this.syncProviderConfigured) {
-            return this.syncProvider;
-        }
-        if (!this.syncProvider) {
-            this.syncProvider = new FirestoreSyncProvider(this.getStorage());
+        if (!this.syncProviderConfigured) {
+            return null;
         }
         return this.syncProvider;
     }

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Layout } from './core/Layout';
-import { BackupService } from '../orchestrator/services/BackupService';
-import { SettingsService } from '../orchestrator/services/SettingsService';
+import { BackupService } from '../backend/services/BackupService';
+import { SettingsService } from '../backend/services/SettingsService';
 import { AppController } from '../orchestrator/services/AppController';
 import { FirestoreSyncProvider } from '../orchestrator/services/FirestoreSyncProvider';
 import { createCalculatorUseCase } from '../orchestrator/services/CalculatorUseCaseFactory';

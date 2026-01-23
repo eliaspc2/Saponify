@@ -2,10 +2,10 @@ import React from 'react';
 import { BasePage, BasePageState } from '../../../core/BasePage';
 import { Client } from '../../../../shared/types/Client';
 import { ClientActivity, ProductionDetails } from '../../../../shared/types/ClientActivity';
-import { ClientService } from '../../../../orchestrator/services/ClientService';
-import { ClientActivityService } from '../../../../orchestrator/services/ClientActivityService';
-import { RecipeService } from '../../../../orchestrator/services/RecipeService';
-import { RecipeDomainService } from '../../../../orchestrator/services/RecipeDomainService';
+import { ClientService } from '../../../../backend/services/ClientService';
+import { ClientActivityService } from '../../../../backend/services/ClientActivityService';
+import { RecipeService } from '../../../../backend/services/RecipeService';
+import { RecipeDomainService } from '../../../../backend/services/RecipeDomainService';
 import { Recipe } from '../../../../shared/types/Recipe';
 import {
     User,
@@ -23,7 +23,7 @@ import {
     Trash2
 } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
-import { QuestionnaireService } from '../../../../orchestrator/services/QuestionnaireService';
+import { QuestionnaireService } from '../../../../backend/services/QuestionnaireService';
 import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 
 interface ClientDetailsProps {

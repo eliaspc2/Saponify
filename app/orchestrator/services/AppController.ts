@@ -1,10 +1,10 @@
-import { BackupService } from './BackupService';
-import type { ISyncProvider } from './ISyncProvider';
-import { SettingsService } from './SettingsService';
-import { AutoBackupStorage } from './AutoBackupStorage';
-import { getDataVersion } from '../utils/dataVersion';
-import type { CalculatorUseCase } from '../calculator/CalculatorUseCase';
-import type { CalculatorInput, CalculatorResult } from '../calculator/CalculatorModels';
+import { BackupService } from '../../backend/services/BackupService';
+import type { ISyncProvider } from '../../backend/services/ISyncProvider';
+import { SettingsService } from '../../backend/services/SettingsService';
+import { AutoBackupStorage } from '../../backend/services/AutoBackupStorage';
+import { getDataVersion } from '../../backend/utils/dataVersion';
+import type { CalculatorUseCase } from '../../backend/calculator/CalculatorUseCase';
+import type { CalculatorInput, CalculatorResult } from '../../backend/calculator/CalculatorModels';
 
 type AppControllerDeps = {
     backupService: BackupService;

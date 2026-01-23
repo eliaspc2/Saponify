@@ -1,9 +1,9 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
 import { StatCard } from '../../templates/StatsHeader';
-import { ClientService } from '../../../orchestrator/services/ClientService';
-import { ClientActivityService } from '../../../orchestrator/services/ClientActivityService';
-import { RecipeService } from '../../../orchestrator/services/RecipeService';
-import { IngredientService } from '../../../orchestrator/services/IngredientService';
+import { ClientService } from '../../../backend/services/ClientService';
+import { ClientActivityService } from '../../../backend/services/ClientActivityService';
+import { RecipeService } from '../../../backend/services/RecipeService';
+import { IngredientService } from '../../../backend/services/IngredientService';
 import { ClientActivity } from '../../../shared/types/ClientActivity';
 import { Recipe, RecipeIngredient } from '../../../shared/types/Recipe';
 import { Modal } from '../../components/Modal';

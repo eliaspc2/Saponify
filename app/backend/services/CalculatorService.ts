@@ -178,11 +178,11 @@ export class CalculatorService {
                     diagnostics.push(`Valor de ácido graxo fora do intervalo (${key}=${value.toFixed(1)}%).`);
                 }
             });
-            const oliveWeight = oils.filter(o => /azeite|oliva/i.test(o.ingredient.name)).reduce((sum, o) => sum + o.amount, 0);
+            const oliveWeight = oils.filter(o => o.ingredient.tags?.includes('olive')).reduce((sum, o) => sum + o.amount, 0);
             if (oliveWeight / weightTotal >= 0.2 && profile.oleic < 10) {
                 diagnostics.push('Oleico demasiado baixo para uma mistura com muito azeite.');
             }
-            const castorWeight = oils.filter(o => /r[ií]cino|castor/i.test(o.ingredient.name)).reduce((sum, o) => sum + o.amount, 0);
+            const castorWeight = oils.filter(o => o.ingredient.tags?.includes('castor')).reduce((sum, o) => sum + o.amount, 0);
             if (castorWeight / weightTotal < 0.05 && profile.ricinoleic > 10) {
                 diagnostics.push('Ricinoleico alto sem presença relevante de rícino.');
             }

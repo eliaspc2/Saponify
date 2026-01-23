@@ -7,6 +7,9 @@ export interface Ingredient {
     inci: string;
     category: string;
     kind?: IngredientKind;
+    tags?: string[];
+    teaspoonWeight?: number;
+    isHerb?: boolean;
     sapNaOH: number; // SAP Value for NaOH
     sapKOH: number;  // SAP Value for KOH
     descriptionFragment?: string;

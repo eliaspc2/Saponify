@@ -1,8 +1,8 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
-import { SettingsService } from '../../../orchestrator/services/SettingsService';
+import { SettingsService } from '../../../backend/services/SettingsService';
 import { AppSettings } from '../../../shared/types/Settings';
 import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff } from 'lucide-react';
-import { BackupService } from '../../../orchestrator/services/BackupService';
+import { BackupService } from '../../../backend/services/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
 
 interface SettingsState extends BasePageState {

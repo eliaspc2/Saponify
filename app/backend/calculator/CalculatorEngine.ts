@@ -1,7 +1,7 @@
 import { CalculatorService } from '../services/CalculatorService';
 import { Ingredient } from '../../shared/types/Ingredient';
 import { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
-import { TEASPOON_WEIGHTS, DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } from '../../shared/constants/RecipeConstants';
+import { DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } from '../../shared/constants/RecipeConstants';
 import { formatRecipeCodeForFile, formatRecipeReference } from '../../shared/utils/recipeFormat';
 import { FATTY_ACID_LABELS, QUALITY_RANGES } from './CalculatorRules';
 import type { CalculatorInput, CalculatorResult, IngredientRowMeta, CalculatorExports } from './CalculatorModels';
@@ -61,8 +61,8 @@ export class CalculatorEngine implements CalculatorUseCase {
                 item.role = 'other';
             }
 
-            if (item.autoAmount && (!item.amount || item.amount === 0) && ingredient?.name) {
-                const suggested = this.getSuggestedAmount(ingredient.name, totalFats);
+            if (item.autoAmount && (!item.amount || item.amount === 0) && ingredient) {
+                const suggested = this.getSuggestedAmount(ingredient, totalFats);
                 if (suggested !== null) {
                     item.amount = suggested;
                 }
@@ -280,17 +280,12 @@ export class CalculatorEngine implements CalculatorUseCase {
         return { content: JSON.stringify(payload, null, 2), filename };
     }
 
-    private static getSuggestedAmount(ingredientName: string, totalFats: number): number | null {
-        const name = ingredientName.toLowerCase();
-        for (const key in TEASPOON_WEIGHTS) {
-            if (name.includes(key)) {
-                const tsWeight = TEASPOON_WEIGHTS[key];
-                const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
-                return parseFloat((tsWeight * ratio).toFixed(2));
-            }
+    private static getSuggestedAmount(ingredient: Ingredient, totalFats: number): number | null {
+        const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
+        if (ingredient.teaspoonWeight) {
+            return parseFloat((ingredient.teaspoonWeight * ratio).toFixed(2));
         }
-        if (name.includes('infusão') || name.includes('infusao') || name.includes('seco') || name.includes('seca')) {
-            const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
+        if (ingredient.isHerb) {
             return parseFloat((DEFAULT_HERB_WEIGHT * ratio).toFixed(2));
         }
         return null;

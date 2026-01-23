@@ -3,14 +3,14 @@ import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
 import type { BasePageProps } from '../../../core/BasePage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Recipe } from '../../../../shared/types/Recipe';
-import { RecipeService } from '../../../../orchestrator/services/RecipeService';
-import { RecipeDomainService } from '../../../../orchestrator/services/RecipeDomainService';
-import { ClientService } from '../../../../orchestrator/services/ClientService';
+import { RecipeService } from '../../../../backend/services/RecipeService';
+import { RecipeDomainService } from '../../../../backend/services/RecipeDomainService';
+import { ClientService } from '../../../../backend/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
-import { CalculatorService } from '../../../../orchestrator/services/CalculatorService';
-import { IngredientService } from '../../../../orchestrator/services/IngredientService';
+import { CalculatorService } from '../../../../backend/services/CalculatorService';
+import { IngredientService } from '../../../../backend/services/IngredientService';
 import { formatRecipeCodeForFile, formatRecipeReference, formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 
 export interface SavedRecipesProps extends BasePageProps {

@@ -3,7 +3,7 @@ import type { ChangeEvent } from 'react';
 import { BaseListPage, BaseListPageState } from '../../core/BaseListPage';
 import { StatCard } from '../../templates/StatsHeader';
 import { Ingredient } from '../../../shared/types/Ingredient';
-import { IngredientService } from '../../../orchestrator/services/IngredientService';
+import { IngredientService } from '../../../backend/services/IngredientService';
 import { Upload, Download, Plus, Trash2, Edit } from 'lucide-react';
 import { IngredientFormModal } from '../../components/IngredientFormModal';
 import { INGREDIENT_CATEGORIES, formatCategoryLabel } from '../../../shared/constants/Categories';

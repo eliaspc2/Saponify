@@ -2,6 +2,7 @@ import { BaseService } from '../core/BaseService';
 import { Ingredient } from '../../shared/types/Ingredient';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { IdService } from './IdService';
+import { TEASPOON_WEIGHTS } from '../../shared/constants/RecipeConstants';
 
 export class IngredientService extends BaseService {
     private static instance: IngredientService;
@@ -210,9 +211,14 @@ export class IngredientService extends BaseService {
             other: 0
         };
         const kind = ingredient.kind ?? this.inferKind(ingredient);
+        const tags = ingredient.tags ?? this.inferTags(ingredient);
+        const measurement = this.inferMeasurement(ingredient);
         return {
             ...ingredient,
             kind,
+            tags: tags.length > 0 ? tags : ingredient.tags,
+            teaspoonWeight: ingredient.teaspoonWeight ?? measurement.teaspoonWeight,
+            isHerb: ingredient.isHerb ?? measurement.isHerb,
             properties: { ...defaultProperties, ...ingredient.properties },
             fattyAcids: { ...defaultFattyAcids, ...ingredient.fattyAcids }
         };
@@ -234,6 +240,31 @@ export class IngredientService extends BaseService {
         if (category.includes('lixivia') || category.includes('lye')) return 'additive';
 
         return 'other';
+    }
+
+    private inferTags(ingredient: Ingredient): string[] {
+        const normalize = (value?: string) =>
+            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const name = normalize(ingredient.name);
+        const tags: string[] = [];
+        if (name.includes('azeite') || name.includes('oliva')) tags.push('olive');
+        if (name.includes('ricino') || name.includes('castor')) tags.push('castor');
+        return tags;
+    }
+
+    private inferMeasurement(ingredient: Ingredient): { teaspoonWeight?: number; isHerb?: boolean } {
+        const normalize = (value?: string) =>
+            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const name = normalize(ingredient.name);
+        let teaspoonWeight: number | undefined;
+        for (const key in TEASPOON_WEIGHTS) {
+            if (name.includes(key)) {
+                teaspoonWeight = TEASPOON_WEIGHTS[key];
+                break;
+            }
+        }
+        const isHerb = name.includes('infusao') || name.includes('infusão') || name.includes('seco') || name.includes('seca');
+        return { teaspoonWeight, isHerb };
     }
 
     private parseCSV(csvText: string): Ingredient[] {
