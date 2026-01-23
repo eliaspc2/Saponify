@@ -1,5 +1,5 @@
 import { RecipeService } from './RecipeService';
-import { ClientService } from './ClientService';
+import { ClientActivityService } from './ClientActivityService';
 import { Recipe } from '../../shared/types/Recipe';
 import { formatRecipeReferenceOrFallback } from '../../shared/utils/recipeFormat';
 
@@ -22,7 +22,7 @@ export class RecipeDomainService {
 
         if (!existing && recipe.clientId) {
             const saved = recipeService.getById(recipe.id) || recipe;
-            ClientService.getInstance().addActivity({
+            ClientActivityService.getInstance().addActivity({
                 id: '',
                 clientId: saved.clientId || recipe.clientId,
                 timestamp: new Date().toISOString(),

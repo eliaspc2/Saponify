@@ -1,16 +1,17 @@
 import { BaseService } from '../core/BaseService';
 import { Client } from '../../shared/types/Client';
-import { ClientActivity } from '../../shared/types/ClientActivity';
-import { touchDataVersion } from '../utils/dataVersion';
+import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 
 export class ClientService extends BaseService {
     private static instance: ClientService;
-    private clients: Client[] = [];
-    private activities: ClientActivity[] = [];
+    private repository: LocalStorageRepository<Client>;
 
     private constructor() {
         super('ClientService');
-        this.loadFromStorage();
+        this.repository = new LocalStorageRepository<Client>('saponify_clients', {
+            deserialize: (raw) => Array.isArray(raw) ? raw : [],
+            serialize: (items) => items
+        });
     }
 
     public static getInstance(): ClientService {
@@ -20,44 +21,18 @@ export class ClientService extends BaseService {
         return ClientService.instance;
     }
 
-    private loadFromStorage() {
-        const storedClients = localStorage.getItem('saponify_clients');
-        if (storedClients) {
-            try {
-                this.clients = JSON.parse(storedClients);
-            } catch (e) {
-                this.clients = [];
-            }
-        }
-
-        const storedActivities = localStorage.getItem('saponify_activities');
-        if (storedActivities) {
-            try {
-                this.activities = JSON.parse(storedActivities);
-            } catch (e) {
-                this.activities = [];
-            }
-        }
-    }
-
-    private saveToStorage() {
-        localStorage.setItem('saponify_clients', JSON.stringify(this.clients));
-        localStorage.setItem('saponify_activities', JSON.stringify(this.activities));
-        touchDataVersion();
-    }
-
     public getAll(): Client[] {
-        return this.clients;
+        return this.repository.getAll();
     }
 
     public getById(id: string): Client | undefined {
-        return this.clients.find(c => c.id === id);
+        return this.repository.getById(id);
     }
 
     public save(client: Client): void {
-        const index = this.clients.findIndex(c => c.id === client.id);
+        const index = this.repository.getAll().findIndex(c => c.id === client.id);
         if (index >= 0) {
-            this.clients[index] = { ...client, updatedAt: new Date().toISOString() };
+            this.repository.update({ ...client, updatedAt: new Date().toISOString() });
         } else {
             const newClient = {
                 ...client,
@@ -65,54 +40,15 @@ export class ClientService extends BaseService {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
-            this.clients.push(newClient);
-
-            // Add initial system activity
-            this.addActivity({
-                id: Math.random().toString(36).substr(2, 9),
-                clientId: newClient.id,
-                timestamp: new Date().toISOString(),
-                type: 'system',
-                title: 'Cliente Criado',
-                content: 'A ficha de cliente foi aberta no sistema.'
-            });
+            this.repository.add(newClient);
         }
-        this.saveToStorage();
     }
 
     public delete(id: string): void {
-        this.clients = this.clients.filter(c => c.id !== id);
-        this.activities = this.activities.filter(a => a.clientId !== id);
-        this.saveToStorage();
+        this.repository.delete(id);
     }
 
-    public getActivities(clientId: string): ClientActivity[] {
-        return this.activities
-            .filter(a => a.clientId === clientId)
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }
-
-    public addActivity(activity: ClientActivity): void {
-        this.activities.push({
-            ...activity,
-            id: activity.id || Math.random().toString(36).substr(2, 9),
-            timestamp: activity.timestamp || new Date().toISOString()
-        });
-        this.saveToStorage();
-    }
-
-    public deleteActivity(activityId: string): void {
-        this.activities = this.activities.filter(a => a.id !== activityId);
-        this.saveToStorage();
-    }
-
-    public getAllActivities(): ClientActivity[] {
-        return this.activities;
-    }
-
-    public replaceAll(clients: Client[], activities: ClientActivity[] = []): void {
-        this.clients = clients || [];
-        this.activities = activities || [];
-        this.saveToStorage();
+    public replaceAll(clients: Client[]): void {
+        this.repository.replaceAll(clients || []);
     }
 }

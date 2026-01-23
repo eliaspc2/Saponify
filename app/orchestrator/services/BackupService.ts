@@ -1,5 +1,6 @@
 import { RecipeService } from './RecipeService';
 import { ClientService } from './ClientService';
+import { ClientActivityService } from './ClientActivityService';
 import { IngredientService } from './IngredientService';
 import { SettingsService } from './SettingsService';
 import { QuestionnaireService } from './QuestionnaireService';
@@ -41,7 +42,7 @@ export class BackupService {
             recipes,
             recipeCalculations,
             clients: ClientService.getInstance().getAll(),
-            activities: ClientService.getInstance().getAllActivities(),
+            activities: ClientActivityService.getInstance().getAllActivities(),
             ingredients: IngredientService.getInstance().getAll(),
             settings: SettingsService.getInstance().getSettings(),
             questionnaires: await QuestionnaireService.getQuestionnaires()
@@ -65,10 +66,8 @@ export class BackupService {
             IngredientService.getInstance().replaceAll(Array.isArray(data.ingredients) ? data.ingredients : [], true);
 
             // 3. Clients + Activities (replace all)
-            ClientService.getInstance().replaceAll(
-                Array.isArray(data.clients) ? data.clients : [],
-                Array.isArray(data.activities) ? data.activities : []
-            );
+            ClientService.getInstance().replaceAll(Array.isArray(data.clients) ? data.clients : []);
+            ClientActivityService.getInstance().replaceAll(Array.isArray(data.activities) ? data.activities : []);
 
             // 4. Recipes (replace all)
             RecipeService.getInstance().replaceAll(Array.isArray(data.recipes) ? data.recipes : []);

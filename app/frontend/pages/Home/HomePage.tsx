@@ -1,6 +1,7 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
 import { StatCard } from '../../templates/StatsHeader';
 import { ClientService } from '../../../orchestrator/services/ClientService';
+import { ClientActivityService } from '../../../orchestrator/services/ClientActivityService';
 import { RecipeService } from '../../../orchestrator/services/RecipeService';
 import { IngredientService } from '../../../orchestrator/services/IngredientService';
 import { ClientActivity } from '../../../shared/types/ClientActivity';
@@ -73,7 +74,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
         const clients = ClientService.getInstance().getAll();
         const recipes = RecipeService.getInstance().getAll();
         const ingredients = IngredientService.getInstance().getAll();
-        const allActivities = ClientService.getInstance().getAllActivities();
+        const allActivities = ClientActivityService.getInstance().getAllActivities();
 
         // Sort activities by timestamp descending
         const sortedActivities = [...allActivities].sort((a, b) =>

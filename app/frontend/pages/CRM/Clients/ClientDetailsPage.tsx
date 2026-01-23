@@ -3,6 +3,7 @@ import { BasePage, BasePageState } from '../../../core/BasePage';
 import { Client } from '../../../../shared/types/Client';
 import { ClientActivity, ProductionDetails } from '../../../../shared/types/ClientActivity';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
+import { ClientActivityService } from '../../../../orchestrator/services/ClientActivityService';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
 import { RecipeDomainService } from '../../../../orchestrator/services/RecipeDomainService';
 import { Recipe } from '../../../../shared/types/Recipe';
@@ -84,7 +85,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
     private loadData() {
         const client = ClientService.getInstance().getById(this.props.clientId);
         if (client) {
-            const activities = ClientService.getInstance().getActivities(client.id);
+            const activities = ClientActivityService.getInstance().getActivities(client.id);
             const recipes = RecipeService.getInstance().getAll().filter(r => r.clientId === client.id);
             this.setState({ client, activities, associatedRecipes: recipes });
         }
@@ -93,7 +94,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
     private handleAddNote() {
         if (!this.state.noteContent || !this.state.client) return;
 
-        ClientService.getInstance().addActivity({
+        ClientActivityService.getInstance().addActivity({
             id: '',
             clientId: this.state.client.id,
             timestamp: new Date().toISOString(),
@@ -108,7 +109,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
 
     private handleDeleteActivity(id: string) {
         if (confirm('Deseja eliminar este registo permanentemente?')) {
-            ClientService.getInstance().deleteActivity(id);
+            ClientActivityService.getInstance().deleteActivity(id);
             this.loadData();
         }
     }
@@ -160,6 +161,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         }
 
         ClientService.getInstance().delete(client.id);
+        ClientActivityService.getInstance().deleteByClient(client.id);
         this.setState({ client: null, activities: [], associatedRecipes: [] });
         this.props.onClose();
     }
@@ -195,7 +197,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             physicalReadyDate: physicalReadyDate.toISOString()
         };
 
-        ClientService.getInstance().addActivity({
+        ClientActivityService.getInstance().addActivity({
             id: '',
             clientId: client.id,
             timestamp: new Date().toISOString(),

@@ -2,6 +2,7 @@ import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Client } from '../../../../shared/types/Client';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
+import { ClientActivityService } from '../../../../orchestrator/services/ClientActivityService';
 import { Plus, Trash2, Edit2, Check, User, AlertTriangle, Beaker, Clock, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
@@ -64,7 +65,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
 
     private async loadClients() {
         const clients = ClientService.getInstance().getAll();
-        const activities = ClientService.getInstance().getAllActivities();
+        const activities = ClientActivityService.getInstance().getAllActivities();
         const recipes = RecipeService.getInstance().getAll();
         const questionnaires = await QuestionnaireService.getQuestionnaires();
 
@@ -337,6 +338,16 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                 };
 
                 ClientService.getInstance().save(baseClient);
+                if (!existing) {
+                    ClientActivityService.getInstance().addActivity({
+                        id: '',
+                        clientId: baseClient.id,
+                        timestamp: new Date().toISOString(),
+                        type: 'system',
+                        title: 'Cliente Criado',
+                        content: 'A ficha de cliente foi aberta no sistema.'
+                    });
+                }
 
                 if (existing) {
                     updatedClients += 1;
@@ -446,7 +457,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                 return;
             }
 
-            const existingActivities = ClientService.getInstance().getAllActivities();
+            const existingActivities = ClientActivityService.getInstance().getAllActivities();
             const activityIds = new Set(existingActivities.map(a => a.id));
             const existingRecipes = RecipeService.getInstance().getAll();
             const recipeIds = new Set(existingRecipes.map(r => r.id));
@@ -466,7 +477,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                             const id = activity.id || Math.random().toString(36).substr(2, 9);
                             if (activityIds.has(id)) return;
                             activityIds.add(id);
-                            ClientService.getInstance().addActivity({ ...activity, id, clientId: normalized.id });
+                            ClientActivityService.getInstance().addActivity({ ...activity, id, clientId: normalized.id });
                         });
                 }
 
@@ -552,7 +563,18 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
             return;
         }
 
+        const existing = ClientService.getInstance().getById(editingClient.id);
         ClientService.getInstance().save(editingClient);
+        if (!existing) {
+            ClientActivityService.getInstance().addActivity({
+                id: '',
+                clientId: editingClient.id,
+                timestamp: new Date().toISOString(),
+                type: 'system',
+                title: 'Cliente Criado',
+                content: 'A ficha de cliente foi aberta no sistema.'
+            });
+        }
         this.loadClients();
         this.closeModal();
     }
@@ -560,6 +582,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
     private handleDelete(id: string) {
         if (confirm('Tem a certeza que deseja eliminar este cliente?')) {
             ClientService.getInstance().delete(id);
+            ClientActivityService.getInstance().deleteByClient(id);
             this.loadClients();
         }
     }
