@@ -1,7 +1,7 @@
 import { BaseService } from '../core/BaseService';
 import { ClientActivity } from '../../shared/types/ClientActivity';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
-import { IdService } from './IdService';
+import { normalizeEntity } from '../utils/EntityNormalizer';
 
 export class ClientActivityService extends BaseService {
     private static instance: ClientActivityService;
@@ -33,11 +33,12 @@ export class ClientActivityService extends BaseService {
     }
 
     public addActivity(activity: ClientActivity): void {
-        this.repository.add({
-            ...activity,
-            id: activity.id || IdService.create(),
-            timestamp: activity.timestamp || new Date().toISOString()
+        const normalized = normalizeEntity(activity, {
+            ensureId: true,
+            idKey: 'id',
+            timestampKey: 'timestamp'
         });
+        this.repository.add(normalized);
     }
 
     public deleteActivity(activityId: string): void {

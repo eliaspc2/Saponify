@@ -2,6 +2,7 @@ import { BaseService } from '../core/BaseService';
 import { Recipe } from '../../shared/types/Recipe';
 import { SettingsService } from './SettingsService';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
+import { normalizeEntity } from '../utils/EntityNormalizer';
 
 export class RecipeService extends BaseService {
     private static instance: RecipeService;
@@ -63,7 +64,7 @@ export class RecipeService extends BaseService {
 
     private normalizeRecipe(recipe: Recipe): Recipe {
         const settings = SettingsService.getInstance().getSettings();
-        return {
+        const normalized = {
             ...recipe,
             alkali: recipe.alkali || settings.defaultAlkali,
             superfat: recipe.superfat ?? settings.defaultSuperfat,
@@ -78,6 +79,7 @@ export class RecipeService extends BaseService {
             essentialOils: recipe.essentialOils || [],
             notes: recipe.notes || ''
         };
+        return normalizeEntity(normalized, { ensureId: true });
     }
 
 }
