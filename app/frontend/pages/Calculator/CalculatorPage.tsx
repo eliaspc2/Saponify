@@ -2,6 +2,7 @@ import { BasePage, BasePageProps, BasePageState } from '../../core/BasePage';
 import { Recipe, RecipeIngredient } from '../../../shared/types/Recipe';
 import { IngredientService } from '../../../orchestrator/services/IngredientService';
 import { RecipeService } from '../../../orchestrator/services/RecipeService';
+import { RecipeDomainService } from '../../../orchestrator/services/RecipeDomainService';
 import { SettingsService } from '../../../orchestrator/services/SettingsService';
 import { CalculatorService } from '../../../orchestrator/services/CalculatorService';
 import { Ingredient } from '../../../shared/types/Ingredient';
@@ -240,7 +241,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                     window.clearTimeout(this.autoSaveTimer);
                 }
                 this.autoSaveTimer = window.setTimeout(() => {
-                    RecipeService.getInstance().save(this.state.recipe);
+                    RecipeDomainService.getInstance().save(this.state.recipe);
                 }, 600);
             }
         }
@@ -401,7 +402,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         }
 
         try {
-            RecipeService.getInstance().save(recipe);
+            RecipeDomainService.getInstance().save(recipe);
             alert('Receita salva com sucesso!');
         } catch (e) {
             alert('Erro ao salvar receita.');

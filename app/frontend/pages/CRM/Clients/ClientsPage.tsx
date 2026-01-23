@@ -5,6 +5,7 @@ import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { Plus, Trash2, Edit2, Check, User, AlertTriangle, Beaker, Clock, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
+import { RecipeDomainService } from '../../../../orchestrator/services/RecipeDomainService';
 import { QuestionnaireService } from '../../../../orchestrator/services/QuestionnaireService';
 import { Recipe } from '../../../../shared/types/Recipe';
 import { Questionnaire } from '../../../../shared/types/Questionnaire';
@@ -477,7 +478,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                             const id = recipe.id || Math.random().toString(36).substr(2, 9);
                             if (recipeIds.has(id)) return;
                             recipeIds.add(id);
-                            RecipeService.getInstance().save({ ...recipe, id, clientId: normalized.id });
+                            RecipeDomainService.getInstance().save({ ...recipe, id, clientId: normalized.id });
                         });
                 }
 

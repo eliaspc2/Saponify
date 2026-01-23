@@ -1,8 +1,6 @@
 import { BaseService } from '../core/BaseService';
 import { Recipe } from '../../shared/types/Recipe';
-import { ClientService } from './ClientService';
 import { SettingsService } from './SettingsService';
-import { formatRecipeReferenceOrFallback } from '../../shared/utils/recipeFormat';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 
 export class RecipeService extends BaseService {
@@ -40,25 +38,7 @@ export class RecipeService extends BaseService {
 
     save(recipe: Recipe) {
         const normalized = this.normalizeRecipe(recipe);
-        const isNew = !this.repository.getById(recipe.id);
-
-        if (!isNew) {
-            this.repository.update(normalized);
-        } else {
-            this.repository.add(normalized);
-
-            // Log in client history if associated
-            if (normalized.clientId) {
-                ClientService.getInstance().addActivity({
-                    id: '',
-                    clientId: normalized.clientId,
-                    timestamp: new Date().toISOString(),
-                    type: 'system',
-                    title: 'Formula Criada',
-                    content: `Uma nova receita (${normalized.name || 'Sem Nome'}) foi associada a este cliente. Codigo: ${formatRecipeReferenceOrFallback(normalized.code, 'Sem referencia')}.`
-                });
-            }
-        }
+        this.repository.upsert(normalized);
     }
 
     delete(id: string) {

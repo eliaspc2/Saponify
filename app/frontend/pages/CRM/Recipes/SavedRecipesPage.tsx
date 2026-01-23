@@ -4,6 +4,7 @@ import type { BasePageProps } from '../../../core/BasePage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Recipe } from '../../../../shared/types/Recipe';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
+import { RecipeDomainService } from '../../../../orchestrator/services/RecipeDomainService';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText, Upload } from 'lucide-react';
@@ -78,7 +79,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
     private async handleSaveStatic() {
         const { editingRecipe } = this.state;
         if (editingRecipe) {
-            RecipeService.getInstance().save(editingRecipe);
+            RecipeDomainService.getInstance().save(editingRecipe);
             this.closeEditModal();
             this.loadRecipes();
         }
@@ -174,7 +175,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             }
             validRecipes.forEach((recipe: Recipe) => {
                 const normalized = this.normalizeImportedRecipe(recipe);
-                RecipeService.getInstance().save(normalized);
+                RecipeDomainService.getInstance().save(normalized);
             });
             this.loadRecipes();
         } catch (error) {

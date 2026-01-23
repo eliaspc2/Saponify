@@ -4,6 +4,7 @@ import { Client } from '../../../../shared/types/Client';
 import { ClientActivity, ProductionDetails } from '../../../../shared/types/ClientActivity';
 import { ClientService } from '../../../../orchestrator/services/ClientService';
 import { RecipeService } from '../../../../orchestrator/services/RecipeService';
+import { RecipeDomainService } from '../../../../orchestrator/services/RecipeDomainService';
 import { Recipe } from '../../../../shared/types/Recipe';
 import {
     User,
@@ -609,7 +610,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         if (!viewingRecipe) return null;
 
         const handleSave = () => {
-            RecipeService.getInstance().save(viewingRecipe);
+            RecipeDomainService.getInstance().save(viewingRecipe);
             this.setState({ isRecipeModalOpen: false, viewingRecipe: null });
             this.loadData();
         };
