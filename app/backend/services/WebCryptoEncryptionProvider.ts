@@ -1,4 +1,5 @@
 import type { IEncryptionProvider } from './IEncryptionProvider';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 export class WebCryptoEncryptionProvider implements IEncryptionProvider {
     private password: string;
@@ -9,14 +10,14 @@ export class WebCryptoEncryptionProvider implements IEncryptionProvider {
 
     async encrypt(data: string): Promise<string> {
         const encrypted = btoa(unescape(encodeURIComponent(`${data}::${this.password}`)));
-        return `ENCRYPTED:${encrypted}`;
+        return `${AppConstants.ENCRYPTED_PREFIX}${encrypted}`;
     }
 
     async decrypt(data: string): Promise<string> {
-        if (!data.startsWith('ENCRYPTED:')) {
+        if (!data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
             return data;
         }
-        const encrypted = data.replace('ENCRYPTED:', '');
+        const encrypted = data.replace(AppConstants.ENCRYPTED_PREFIX, '');
         const decrypted = decodeURIComponent(escape(atob(encrypted)));
 
         if (!decrypted.endsWith(`::${this.password}`)) {

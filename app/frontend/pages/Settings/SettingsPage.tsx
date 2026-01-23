@@ -1,6 +1,8 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
 import { SettingsService } from '../../../backend/services/SettingsService';
-import { AppSettings } from '../../../shared/types/Settings';
+import type { AppSettings } from '../../../shared/settings/AppSettings';
+import { StorageKeys } from '../../../shared/constants/StorageKeys';
+import { AppConstants } from '../../../shared/constants/AppConstants';
 import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff } from 'lucide-react';
 import { BackupService } from '../../../backend/services/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
@@ -22,13 +24,13 @@ interface SettingsState extends BasePageState {
     localBackupSize: string;
 }
 
-const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
-const DEVICE_ID_KEY = 'saponify_device_id';
-const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
-const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
-const AUTO_BACKUP_KEY = 'saponify_auto_backup';
-const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
-const SYNC_PASSWORD_KEY = 'saponify_sync_password';
+const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
+const DEVICE_ID_KEY = StorageKeys.DEVICE_ID;
+const SYNC_LAST_SUCCESS_KEY = StorageKeys.SYNC_LAST_SUCCESS;
+const SYNC_LAST_ERROR_KEY = StorageKeys.SYNC_LAST_ERROR;
+const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
+const AUTO_BACKUP_TS_KEY = StorageKeys.AUTO_BACKUP_TIMESTAMP;
+const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
 
 export class SettingsPage extends BasePage<{}, SettingsState> {
 
@@ -122,7 +124,7 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i += 1) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith('saponify_')) {
+                if (key && key.startsWith(StorageKeys.PREFIX)) {
                     keysToRemove.push(key);
                 }
             }
@@ -198,17 +200,17 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         } else {
             const data = localStorage.getItem(AUTO_BACKUP_KEY);
             let ok = false;
-            if (data && data.startsWith('ENCRYPTED:')) {
+            if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
                 const settings = SettingsService.getInstance().getSettings();
                 ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
             } else if (data) {
                 ok = await BackupService.getInstance().importAllData(data);
             }
             if (ok) {
-                localStorage.removeItem('saponify_sync_pending_import');
-                location.reload();
-                return;
-            }
+            localStorage.removeItem(StorageKeys.SYNC_PENDING_IMPORT);
+            location.reload();
+            return;
+        }
             alert('Dados remotos aplicados ao backup local, mas não foi possível restaurar. Verifique a password do backup local.');
         }
     }

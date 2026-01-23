@@ -5,11 +5,13 @@ import { IdService } from './IdService';
 import { normalizeIngredient } from '../ingredients/IngredientNormalizer';
 import { migrateMissingKind } from '../ingredients/IngredientMigration';
 import { parseIngredientCSV } from '../ingredients/IngredientCsvParser';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 export class IngredientService extends BaseService {
     private static instance: IngredientService;
-    private static readonly STORAGE_KEY = 'saponify_ingredients';
-    private static readonly STORAGE_VERSION = 2;
+    private static readonly STORAGE_KEY = StorageKeys.INGREDIENTS;
+    private static readonly STORAGE_VERSION = AppConstants.INGREDIENTS_STORAGE_VERSION;
     private initialized = false;
     private repository: LocalStorageRepository<Ingredient>;
 
@@ -44,7 +46,7 @@ export class IngredientService extends BaseService {
             this.initialized = true;
             const storedIngredients = [...this.repository.getAll()];
             this.log('Fetching ingredients csv...');
-            const response = await fetch(`${import.meta.env.BASE_URL}data/ingredients.csv`);
+            const response = await fetch(`${import.meta.env.BASE_URL}${AppConstants.DEFAULT_INGREDIENTS_CSV_PATH}`);
             const csvText = await response.text();
             const csvIngredients = parseIngredientCSV(csvText).map(ingredient => normalizeIngredient(ingredient));
             if (storedIngredients.length > 0) {

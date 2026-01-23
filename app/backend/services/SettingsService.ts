@@ -1,11 +1,13 @@
-import { AppSettings, DEFAULT_SETTINGS } from '../../shared/types/Settings';
 import { AbstractConfigService } from './AbstractConfigService';
+import type { AppSettings } from '../../shared/settings/AppSettings';
+import { DEFAULT_SETTINGS } from '../../shared/settings/AppSettingsDefaults';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
 
 export class SettingsService extends AbstractConfigService<AppSettings> {
     private static instance: SettingsService;
 
     private constructor() {
-        super('SettingsService', 'saponify_settings', DEFAULT_SETTINGS);
+        super('SettingsService', StorageKeys.SETTINGS, DEFAULT_SETTINGS);
     }
 
     static getInstance(): SettingsService {

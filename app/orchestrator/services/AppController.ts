@@ -5,6 +5,8 @@ import { AutoBackupStorage } from '../../backend/services/AutoBackupStorage';
 import { getDataVersion } from '../../backend/utils/dataVersion';
 import type { CalculatorUseCase } from '../../backend/calculator/CalculatorUseCase';
 import type { CalculatorInput, CalculatorResult } from '../../backend/calculator/CalculatorModels';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 type AppControllerDeps = {
     backupService: BackupService;
@@ -13,7 +15,7 @@ type AppControllerDeps = {
     calculatorUseCase: CalculatorUseCase;
 };
 
-const SYNC_PENDING_IMPORT_KEY = 'saponify_sync_pending_import';
+const SYNC_PENDING_IMPORT_KEY = StorageKeys.SYNC_PENDING_IMPORT;
 
 export class AppController {
     private backupService: BackupService;
@@ -55,7 +57,7 @@ export class AppController {
         this.pendingBackupTimer = window.setTimeout(async () => {
             await this.backupService.performAutoBackupNow();
             this.onBackupCompleted();
-        }, 800);
+        }, AppConstants.APP_STATE_BACKUP_DEBOUNCE_MS);
     }
 
     public onBackupCompleted(): void {
@@ -74,7 +76,7 @@ export class AppController {
                 this.lastDataVersion = currentVersion;
                 this.onStateChanged();
             }
-        }, 2000);
+        }, AppConstants.APP_STATE_POLL_INTERVAL_MS);
     }
 
     private async handlePendingImport(): Promise<boolean> {
@@ -83,7 +85,7 @@ export class AppController {
 
         const data = this.storage.getData();
         let ok = false;
-        if (data && data.startsWith('ENCRYPTED:')) {
+        if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
             const settings = this.settingsService.getSettings();
             ok = await this.backupService.restoreAutoBackup(settings.autoBackupPassword);
         } else if (data) {

@@ -1,0 +1,33 @@
+export const AppConstants = {
+    INGREDIENTS_STORAGE_VERSION: 2,
+    DEFAULT_RECIPE_CODE: '0001',
+    BACKUP_VERSION: '1.0.0',
+    BACKUP_FILE_PREFIX: 'saponify_backup_',
+    AUTO_BACKUP_FILE_PREFIX: 'saponify_auto_backup_',
+    BACKUP_FILE_EXTENSION: '.json',
+    DEFAULT_INGREDIENTS_CSV_PATH: 'data/ingredients.csv',
+    ENCRYPTED_PREFIX: 'ENCRYPTED:',
+    SYNC_ENCRYPTION_PREFIX: 'SYNCENC1:',
+    SYNC_REMOTE_POLL_INTERVAL_MS: 30000,
+    SYNC_WRITE_DEBOUNCE_MS: 500,
+    APP_STATE_POLL_INTERVAL_MS: 2000,
+    APP_STATE_BACKUP_DEBOUNCE_MS: 800,
+    PBKDF2_ITERATIONS: 120000,
+    PBKDF2_HASH: 'SHA-256',
+    AES_GCM_LENGTH: 256,
+    SYNC_SALT_LENGTH: 16,
+    SYNC_IV_LENGTH: 12,
+    FIRESTORE_USERS_COLLECTION: 'users',
+    FIRESTORE_APP_STATE_DOC: 'appState',
+    FIRESTORE_MAIN_DOC: 'main',
+    GLOBAL_SYNC_PASSWORD_OVERRIDE: '__SAPONIFY_SYNC_PASSWORD__',
+    GLOBAL_SYNC_ENABLED_OVERRIDE: '__SAPONIFY_FIRESTORE_SYNC_ENABLED__',
+    FIREBASE_CONFIG: {
+        apiKey: 'AIzaSyAF-gunjUtjfz4NouUulE3pfKylDKbrabw',
+        authDomain: 'saponify-sync.firebaseapp.com',
+        projectId: 'saponify-sync',
+        storageBucket: 'saponify-sync.firebasestorage.app',
+        messagingSenderId: '14943408423',
+        appId: '1:14943408423:web:590ec820e586f522e65902'
+    }
+} as const;

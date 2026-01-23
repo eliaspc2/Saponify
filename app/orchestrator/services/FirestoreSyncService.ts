@@ -13,6 +13,8 @@ import {
     type Auth,
     type User
 } from 'firebase/auth';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 type RemoteBackupPayload = {
     data: string;
@@ -20,27 +22,19 @@ type RemoteBackupPayload = {
     deviceId: string;
 };
 
-const FIREBASE_CONFIG = {
-    apiKey: 'AIzaSyAF-gunjUtjfz4NouUulE3pfKylDKbrabw',
-    authDomain: 'saponify-sync.firebaseapp.com',
-    projectId: 'saponify-sync',
-    storageBucket: 'saponify-sync.firebasestorage.app',
-    messagingSenderId: '14943408423',
-    appId: '1:14943408423:web:590ec820e586f522e65902'
-};
-
-const AUTO_BACKUP_KEY = 'saponify_auto_backup';
-const AUTO_BACKUP_TS_KEY = `${AUTO_BACKUP_KEY}_timestamp`;
-const DEVICE_ID_KEY = 'saponify_device_id';
-const SYNC_ENABLED_KEY = 'saponify_sync_enabled';
-const SYNC_LAST_SUCCESS_KEY = 'saponify_sync_last_success';
-const SYNC_LAST_ERROR_KEY = 'saponify_sync_last_error';
-const SYNC_PASSWORD_KEY = 'saponify_sync_password';
-const SYNC_ENC_PREFIX = 'SYNCENC1:';
-const SYNC_PENDING_IMPORT_KEY = 'saponify_sync_pending_import';
-const AUTH_REDIRECT_FLAG = 'saponify_auth_redirect_in_progress';
-const AUTH_LAST_ATTEMPT_KEY = 'saponify_auth_last_attempt';
-const REMOTE_POLL_INTERVAL_MS = 30000;
+const FIREBASE_CONFIG = AppConstants.FIREBASE_CONFIG;
+const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
+const AUTO_BACKUP_TS_KEY = StorageKeys.AUTO_BACKUP_TIMESTAMP;
+const DEVICE_ID_KEY = StorageKeys.DEVICE_ID;
+const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
+const SYNC_LAST_SUCCESS_KEY = StorageKeys.SYNC_LAST_SUCCESS;
+const SYNC_LAST_ERROR_KEY = StorageKeys.SYNC_LAST_ERROR;
+const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
+const SYNC_ENC_PREFIX = AppConstants.SYNC_ENCRYPTION_PREFIX;
+const SYNC_PENDING_IMPORT_KEY = StorageKeys.SYNC_PENDING_IMPORT;
+const AUTH_REDIRECT_FLAG = StorageKeys.AUTH_REDIRECT_FLAG;
+const AUTH_LAST_ATTEMPT_KEY = StorageKeys.AUTH_LAST_ATTEMPT;
+const REMOTE_POLL_INTERVAL_MS = AppConstants.SYNC_REMOTE_POLL_INTERVAL_MS;
 
 export class FirestoreSyncService {
     private static instance: FirestoreSyncService;
@@ -109,7 +103,7 @@ export class FirestoreSyncService {
             } catch (error: any) {
                 this.setLastSyncError(error?.message || 'Erro ao sincronizar com o Firestore.');
             }
-        }, 500);
+        }, AppConstants.SYNC_WRITE_DEBOUNCE_MS);
     }
 
     public async signIn(): Promise<void> {
@@ -329,7 +323,13 @@ export class FirestoreSyncService {
     private getDocRef() {
         const uid = this.auth?.currentUser?.uid;
         if (!this.db || !uid) return null;
-        return doc(this.db, 'users', uid, 'appState', 'main');
+        return doc(
+            this.db,
+            AppConstants.FIRESTORE_USERS_COLLECTION,
+            uid,
+            AppConstants.FIRESTORE_APP_STATE_DOC,
+            AppConstants.FIRESTORE_MAIN_DOC
+        );
     }
 
     private getOrCreateId(key: string): string {
@@ -373,7 +373,7 @@ export class FirestoreSyncService {
 
     private getSyncPassword(): string | null {
         const globalOverride = typeof window !== 'undefined'
-            ? (window as any).__SAPONIFY_SYNC_PASSWORD__
+            ? (window as any)[AppConstants.GLOBAL_SYNC_PASSWORD_OVERRIDE]
             : null;
         if (typeof globalOverride === 'string' && globalOverride.trim()) {
             return globalOverride.trim();
@@ -388,8 +388,8 @@ export class FirestoreSyncService {
         if (!password) {
             throw new Error('Defina a password de sincronização.');
         }
-        const salt = window.crypto.getRandomValues(new Uint8Array(16));
-        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const salt = window.crypto.getRandomValues(new Uint8Array(AppConstants.SYNC_SALT_LENGTH));
+        const iv = window.crypto.getRandomValues(new Uint8Array(AppConstants.SYNC_IV_LENGTH));
         const key = await this.deriveKeyFromPassword(password, salt);
         const encoded = new TextEncoder().encode(data);
         const cipher = await window.crypto.subtle.encrypt(
@@ -413,9 +413,9 @@ export class FirestoreSyncService {
             throw new Error('Defina a password de sincronização.');
         }
         const raw = this.base64ToBytes(payload.slice(SYNC_ENC_PREFIX.length));
-        const salt = raw.slice(0, 16);
-        const iv = raw.slice(16, 28);
-        const cipher = raw.slice(28);
+        const salt = raw.slice(0, AppConstants.SYNC_SALT_LENGTH);
+        const iv = raw.slice(AppConstants.SYNC_SALT_LENGTH, AppConstants.SYNC_SALT_LENGTH + AppConstants.SYNC_IV_LENGTH);
+        const cipher = raw.slice(AppConstants.SYNC_SALT_LENGTH + AppConstants.SYNC_IV_LENGTH);
         const key = await this.deriveKeyFromPassword(password, salt);
         const plain = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv },
@@ -438,11 +438,11 @@ export class FirestoreSyncService {
             {
                 name: 'PBKDF2',
                 salt: saltBuffer,
-                iterations: 120000,
-                hash: 'SHA-256'
+                iterations: AppConstants.PBKDF2_ITERATIONS,
+                hash: AppConstants.PBKDF2_HASH
             },
             baseKey,
-            { name: 'AES-GCM', length: 256 },
+            { name: 'AES-GCM', length: AppConstants.AES_GCM_LENGTH },
             false,
             ['encrypt', 'decrypt']
         );
@@ -467,7 +467,7 @@ export class FirestoreSyncService {
 
     private isSyncEnabled(): boolean {
         if (typeof window !== 'undefined') {
-            const override = (window as any).__SAPONIFY_FIRESTORE_SYNC_ENABLED__;
+            const override = (window as any)[AppConstants.GLOBAL_SYNC_ENABLED_OVERRIDE];
             if (override === false) return false;
         }
         const stored = this.safeGetItem(SYNC_ENABLED_KEY);

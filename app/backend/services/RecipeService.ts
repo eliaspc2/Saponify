@@ -3,6 +3,8 @@ import { Recipe } from '../../shared/types/Recipe';
 import { SettingsService } from './SettingsService';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { normalizeEntity } from '../utils/EntityNormalizer';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 export class RecipeService extends BaseService {
     private static instance: RecipeService;
@@ -10,7 +12,7 @@ export class RecipeService extends BaseService {
 
     private constructor() {
         super('RecipeService');
-        this.repository = new LocalStorageRepository<Recipe>('saponify_recipes', {
+        this.repository = new LocalStorageRepository<Recipe>(StorageKeys.RECIPES, {
             deserialize: (raw) => {
                 const items = Array.isArray(raw) ? raw : [];
                 return items.map((recipe) => this.normalizeRecipe(recipe));
@@ -48,10 +50,10 @@ export class RecipeService extends BaseService {
 
     getNextCode(): string {
         const recipes = this.repository.getAll();
-        if (recipes.length === 0) return '0001';
+        if (recipes.length === 0) return AppConstants.DEFAULT_RECIPE_CODE;
 
         const codes = recipes.map(r => parseInt(r.code)).filter(c => !isNaN(c));
-        if (codes.length === 0) return '0001';
+        if (codes.length === 0) return AppConstants.DEFAULT_RECIPE_CODE;
 
         const maxCode = Math.max(...codes);
         return (maxCode + 1).toString().padStart(4, '0');

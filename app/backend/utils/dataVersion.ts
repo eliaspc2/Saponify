@@ -1,4 +1,6 @@
-const DATA_VERSION_KEY = 'saponify_data_version';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
+
+const DATA_VERSION_KEY = StorageKeys.DATA_VERSION;
 
 export const touchDataVersion = () => {
     try {

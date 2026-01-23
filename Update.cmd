@@ -10,7 +10,7 @@ git push gitlab main
 
 echo Deploy concluído.
 
-npm run preview
+start /wait npm run preview
 
 echo.
 echo A reiniciar o ciclo...

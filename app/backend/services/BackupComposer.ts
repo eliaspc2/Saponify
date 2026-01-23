@@ -5,6 +5,7 @@ import { SettingsService } from './SettingsService';
 import { QuestionnaireService } from './QuestionnaireService';
 import { CalculatorEngine } from '../calculator/CalculatorEngine';
 import { ClientActivityService } from './ClientActivityService';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 export class BackupComposer {
     public async exportAllData(): Promise<string> {
@@ -24,7 +25,7 @@ export class BackupComposer {
         });
 
         const data = {
-            version: '1.0.0',
+            version: AppConstants.BACKUP_VERSION,
             timestamp: new Date().toISOString(),
             recipes,
             recipeCalculations,

@@ -1,5 +1,6 @@
 import { Questionnaire } from '../../shared/types/Questionnaire';
 import { AbstractConfigService } from './AbstractConfigService';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
 
 export type QuestionnaireState = Questionnaire[];
 
@@ -7,7 +8,7 @@ export class QuestionnaireService extends AbstractConfigService<QuestionnaireSta
     private static instance: QuestionnaireService;
 
     private constructor() {
-        super('QuestionnaireService', 'saponify_questionnaires', [], { silentParseErrors: true });
+        super('QuestionnaireService', StorageKeys.QUESTIONNAIRES, [], { silentParseErrors: true });
     }
 
     static getInstance(): QuestionnaireService {

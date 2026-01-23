@@ -1,0 +1,20 @@
+export const StorageKeys = {
+    PREFIX: 'saponify_',
+    SETTINGS: 'saponify_settings',
+    INGREDIENTS: 'saponify_ingredients',
+    RECIPES: 'saponify_recipes',
+    CLIENTS: 'saponify_clients',
+    ACTIVITIES: 'saponify_activities',
+    QUESTIONNAIRES: 'saponify_questionnaires',
+    AUTO_BACKUP: 'saponify_auto_backup',
+    AUTO_BACKUP_TIMESTAMP: 'saponify_auto_backup_timestamp',
+    DATA_VERSION: 'saponify_data_version',
+    DEVICE_ID: 'saponify_device_id',
+    SYNC_ENABLED: 'saponify_sync_enabled',
+    SYNC_LAST_SUCCESS: 'saponify_sync_last_success',
+    SYNC_LAST_ERROR: 'saponify_sync_last_error',
+    SYNC_PASSWORD: 'saponify_sync_password',
+    SYNC_PENDING_IMPORT: 'saponify_sync_pending_import',
+    AUTH_REDIRECT_FLAG: 'saponify_auth_redirect_in_progress',
+    AUTH_LAST_ATTEMPT: 'saponify_auth_last_attempt'
+} as const;

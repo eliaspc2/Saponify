@@ -1,6 +1,8 @@
+import { StorageKeys } from '../../shared/constants/StorageKeys';
+
 export class AutoBackupStorage {
-    private static AUTO_BACKUP_KEY = 'saponify_auto_backup';
-    private static AUTO_BACKUP_TS_KEY = `${AutoBackupStorage.AUTO_BACKUP_KEY}_timestamp`;
+    private static AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
+    private static AUTO_BACKUP_TS_KEY = StorageKeys.AUTO_BACKUP_TIMESTAMP;
 
     public getData(): string | null {
         return localStorage.getItem(AutoBackupStorage.AUTO_BACKUP_KEY);

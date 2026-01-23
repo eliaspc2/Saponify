@@ -5,6 +5,7 @@ import { BackupFileTransfer } from './BackupFileTransfer';
 import type { ISyncProvider } from './ISyncProvider';
 import type { IEncryptionProvider } from './IEncryptionProvider';
 import { WebCryptoEncryptionProvider } from './WebCryptoEncryptionProvider';
+import { AppConstants } from '../../shared/constants/AppConstants';
 
 export class BackupService {
     private static instance: BackupService;
@@ -79,7 +80,7 @@ export class BackupService {
             SettingsService.getInstance().updateSettings(settings);
 
             let syncPayload = finalData;
-            if (finalData.startsWith('ENCRYPTED:') && settings.autoBackupPassword) {
+            if (finalData.startsWith(AppConstants.ENCRYPTED_PREFIX) && settings.autoBackupPassword) {
                 try {
                     syncPayload = await this.getEncryptionProvider(settings.autoBackupPassword).decrypt(finalData);
                 } catch (decryptError) {

@@ -2,6 +2,7 @@ import { BaseService } from '../core/BaseService';
 import { ClientActivity } from '../../shared/types/ClientActivity';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { normalizeEntity } from '../utils/EntityNormalizer';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
 
 export class ClientActivityService extends BaseService {
     private static instance: ClientActivityService;
@@ -9,7 +10,7 @@ export class ClientActivityService extends BaseService {
 
     private constructor() {
         super('ClientActivityService');
-        this.repository = new LocalStorageRepository<ClientActivity>('saponify_activities', {
+        this.repository = new LocalStorageRepository<ClientActivity>(StorageKeys.ACTIVITIES, {
             deserialize: (raw) => Array.isArray(raw) ? raw : [],
             serialize: (items) => items
         });
