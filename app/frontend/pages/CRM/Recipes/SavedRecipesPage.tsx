@@ -20,6 +20,7 @@ interface SavedRecipesState extends BaseListPageState<Recipe> {
     isModalOpen: boolean;
     editingRecipe: Recipe | null;
     clients: Client[];
+    statsFilter: 'all' | 'withOes' | 'withNotes';
 }
 
 export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, SavedRecipesProps> {
@@ -30,7 +31,8 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             ...this.getInitialState(),
             isModalOpen: false,
             editingRecipe: null,
-            clients: []
+            clients: [],
+            statsFilter: 'all'
         } as SavedRecipesState;
     }
 
@@ -193,14 +195,50 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
         const avgSuperfat = total > 0
             ? this.state.data.reduce((sum, recipe) => sum + (recipe.superfat || 0), 0) / total
             : 0;
+        const filterLabel = this.state.statsFilter === 'withOes'
+            ? 'Com Óleos Essenciais'
+            : this.state.statsFilter === 'withNotes'
+                ? 'Com notas'
+                : null;
 
         return (
-            <div className="stats-grid">
-                <StatCard label="Receitas Guardadas" value={total} color="var(--color-primary)" />
-                <StatCard label="Superfat medio" value={`${avgSuperfat.toFixed(1)}%`} color="var(--color-accent)" />
-                <StatCard label="Com OEs" value={withEssentialOils} color="#3B82F6" />
-                <StatCard label="Com notas" value={withNotes} color="#F59E0B" />
-            </div>
+            <>
+                <div className="stats-grid">
+                    <StatCard
+                        label="Receitas Guardadas"
+                        value={total}
+                        color="var(--color-primary)"
+                        onClick={() => this.setState({ statsFilter: 'all' })}
+                    />
+                    <StatCard label="Superfat medio" value={`${avgSuperfat.toFixed(1)}%`} color="var(--color-accent)" />
+                    <StatCard
+                        label="Com OEs"
+                        value={withEssentialOils}
+                        color="#3B82F6"
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'withOes' ? 'all' : 'withOes' })}
+                    />
+                    <StatCard
+                        label="Com notas"
+                        value={withNotes}
+                        color="#F59E0B"
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'withNotes' ? 'all' : 'withNotes' })}
+                    />
+                </div>
+                {filterLabel && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', padding: '0.25rem 0.6rem', borderRadius: '999px', background: '#F3F4F6' }}>
+                            Filtro ativo: {filterLabel}
+                        </span>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => this.setState({ statsFilter: 'all' })}
+                            style={{ padding: '0.3rem 0.7rem' }}
+                        >
+                            Limpar filtro
+                        </button>
+                    </div>
+                )}
+            </>
         );
     }
 
@@ -237,7 +275,16 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
 
     renderTable() {
         const term = this.state.searchQuery.toLowerCase();
-        const filteredData = this.state.data.filter(r =>
+        let filteredData = this.state.data;
+        const { statsFilter } = this.state;
+
+        if (statsFilter === 'withOes') {
+            filteredData = filteredData.filter(r => (r.essentialOils || []).length > 0);
+        } else if (statsFilter === 'withNotes') {
+            filteredData = filteredData.filter(r => (r.notes || '').trim().length > 0);
+        }
+
+        filteredData = filteredData.filter(r =>
             r.name.toLowerCase().includes(term) || r.code.includes(term)
         );
 

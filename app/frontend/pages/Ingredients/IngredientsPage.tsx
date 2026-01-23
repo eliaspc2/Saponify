@@ -11,6 +11,7 @@ import { INGREDIENT_CATEGORIES, formatCategoryLabel } from '../../../shared/cons
 interface IngredientsPageState extends BaseListPageState<Ingredient> {
     editingItem: Ingredient | null;
     isModalOpen: boolean;
+    phaseFilter: 'all' | 'phase1' | 'phase2' | 'phase3';
 }
 
 export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageState> {
@@ -21,7 +22,8 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
     state: IngredientsPageState = {
         ...this.getInitialState(),
         editingItem: null,
-        isModalOpen: false
+        isModalOpen: false,
+        phaseFilter: 'all'
     };
 
     async componentDidMount() {
@@ -40,7 +42,18 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
 
             const matchesCategory = filter === 'all' || item.category === filter;
 
-            return matchesSearch && matchesCategory;
+            let matchesPhase = true;
+            if (this.state.phaseFilter !== 'all') {
+                if (this.state.phaseFilter === 'phase1') {
+                    matchesPhase = ['Óleos Base'].includes(item.category);
+                } else if (this.state.phaseFilter === 'phase2') {
+                    matchesPhase = ['Líquidos Lixívia', 'Aditivos Lixívia', 'Aditivos Funcionais'].includes(item.category);
+                } else if (this.state.phaseFilter === 'phase3') {
+                    matchesPhase = ['Aditivos Traço', 'Óleos Essenciais', 'Superfat'].includes(item.category);
+                }
+            }
+
+            return matchesSearch && matchesCategory && matchesPhase;
         });
     }
 
@@ -154,6 +167,13 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
 
     renderStats() {
         const total = this.state.data.length;
+        const phaseFilterLabel = this.state.phaseFilter === 'phase1'
+            ? 'Fase 1: Saponificação'
+            : this.state.phaseFilter === 'phase2'
+                ? 'Fase 2: Lixívia'
+                : this.state.phaseFilter === 'phase3'
+                    ? 'Fase 3: Traço'
+                    : null;
 
         // FASE 1: Gorduras para Saponificar
         const countPhase1 = this.state.data.filter(i =>
@@ -171,12 +191,49 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
         ).length;
 
         return (
-            <div className="stats-grid">
-                <StatCard label="Total Ingredientes" value={total} color="var(--color-primary)" />
-                <StatCard label="Fase 1: Saponificação" subtext="Óleos & Gorduras" value={countPhase1} color="var(--color-accent)" />
-                <StatCard label="Fase 2: Lixívia" subtext="Líquidos & Funcionais" value={countPhase2} />
-                <StatCard label="Fase 3: Traço" subtext="Superfat, Traço & Essenciais" value={countPhase3} />
-            </div>
+            <>
+                <div className="stats-grid">
+                    <StatCard
+                        label="Total Ingredientes"
+                        value={total}
+                        color="var(--color-primary)"
+                        onClick={() => this.setState({ phaseFilter: 'all' })}
+                    />
+                    <StatCard
+                        label="Fase 1: Saponificação"
+                        subtext="Óleos & Gorduras"
+                        value={countPhase1}
+                        color="var(--color-accent)"
+                        onClick={() => this.setState({ phaseFilter: this.state.phaseFilter === 'phase1' ? 'all' : 'phase1' })}
+                    />
+                    <StatCard
+                        label="Fase 2: Lixívia"
+                        subtext="Líquidos & Funcionais"
+                        value={countPhase2}
+                        onClick={() => this.setState({ phaseFilter: this.state.phaseFilter === 'phase2' ? 'all' : 'phase2' })}
+                    />
+                    <StatCard
+                        label="Fase 3: Traço"
+                        subtext="Superfat, Traço & Essenciais"
+                        value={countPhase3}
+                        onClick={() => this.setState({ phaseFilter: this.state.phaseFilter === 'phase3' ? 'all' : 'phase3' })}
+                    />
+                </div>
+                {phaseFilterLabel && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', padding: '0.25rem 0.6rem', borderRadius: '999px', background: '#F3F4F6' }}>
+                            Filtro ativo: {phaseFilterLabel}
+                        </span>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => this.setState({ phaseFilter: 'all' })}
+                            style={{ padding: '0.3rem 0.7rem' }}
+                        >
+                            Limpar filtro
+                        </button>
+                    </div>
+                )}
+            </>
         );
     }
 

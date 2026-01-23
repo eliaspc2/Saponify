@@ -13,6 +13,7 @@ interface QuestionnairesPageState extends BaseListPageState<Questionnaire> {
     editingQuestionnaire: Partial<Questionnaire> | null;
     clients: Client[];
     activeSection: number;
+    statsFilter: 'all' | 'dryness' | 'oiliness' | 'irritation';
 }
 
 export class QuestionnairesPage extends BaseListPage<Questionnaire, QuestionnairesPageState> {
@@ -24,7 +25,8 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
             isModalOpen: false,
             editingQuestionnaire: null,
             clients: [],
-            activeSection: 0
+            activeSection: 0,
+            statsFilter: 'all'
         } as QuestionnairesPageState;
     }
 
@@ -143,14 +145,57 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
         const drynessCount = this.state.data.filter(q => q.drynessAfterWash && q.drynessAfterWash !== 'Nunca').length;
         const oilinessCount = this.state.data.filter(q => q.oiliness === 'Quase sempre').length;
         const irritationCount = this.state.data.filter(q => (q.irritationFrequency || '').toLowerCase().startsWith('com')).length;
+        const filterLabel = this.state.statsFilter === 'dryness'
+            ? 'Pele seca'
+            : this.state.statsFilter === 'oiliness'
+                ? 'Pele oleosa'
+                : this.state.statsFilter === 'irritation'
+                    ? 'Irritação frequente'
+                    : null;
 
         return (
-            <div className="stats-grid">
-                <StatCard label="Total Questionarios" value={total} color="var(--color-primary)" />
-                <StatCard label="Pele seca" value={drynessCount} color="#F59E0B" />
-                <StatCard label="Pele oleosa" value={oilinessCount} color="#3B82F6" />
-                <StatCard label="Irritacao freq." value={irritationCount} color="#EF4444" />
-            </div>
+            <>
+                <div className="stats-grid">
+                    <StatCard
+                        label="Total Questionarios"
+                        value={total}
+                        color="var(--color-primary)"
+                        onClick={() => this.setState({ statsFilter: 'all' })}
+                    />
+                    <StatCard
+                        label="Pele seca"
+                        value={drynessCount}
+                        color="#F59E0B"
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'dryness' ? 'all' : 'dryness' })}
+                    />
+                    <StatCard
+                        label="Pele oleosa"
+                        value={oilinessCount}
+                        color="#3B82F6"
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'oiliness' ? 'all' : 'oiliness' })}
+                    />
+                    <StatCard
+                        label="Irritacao freq."
+                        value={irritationCount}
+                        color="#EF4444"
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'irritation' ? 'all' : 'irritation' })}
+                    />
+                </div>
+                {filterLabel && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', padding: '0.25rem 0.6rem', borderRadius: '999px', background: '#F3F4F6' }}>
+                            Filtro ativo: {filterLabel}
+                        </span>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => this.setState({ statsFilter: 'all' })}
+                            style={{ padding: '0.3rem 0.7rem' }}
+                        >
+                            Limpar filtro
+                        </button>
+                    </div>
+                )}
+            </>
         );
     }
 
@@ -177,7 +222,18 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
 
     renderTable() {
         const term = this.state.searchQuery.toLowerCase();
-        const filteredData = this.state.data.filter(q =>
+        let filteredData = this.state.data;
+        const { statsFilter } = this.state;
+
+        if (statsFilter === 'dryness') {
+            filteredData = filteredData.filter(q => q.drynessAfterWash && q.drynessAfterWash !== 'Nunca');
+        } else if (statsFilter === 'oiliness') {
+            filteredData = filteredData.filter(q => q.oiliness === 'Quase sempre');
+        } else if (statsFilter === 'irritation') {
+            filteredData = filteredData.filter(q => (q.irritationFrequency || '').toLowerCase().startsWith('com'));
+        }
+
+        filteredData = filteredData.filter(q =>
             q.clientName.toLowerCase().includes(term)
         );
 

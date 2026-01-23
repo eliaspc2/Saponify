@@ -214,24 +214,35 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         value={stats.totalClients}
                         icon={<Users size={20} />}
                         color="var(--color-primary)"
+                        onClick={() => this.props.onNavigate('clients')}
                     />
                     <StatCard
                         label="Fórmulas"
                         value={stats.totalRecipes}
                         icon={<Beaker size={20} />}
                         color="#8B5CF6"
+                        onClick={() => this.props.onNavigate('recipes')}
                     />
                     <StatCard
                         label="Ingredientes"
                         value={stats.totalIngredients}
                         icon={<Package size={20} />}
                         color="#F59E0B"
+                        onClick={() => this.props.onNavigate('ingredients')}
                     />
                     <StatCard
                         label="Lotes em Cura"
                         value={stats.activeBatches}
                         icon={<TrendingUp size={20} />}
                         color="var(--color-accent)"
+                        onClick={() => {
+                            if (this.state.productionActivities.length > 0) {
+                                const activity = this.state.productionActivities[0];
+                                if (activity.clientId) {
+                                    this.openClientDetails(activity.clientId);
+                                }
+                            }
+                        }}
                     />
                 </div>
 

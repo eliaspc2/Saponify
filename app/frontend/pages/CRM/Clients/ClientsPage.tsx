@@ -25,6 +25,9 @@ interface ClientsPageState extends BaseListPageState<Client> {
     allQuestionnaires: Questionnaire[];
     selectedClientId: string | null;
     isDetailsOpen: boolean;
+    statsFilter: 'all' | 'active' | 'ready' | 'pending';
+    activeClientIds: string[];
+    readyClientIds: string[];
 }
 
 export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavigate: (page: string, params?: any) => void }> {
@@ -47,7 +50,10 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
             allRecipes: [],
             allQuestionnaires: [],
             selectedClientId: null,
-            isDetailsOpen: false
+            isDetailsOpen: false,
+            statsFilter: 'all',
+            activeClientIds: [],
+            readyClientIds: []
         } as ClientsPageState;
     }
 
@@ -76,6 +82,8 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
         );
 
         const readyRecipeCodes = readyThisWeek.map(a => formatRecipeReferenceOrFallback(a.details?.recipeCode, 'Sem referencia'));
+        const activeClientIds = Array.from(new Set(activeBatches.map(a => a.clientId).filter(Boolean))) as string[];
+        const readyClientIds = Array.from(new Set(readyThisWeek.map(a => a.clientId).filter(Boolean))) as string[];
 
         const withoutRecipe = clients.filter(c => !recipes.some(r => r.clientId === c.id)).length;
         const withoutQuestionnaire = clients.filter(c => !questionnaires.some(q => q.clientId === c.id)).length;
@@ -90,7 +98,9 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                 readyRecipeCodes,
                 withoutRecipe,
                 withoutQuestionnaire
-            }
+            },
+            activeClientIds,
+            readyClientIds
         } as any);
     }
 
@@ -555,33 +565,80 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
 
     renderStats() {
         const { stats } = this.state;
+        const filterLabel = this.state.statsFilter === 'active'
+            ? 'Receitas em Curso'
+            : this.state.statsFilter === 'ready'
+                ? 'Prontos esta Semana'
+                : this.state.statsFilter === 'pending'
+                    ? 'Avisos Pendentes'
+                    : null;
         return (
-            <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-                <StatCard label="Total Clientes" value={this.state.data.length} color="var(--color-primary)" icon={<User size={20} />} />
-                <StatCard label="Receitas em Curso" value={stats.activeBatches} color="var(--color-accent)" icon={<Beaker size={20} />} />
-                <StatCard
-                    label="Prontos esta Semana"
-                    value={stats.readyThisWeek}
-                    color="#3B82F6"
-                    icon={<Clock size={20} />}
-                    subtext={stats.readyRecipeCodes.length > 0 ? stats.readyRecipeCodes.join(', ') : 'Nenhum previsto'}
-                />
-                <div className="card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', borderLeft: (stats.withoutRecipe > 0 || stats.withoutQuestionnaire > 0) ? '4px solid #F59E0B' : '1px solid #E5E7EB' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <AlertTriangle size={14} color="#F59E0B" /> Avisos Pendentes
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <div title="Clientes sem receita">
-                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: stats.withoutRecipe > 0 ? '#F59E0B' : 'var(--color-text-light)' }}>{stats.withoutRecipe}</span>
-                            <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem' }}>s/ receita</span>
+            <>
+                <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+                    <StatCard
+                        label="Total Clientes"
+                        value={this.state.data.length}
+                        color="var(--color-primary)"
+                        icon={<User size={20} />}
+                        onClick={() => this.setState({ statsFilter: 'all' })}
+                    />
+                    <StatCard
+                        label="Receitas em Curso"
+                        value={stats.activeBatches}
+                        color="var(--color-accent)"
+                        icon={<Beaker size={20} />}
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'active' ? 'all' : 'active' })}
+                    />
+                    <StatCard
+                        label="Prontos esta Semana"
+                        value={stats.readyThisWeek}
+                        color="#3B82F6"
+                        icon={<Clock size={20} />}
+                        subtext={stats.readyRecipeCodes.length > 0 ? stats.readyRecipeCodes.join(', ') : 'Nenhum previsto'}
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'ready' ? 'all' : 'ready' })}
+                    />
+                    <div
+                        className="card"
+                        onClick={() => this.setState({ statsFilter: this.state.statsFilter === 'pending' ? 'all' : 'pending' })}
+                        style={{
+                            padding: '1rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            borderLeft: (stats.withoutRecipe > 0 || stats.withoutQuestionnaire > 0) ? '4px solid #F59E0B' : '1px solid #E5E7EB',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <AlertTriangle size={14} color="#F59E0B" /> Avisos Pendentes
                         </div>
-                        <div title="Clientes sem formulário">
-                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: stats.withoutQuestionnaire > 0 ? '#F59E0B' : 'var(--color-text-light)' }}>{stats.withoutQuestionnaire}</span>
-                            <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem' }}>s/ formulário</span>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div title="Clientes sem receita">
+                                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: stats.withoutRecipe > 0 ? '#F59E0B' : 'var(--color-text-light)' }}>{stats.withoutRecipe}</span>
+                                <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem' }}>s/ receita</span>
+                            </div>
+                            <div title="Clientes sem formulário">
+                                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: stats.withoutQuestionnaire > 0 ? '#F59E0B' : 'var(--color-text-light)' }}>{stats.withoutQuestionnaire}</span>
+                                <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem' }}>s/ formulário</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+                {filterLabel && (
+                    <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', padding: '0.25rem 0.6rem', borderRadius: '999px', background: '#F3F4F6' }}>
+                            Filtro ativo: {filterLabel}
+                        </span>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => this.setState({ statsFilter: 'all' })}
+                            style={{ padding: '0.3rem 0.7rem' }}
+                        >
+                            Limpar filtro
+                        </button>
+                    </div>
+                )}
+            </>
         );
     }
 
@@ -618,11 +675,24 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
 
     renderTable() {
         const term = this.state.searchQuery.toLowerCase();
-        const filteredData = this.state.data.filter(c =>
+        let filteredData = this.state.data;
+        const { allRecipes, allQuestionnaires, activeClientIds, readyClientIds, statsFilter } = this.state;
+
+        if (statsFilter === 'active') {
+            filteredData = filteredData.filter(c => activeClientIds.includes(c.id));
+        } else if (statsFilter === 'ready') {
+            filteredData = filteredData.filter(c => readyClientIds.includes(c.id));
+        } else if (statsFilter === 'pending') {
+            filteredData = filteredData.filter(c => {
+                const hasRecipe = allRecipes.some(r => r.clientId === c.id);
+                const hasQuestionnaire = allQuestionnaires.some(q => q.clientId === c.id);
+                return !hasRecipe || !hasQuestionnaire;
+            });
+        }
+
+        filteredData = filteredData.filter(c =>
             c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term)
         );
-
-        const { allRecipes, allQuestionnaires } = this.state;
 
         return (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
