@@ -1,8 +1,9 @@
 import { SettingsService } from './SettingsService';
-import { FirestoreSyncService } from './FirestoreSyncService';
 import { BackupComposer } from './BackupComposer';
 import { AutoBackupStorage } from './AutoBackupStorage';
 import { BackupFileTransfer } from './BackupFileTransfer';
+import type { ISyncProvider } from './ISyncProvider';
+import { FirestoreSyncProvider } from './FirestoreSyncProvider';
 import type { IEncryptionProvider } from './IEncryptionProvider';
 import { WebCryptoEncryptionProvider } from './WebCryptoEncryptionProvider';
 
@@ -11,6 +12,8 @@ export class BackupService {
     private composer: BackupComposer | null = null;
     private storage: AutoBackupStorage | null = null;
     private fileTransfer: BackupFileTransfer | null = null;
+    private syncProvider: ISyncProvider | null = null;
+    private syncProviderConfigured = false;
 
     private constructor() { }
 
@@ -86,7 +89,10 @@ export class BackupService {
                 }
             }
 
-            await FirestoreSyncService.getInstance().pushAutoBackup(syncPayload, timestamp);
+            const syncProvider = this.getSyncProvider();
+            if (syncProvider) {
+                await syncProvider.push(syncPayload);
+            }
 
             console.log('Backup automático realizado com sucesso');
         } catch (error) {
@@ -156,5 +162,20 @@ export class BackupService {
 
     private getEncryptionProvider(password: string): IEncryptionProvider {
         return new WebCryptoEncryptionProvider(password);
+    }
+
+    public setSyncProvider(provider: ISyncProvider | null) {
+        this.syncProvider = provider;
+        this.syncProviderConfigured = true;
+    }
+
+    private getSyncProvider(): ISyncProvider | null {
+        if (this.syncProviderConfigured) {
+            return this.syncProvider;
+        }
+        if (!this.syncProvider) {
+            this.syncProvider = new FirestoreSyncProvider(this.getStorage());
+        }
+        return this.syncProvider;
     }
 }
