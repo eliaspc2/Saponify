@@ -5,8 +5,13 @@ import { TEASPOON_WEIGHTS, DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } fro
 import { formatRecipeCodeForFile, formatRecipeReference } from '../../shared/utils/recipeFormat';
 import { FATTY_ACID_LABELS, QUALITY_RANGES, QualityRange } from './CalculatorRules';
 import type { CalculatorInput, CalculatorResult, IngredientRowMeta, JsonExport, MarkdownExport, QualityProgress } from './CalculatorModels';
+import type { CalculatorUseCase } from './CalculatorUseCase';
 
-export class CalculatorEngine {
+export class CalculatorEngine implements CalculatorUseCase {
+    public calculate(input: CalculatorInput): CalculatorResult {
+        return CalculatorEngine.calculate(input);
+    }
+
     static calculate(input: CalculatorInput): CalculatorResult {
         const { recipe, ingredients } = input;
         const results = CalculatorService.calculate(recipe, ingredients);

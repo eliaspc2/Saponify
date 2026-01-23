@@ -3,11 +3,18 @@ import type { ISyncProvider } from './ISyncProvider';
 import { SettingsService } from './SettingsService';
 import { AutoBackupStorage } from './AutoBackupStorage';
 import { getDataVersion } from '../utils/dataVersion';
+import type { CalculatorUseCase } from '../calculator/CalculatorUseCase';
+import { CalculatorEngine } from '../calculator/CalculatorEngine';
+import type { CalculatorInput, CalculatorResult, IngredientRowMeta, JsonExport, MarkdownExport, QualityProgress } from '../calculator/CalculatorModels';
+import type { QualityRange } from '../calculator/CalculatorRules';
+import type { Ingredient } from '../../shared/types/Ingredient';
+import type { Recipe, RecipeIngredient } from '../../shared/types/Recipe';
 
 type AppControllerDeps = {
     backupService: BackupService;
     syncProvider?: ISyncProvider | null;
     settingsService: SettingsService;
+    calculatorUseCase: CalculatorUseCase;
 };
 
 const SYNC_PENDING_IMPORT_KEY = 'saponify_sync_pending_import';
@@ -20,13 +27,15 @@ export class AppController {
     private lastDataVersion: string;
     private dataVersionTimer: number | null = null;
     private pendingBackupTimer: number | null = null;
+    private calculatorUseCase: CalculatorUseCase;
 
-    constructor({ backupService, syncProvider, settingsService }: AppControllerDeps) {
+    constructor({ backupService, syncProvider, settingsService, calculatorUseCase }: AppControllerDeps) {
         this.backupService = backupService;
         this.syncProvider = syncProvider ?? null;
         this.settingsService = settingsService;
         this.storage = new AutoBackupStorage();
         this.lastDataVersion = getDataVersion();
+        this.calculatorUseCase = calculatorUseCase;
     }
 
     public async init(): Promise<boolean> {
@@ -55,6 +64,42 @@ export class AppController {
 
     public onBackupCompleted(): void {
         // Hook for future orchestration steps
+    }
+
+    public calculateRecipe(input: CalculatorInput): CalculatorResult {
+        return this.calculatorUseCase.calculate(input);
+    }
+
+    public applyRecipeChange(recipe: Recipe, field: keyof Recipe, value: any, ingredients: Ingredient[]): Recipe {
+        return CalculatorEngine.applyRecipeChange(recipe, field, value, ingredients);
+    }
+
+    public recalculateWater(recipe: Recipe, ingredients: Ingredient[]): Recipe {
+        return CalculatorEngine.recalculateWater(recipe, ingredients);
+    }
+
+    public getSuggestedAmount(ingredientName: string, totalFats: number): number | null {
+        return CalculatorEngine.getSuggestedAmount(ingredientName, totalFats);
+    }
+
+    public getIngredientRowMeta(item: RecipeIngredient, recipe: Recipe, ingredients: Ingredient[], totalFats?: number): IngredientRowMeta {
+        return CalculatorEngine.getIngredientRowMeta(item, recipe, ingredients, totalFats);
+    }
+
+    public getQualityProgress(value: number, range: QualityRange): QualityProgress {
+        return CalculatorEngine.getQualityProgress(value, range);
+    }
+
+    public isWaterItem(item: RecipeIngredient): boolean {
+        return CalculatorEngine.isWaterItem(item);
+    }
+
+    public buildMarkdown(recipe: Recipe, ingredients: Ingredient[]): MarkdownExport {
+        return CalculatorEngine.buildMarkdown(recipe, ingredients);
+    }
+
+    public buildJson(recipe: Recipe, ingredients: Ingredient[]): JsonExport {
+        return CalculatorEngine.buildJson(recipe, ingredients);
     }
 
     private startWatchingState(): void {

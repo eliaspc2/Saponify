@@ -4,6 +4,7 @@ import { BackupService } from '../orchestrator/services/BackupService';
 import { SettingsService } from '../orchestrator/services/SettingsService';
 import { AppController } from '../orchestrator/services/AppController';
 import { FirestoreSyncProvider } from '../orchestrator/services/FirestoreSyncProvider';
+import { createCalculatorUseCase } from '../orchestrator/services/CalculatorUseCaseFactory';
 
 const HomePage = lazy(() => import('./pages/Home/HomePage').then((m) => ({ default: m.HomePage })));
 const CalculatorPage = lazy(() => import('./pages/Calculator/CalculatorPage').then((m) => ({ default: m.CalculatorPage })));
@@ -18,14 +19,16 @@ function App() {
     const [pageParams, setPageParams] = useState<any>(null);
     const controllerRef = useRef<AppController | null>(null);
 
+    if (!controllerRef.current) {
+        controllerRef.current = new AppController({
+            backupService: BackupService.getInstance(),
+            syncProvider: new FirestoreSyncProvider(),
+            settingsService: SettingsService.getInstance(),
+            calculatorUseCase: createCalculatorUseCase()
+        });
+    }
+
     useEffect(() => {
-        if (!controllerRef.current) {
-            controllerRef.current = new AppController({
-                backupService: BackupService.getInstance(),
-                syncProvider: new FirestoreSyncProvider(),
-                settingsService: SettingsService.getInstance()
-            });
-        }
         const run = async () => {
             try {
                 const shouldReload = await controllerRef.current!.init();
@@ -52,6 +55,7 @@ function App() {
                 return <CalculatorPage
                     title="Calculadora de Receitas"
                     recipeId={pageParams?.recipeId}
+                    appController={controllerRef.current!}
                 />;
             case 'ingredients':
                 return <IngredientsPage title="Base de Ingredientes" />;

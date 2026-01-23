@@ -4,8 +4,7 @@ import { IngredientService } from '../../../orchestrator/services/IngredientServ
 import { RecipeService } from '../../../orchestrator/services/RecipeService';
 import { RecipeDomainService } from '../../../orchestrator/services/RecipeDomainService';
 import { SettingsService } from '../../../orchestrator/services/SettingsService';
-import { CalculatorEngine } from '../../../orchestrator/calculator/CalculatorEngine';
-import type { QualityRange } from '../../../orchestrator/calculator/CalculatorRules';
+import { AppController } from '../../../orchestrator/services/AppController';
 import { Ingredient } from '../../../shared/types/Ingredient';
 import { Beaker, ShieldCheck, Plus, Trash2, Save, FileText } from 'lucide-react';
 import { Client } from '../../../shared/types/Client';
@@ -13,6 +12,7 @@ import { ClientService } from '../../../orchestrator/services/ClientService';
 
 interface CalculatorPageProps extends BasePageProps {
     recipeId?: string;
+    appController: AppController;
 }
 
 interface CalculatorState extends BasePageState {
@@ -190,7 +190,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleRecipeChange(field: keyof Recipe, value: any) {
         this.setState(prev => {
-            const updatedRecipe = CalculatorEngine.applyRecipeChange(
+            const updatedRecipe = this.props.appController.applyRecipeChange(
                 prev.recipe,
                 field,
                 value,
@@ -217,7 +217,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             };
             return {
                 recipe: type === 'fats'
-                    ? CalculatorEngine.recalculateWater(updatedRecipe, prev.availableIngredients)
+                    ? this.props.appController.recalculateWater(updatedRecipe, prev.availableIngredients)
                     : updatedRecipe
             };
         });
@@ -230,7 +230,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 [type]: (prev.recipe[type] as any[]).filter(item => item.id !== id)
             };
             if (type === 'fats' || type === 'lyeAdditives') {
-                return { recipe: CalculatorEngine.recalculateWater(updatedRecipe, prev.availableIngredients) };
+                return { recipe: this.props.appController.recalculateWater(updatedRecipe, prev.availableIngredients) };
             }
             return { recipe: updatedRecipe };
         });
@@ -244,7 +244,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             if (ing) {
                 updates.name = ing.name;
                 const totalFats = this.state.recipe.fats.reduce((acc, f) => acc + (f.amount || 0), 0);
-                const suggestedAmount = CalculatorEngine.getSuggestedAmount(ing.name, totalFats);
+                const suggestedAmount = this.props.appController.getSuggestedAmount(ing.name, totalFats);
                 if (suggestedAmount !== null && (!updates.amount || updates.amount === 0)) {
                     updates.amount = suggestedAmount;
                 }
@@ -257,7 +257,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             );
             let updatedRecipe = { ...prev.recipe, [type]: updatedItems };
             if ((type === 'fats' && updates.amount !== undefined) || type === 'lyeAdditives') {
-                updatedRecipe = CalculatorEngine.recalculateWater(updatedRecipe, prev.availableIngredients);
+                updatedRecipe = this.props.appController.recalculateWater(updatedRecipe, prev.availableIngredients);
             }
             return { recipe: updatedRecipe };
         });
@@ -280,7 +280,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleDownloadMarkdown() {
         const { recipe, availableIngredients } = this.state;
-        const exportData = CalculatorEngine.buildMarkdown(recipe, availableIngredients);
+        const exportData = this.props.appController.buildMarkdown(recipe, availableIngredients);
         const blob = new Blob([exportData.content], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -294,7 +294,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleDownloadJSON() {
         const { recipe, availableIngredients } = this.state;
-        const exportData = CalculatorEngine.buildJson(recipe, availableIngredients);
+        const exportData = this.props.appController.buildJson(recipe, availableIngredients);
         const blob = new Blob([exportData.content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -311,7 +311,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const choices = categories
             ? availableIngredients.filter(i => categories.includes(i.category))
             : availableIngredients;
-        const { sapValue, percentage } = CalculatorEngine.getIngredientRowMeta(item, recipe, availableIngredients, totalFats);
+        const { sapValue, percentage } = this.props.appController.getIngredientRowMeta(item, recipe, availableIngredients, totalFats);
 
         return (
             <div key={item.id} className="ingredient-grid ingredient-grid-row">
@@ -355,9 +355,13 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
     private renderProgressBar(
         label: string,
         value: number,
-        range: QualityRange
+        range: {
+            min: number;
+            max: number;
+            thresholds: ReadonlyArray<{ max: number; tone: 'danger' | 'warning' | 'good'; inclusive: boolean }>;
+        }
     ) {
-        const { score, tone } = CalculatorEngine.getQualityProgress(value, range);
+        const { score, tone } = this.props.appController.getQualityProgress(value, range);
         const colorClass = tone === 'warning' ? 'warning' : tone === 'danger' ? 'danger' : '';
 
         return (
@@ -418,7 +422,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         if (this.state.loading) return <div>Carregando calculadora...</div>;
 
         const { recipe, availableIngredients } = this.state;
-        const calc = CalculatorEngine.calculate({ recipe, ingredients: availableIngredients });
+        const calc = this.props.appController.calculateRecipe({ recipe, ingredients: availableIngredients });
         const { results, phaseTotals, qualityRanges, fattyAcidLabels } = calc;
         const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, physicalDays, physicalReadyDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
@@ -681,7 +685,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
                                     {(recipe.liquids || []).map((l) => (
-                                        CalculatorEngine.isWaterItem(l)
+                                        this.props.appController.isWaterItem(l)
                                             ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
                                             : this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia'])
                                     ))}
