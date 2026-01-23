@@ -1,7 +1,46 @@
 import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import type { Ingredient } from '../../shared/types/Ingredient';
-import type { CalculationResults } from '../services/CalculatorService';
 import type { FattyAcidLabel } from './CalculatorRules';
+
+export interface CalculationResults {
+    totalWeight: number;
+    totalFats: number;
+    sapAverage: number;
+    alkaliPure: number;
+    alkaliReal: number;
+    alkaliPurity: number;
+    alkaliAmount: number;
+    waterAmount: number;
+    glycerin: number;
+    superfatFinal: number;
+    fattyAcidProfileValid: boolean;
+    fattyAcidDiagnostics: string[];
+    lyeConcentration: number;
+    iodine: number;
+    ins: number;
+    properties: {
+        conditioning: number;
+        cleansing: number;
+        bubbles: number;
+        persistence: number;
+        hardness: number;
+        solubility: number;
+        drying: number;
+    };
+    fattyAcids: {
+        lauric: number;
+        myristic: number;
+        palmitic: number;
+        stearic: number;
+        oleic: number;
+        linoleic: number;
+        linolenic: number;
+        ricinoleic: number;
+        gadoleic: number;
+        other: number;
+    };
+    inciList: string[];
+}
 
 export interface CalculatorInput {
     recipe: Recipe;

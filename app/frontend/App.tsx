@@ -67,6 +67,7 @@ function App() {
                 return <SavedRecipesPage
                     title="Receitas Guardadas"
                     onNavigate={handleNavigate}
+                    appController={controllerRef.current!}
                 />;
             case 'settings':
                 return <SettingsPage title="Configurações" />;

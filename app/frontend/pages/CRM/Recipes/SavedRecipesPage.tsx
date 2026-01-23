@@ -9,12 +9,13 @@ import { ClientService } from '../../../../backend/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
-import { CalculatorService } from '../../../../backend/services/CalculatorService';
 import { IngredientService } from '../../../../backend/services/IngredientService';
 import { formatRecipeCodeForFile, formatRecipeReference, formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
+import { AppController } from '../../../../orchestrator/services/AppController';
 
 export interface SavedRecipesProps extends BasePageProps {
     onNavigate: (page: string, params?: any) => void;
+    appController: AppController;
 }
 
 interface SavedRecipesState extends BaseListPageState<Recipe> {
@@ -91,7 +92,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             await ingredientService.loadInitialData();
         }
         const ingredients = ingredientService.getAll();
-        const results = CalculatorService.calculate(recipe, ingredients);
+        const results = this.props.appController.calculateRecipe({ recipe, ingredients }).results;
 
         let md = `# Receita: ${recipe.name || 'Sem Nome'}\n`;
         const recipeRef = formatRecipeReference(recipe.code);
@@ -399,7 +400,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
         const { editingRecipe } = this.state;
         if (!editingRecipe) return null;
         const ingredients = IngredientService.getInstance().getAll();
-        const results = CalculatorService.calculate(editingRecipe, ingredients);
+        const results = this.props.appController.calculateRecipe({ recipe: editingRecipe, ingredients }).results;
         const alkaliLabel = editingRecipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)';
 
         const updateField = (field: keyof Recipe, value: any) => {

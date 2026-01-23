@@ -3,7 +3,7 @@ import { ClientService } from './ClientService';
 import { IngredientService } from './IngredientService';
 import { SettingsService } from './SettingsService';
 import { QuestionnaireService } from './QuestionnaireService';
-import { CalculatorService } from './CalculatorService';
+import { CalculatorEngine } from '../calculator/CalculatorEngine';
 import { ClientActivityService } from './ClientActivityService';
 
 export class BackupComposer {
@@ -11,7 +11,7 @@ export class BackupComposer {
         const ingredients = IngredientService.getInstance().getAll();
         const recipes = RecipeService.getInstance().getAll();
         const recipeCalculations = recipes.map(recipe => {
-            const results = CalculatorService.calculate(recipe, ingredients);
+            const results = CalculatorEngine.calculate({ recipe, ingredients }).results;
             return {
                 recipeId: recipe.id,
                 code: recipe.code,
