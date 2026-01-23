@@ -9,6 +9,7 @@ import { SavedRecipesPage } from './pages/CRM/Recipes/SavedRecipesPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
 import { FirestoreSyncService } from '../orchestrator/services/FirestoreSyncService';
 import { BackupService } from '../orchestrator/services/BackupService';
+import { SettingsService } from '../orchestrator/services/SettingsService';
 
 function App() {
     const [activePage, setActivePage] = useState('home');
@@ -20,13 +21,11 @@ function App() {
                 await FirestoreSyncService.getInstance().start();
                 const pending = localStorage.getItem('saponify_sync_pending_import');
                 if (pending === 'true') {
-                    const data = localStorage.getItem('saponify_auto_backup');
-                    if (data) {
-                        const ok = await BackupService.getInstance().importAllData(data);
-                        if (ok) {
-                            localStorage.removeItem('saponify_sync_pending_import');
-                            location.reload();
-                        }
+                    const settings = SettingsService.getInstance().getSettings();
+                    const ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+                    if (ok) {
+                        localStorage.removeItem('saponify_sync_pending_import');
+                        location.reload();
                     }
                 }
             } catch (error) {

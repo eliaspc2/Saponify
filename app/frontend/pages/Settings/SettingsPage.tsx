@@ -196,16 +196,14 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         if (!applied) {
             alert('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.');
         } else {
-            const data = localStorage.getItem(AUTO_BACKUP_KEY);
-            if (data) {
-                const ok = await BackupService.getInstance().importAllData(data);
-                if (ok) {
-                    localStorage.removeItem('saponify_sync_pending_import');
-                    location.reload();
-                    return;
-                }
+            const settings = SettingsService.getInstance().getSettings();
+            const ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+            if (ok) {
+                localStorage.removeItem('saponify_sync_pending_import');
+                location.reload();
+                return;
             }
-            alert('Dados remotos aplicados ao backup local. Atualize a página para carregar o estado.');
+            alert('Dados remotos aplicados ao backup local, mas não foi possível restaurar. Verifique a password do backup local.');
         }
     }
 
