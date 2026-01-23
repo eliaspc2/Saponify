@@ -1,7 +1,7 @@
-import type { Recipe, RecipeIngredient } from '../../shared/types/Recipe';
+import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import type { Ingredient } from '../../shared/types/Ingredient';
 import type { CalculationResults } from '../services/CalculatorService';
-import type { FattyAcidLabel, QualityRanges, QualityRange } from './CalculatorRules';
+import type { FattyAcidLabel } from './CalculatorRules';
 
 export interface CalculatorInput {
     recipe: Recipe;
@@ -20,19 +20,14 @@ export interface PhaseTotals {
     nonWaterLiquids: RecipeIngredient[];
 }
 
-export interface CalculatorResult {
-    results: CalculationResults;
-    phaseTotals: PhaseTotals;
-    fattyAcidLabels: FattyAcidLabel[];
-    qualityRanges: QualityRanges;
-}
-
 export interface IngredientRowMeta {
     sapValue: number;
-    percentage: string;
+    percentage?: string;
+    role?: RecipeIngredientRole;
 }
 
 export interface QualityProgress {
+    value: number;
     score: number;
     tone: 'danger' | 'warning' | 'good';
 }
@@ -47,5 +42,24 @@ export interface JsonExport {
     filename: string;
 }
 
-export type QualityRangeKey = keyof QualityRanges;
-export type QualityRangeMap = Record<QualityRangeKey, QualityRange>;
+export interface CalculatorExports {
+    markdown: MarkdownExport;
+    json: JsonExport;
+}
+
+export interface CalculatorResult {
+    results: CalculationResults;
+    phaseTotals: PhaseTotals;
+    fattyAcidLabels: FattyAcidLabel[];
+    normalizedRecipe: Recipe;
+    ingredientMetaById: Record<string, IngredientRowMeta>;
+    qualityProgress: {
+        conditioning: QualityProgress;
+        cleansing: QualityProgress;
+        bubbles: QualityProgress;
+        persistence: QualityProgress;
+        hardness: QualityProgress;
+    };
+    exports: CalculatorExports;
+    issues: string[];
+}

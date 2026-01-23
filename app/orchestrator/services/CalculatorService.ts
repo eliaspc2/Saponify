@@ -43,23 +43,18 @@ export class CalculatorService {
     static calculate(recipe: Recipe, ingredients: Ingredient[]): CalculationResults {
         const isCitricAcid = (ing?: Ingredient) => {
             if (!ing) return false;
-            if (ing.flags?.citricAcid) return true;
-            const text = `${ing.name} ${ing.inci}`.toLowerCase();
-            return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido cítrico');
+            return !!ing.flags?.citricAcid;
         };
         const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        const normalizeLabel = (value?: string) =>
-            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-        const isWaterItem = (item: RecipeIngredient) => {
-            const label = normalizeLabel(item.name);
-            return label.includes('agua') || label.includes('water');
-        };
         const getIngredient = (item: RecipeIngredient) => {
-            const byId = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
-            if (byId) return byId;
-            const targetName = normalizeLabel(item.name);
-            if (!targetName) return undefined;
-            return ingredients.find(i => normalizeLabel(i.name) === targetName);
+            const ref = item.ingredientId || item.id;
+            if (!ref) return undefined;
+            return ingredients.find(i => i.id === ref);
+        };
+        const isWaterItem = (item: RecipeIngredient) => {
+            if (item.role === 'water') return true;
+            const ing = getIngredient(item);
+            return ing?.kind === 'water';
         };
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
         const warn = (message: string) => {
@@ -292,7 +287,7 @@ export class CalculatorService {
         const baseLye = lyeBase * superfatRatio;
         // Extra lye required to neutralize citric acid additives (sodium/potassium citrate)
         const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
-            const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            const ing = getIngredient(item);
             return isCitricAcid(ing) ? sum + (item.amount || 0) : sum;
         }, 0);
         const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
@@ -362,7 +357,7 @@ export class CalculatorService {
             ...(recipe.essentialOils || [])
         ];
         allAdditives.forEach((item: RecipeIngredient) => {
-            const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
+            const ing = getIngredient(item);
             if (ing && ing.inci && !results.inciList.includes(ing.inci)) {
                 results.inciList.push(ing.inci);
             }

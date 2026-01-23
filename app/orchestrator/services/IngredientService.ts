@@ -173,6 +173,7 @@ export class IngredientService extends BaseService {
     }
 
     private normalizeIngredient(ingredient: Ingredient): Ingredient {
+        const WATER_INGREDIENT_ID = '12';
         const defaultProperties = {
             hardness: 0,
             cleansing: 0,
@@ -194,8 +195,14 @@ export class IngredientService extends BaseService {
             gadoleic: 0,
             other: 0
         };
+        const kind = ingredient.kind
+            ? ingredient.kind
+            : ingredient.id === WATER_INGREDIENT_ID
+                ? 'water'
+                : 'other';
         return {
             ...ingredient,
+            kind,
             properties: { ...defaultProperties, ...ingredient.properties },
             fattyAcids: { ...defaultFattyAcids, ...ingredient.fattyAcids }
         };

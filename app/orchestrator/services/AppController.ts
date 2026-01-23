@@ -4,11 +4,7 @@ import { SettingsService } from './SettingsService';
 import { AutoBackupStorage } from './AutoBackupStorage';
 import { getDataVersion } from '../utils/dataVersion';
 import type { CalculatorUseCase } from '../calculator/CalculatorUseCase';
-import { CalculatorEngine } from '../calculator/CalculatorEngine';
-import type { CalculatorInput, CalculatorResult, IngredientRowMeta, JsonExport, MarkdownExport, QualityProgress } from '../calculator/CalculatorModels';
-import type { QualityRange } from '../calculator/CalculatorRules';
-import type { Ingredient } from '../../shared/types/Ingredient';
-import type { Recipe, RecipeIngredient } from '../../shared/types/Recipe';
+import type { CalculatorInput, CalculatorResult } from '../calculator/CalculatorModels';
 
 type AppControllerDeps = {
     backupService: BackupService;
@@ -68,38 +64,6 @@ export class AppController {
 
     public calculateRecipe(input: CalculatorInput): CalculatorResult {
         return this.calculatorUseCase.calculate(input);
-    }
-
-    public applyRecipeChange(recipe: Recipe, field: keyof Recipe, value: any, ingredients: Ingredient[]): Recipe {
-        return CalculatorEngine.applyRecipeChange(recipe, field, value, ingredients);
-    }
-
-    public recalculateWater(recipe: Recipe, ingredients: Ingredient[]): Recipe {
-        return CalculatorEngine.recalculateWater(recipe, ingredients);
-    }
-
-    public getSuggestedAmount(ingredientName: string, totalFats: number): number | null {
-        return CalculatorEngine.getSuggestedAmount(ingredientName, totalFats);
-    }
-
-    public getIngredientRowMeta(item: RecipeIngredient, recipe: Recipe, ingredients: Ingredient[], totalFats?: number): IngredientRowMeta {
-        return CalculatorEngine.getIngredientRowMeta(item, recipe, ingredients, totalFats);
-    }
-
-    public getQualityProgress(value: number, range: QualityRange): QualityProgress {
-        return CalculatorEngine.getQualityProgress(value, range);
-    }
-
-    public isWaterItem(item: RecipeIngredient): boolean {
-        return CalculatorEngine.isWaterItem(item);
-    }
-
-    public buildMarkdown(recipe: Recipe, ingredients: Ingredient[]): MarkdownExport {
-        return CalculatorEngine.buildMarkdown(recipe, ingredients);
-    }
-
-    public buildJson(recipe: Recipe, ingredients: Ingredient[]): JsonExport {
-        return CalculatorEngine.buildJson(recipe, ingredients);
     }
 
     private startWatchingState(): void {

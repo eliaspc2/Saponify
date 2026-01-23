@@ -1,9 +1,13 @@
+export type RecipeIngredientRole = 'water' | 'other';
+
 export interface RecipeIngredient {
     id: string;
     ingredientId: string;
     name: string;
     amount: number; // in grams
     percentage: number; // relative to total oils
+    role?: RecipeIngredientRole;
+    autoAmount?: boolean;
 }
 
 export interface Recipe {

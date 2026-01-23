@@ -1,10 +1,10 @@
 import { CalculatorService } from '../services/CalculatorService';
 import { Ingredient } from '../../shared/types/Ingredient';
-import { Recipe, RecipeIngredient } from '../../shared/types/Recipe';
+import { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import { TEASPOON_WEIGHTS, DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } from '../../shared/constants/RecipeConstants';
 import { formatRecipeCodeForFile, formatRecipeReference } from '../../shared/utils/recipeFormat';
-import { FATTY_ACID_LABELS, QUALITY_RANGES, QualityRange } from './CalculatorRules';
-import type { CalculatorInput, CalculatorResult, IngredientRowMeta, JsonExport, MarkdownExport, QualityProgress } from './CalculatorModels';
+import { FATTY_ACID_LABELS, QUALITY_RANGES } from './CalculatorRules';
+import type { CalculatorInput, CalculatorResult, IngredientRowMeta, CalculatorExports } from './CalculatorModels';
 import type { CalculatorUseCase } from './CalculatorUseCase';
 
 export class CalculatorEngine implements CalculatorUseCase {
@@ -13,12 +13,123 @@ export class CalculatorEngine implements CalculatorUseCase {
     }
 
     static calculate(input: CalculatorInput): CalculatorResult {
-        const { recipe, ingredients } = input;
-        const results = CalculatorService.calculate(recipe, ingredients);
-        const today = input.now ? new Date(input.now) : new Date();
-        const physicalDays = this.getPhysicalCureDays(today);
+        const normalization = this.normalizeRecipe(input.recipe, input.ingredients);
+        const results = CalculatorService.calculate(normalization.recipe, input.ingredients);
+        const normalizedRecipe = this.applyWaterAmount(normalization.recipe, results.waterAmount, input.ingredients);
+        const phaseTotals = this.computePhaseTotals(normalizedRecipe, results, input.ingredients, input.now);
+        const ingredientMetaById = this.buildIngredientMeta(normalizedRecipe, input.ingredients);
+        const qualityProgress = this.buildQualityProgress(results);
+        const exports = this.buildExports(normalizedRecipe, results);
+        const issues = [...normalization.issues, ...results.fattyAcidDiagnostics];
+
+        return {
+            results,
+            phaseTotals,
+            fattyAcidLabels: FATTY_ACID_LABELS,
+            normalizedRecipe,
+            ingredientMetaById,
+            qualityProgress,
+            exports,
+            issues
+        };
+    }
+
+    private static normalizeRecipe(recipe: Recipe, ingredients: Ingredient[]): { recipe: Recipe; issues: string[] } {
+        const issues: string[] = [];
+        if (!ingredients || ingredients.length === 0) {
+            issues.push('Lista de ingredientes vazia.');
+        }
+        const cloneItems = (items?: RecipeIngredient[]) => (items || []).map(item => ({ ...item }));
+        const normalized: Recipe = {
+            ...recipe,
+            fats: cloneItems(recipe.fats),
+            liquids: cloneItems(recipe.liquids),
+            functionalAdditives: cloneItems(recipe.functionalAdditives),
+            lyeAdditives: cloneItems(recipe.lyeAdditives),
+            traceAdditives: cloneItems(recipe.traceAdditives),
+            superfatOils: cloneItems(recipe.superfatOils),
+            essentialOils: cloneItems(recipe.essentialOils)
+        };
+
+        const totalFats = normalized.fats.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+        const applyRoleAndAutoAmount = (item: RecipeIngredient) => {
+            const ingredient = this.findIngredient(item, ingredients);
+            if (ingredient?.kind === 'water') {
+                item.role = 'water';
+            } else if (!item.role) {
+                item.role = 'other';
+            }
+
+            if (item.autoAmount && (!item.amount || item.amount === 0) && ingredient?.name) {
+                const suggested = this.getSuggestedAmount(ingredient.name, totalFats);
+                if (suggested !== null) {
+                    item.amount = suggested;
+                }
+            }
+            if (item.autoAmount) {
+                item.autoAmount = false;
+            }
+        };
+
+        [
+            ...normalized.fats,
+            ...normalized.liquids,
+            ...normalized.functionalAdditives,
+            ...normalized.lyeAdditives,
+            ...normalized.traceAdditives,
+            ...normalized.superfatOils,
+            ...normalized.essentialOils
+        ].forEach(applyRoleAndAutoAmount);
+
+        const waterIngredient = ingredients.find(ing => ing.kind === 'water');
+        if (!waterIngredient) {
+            issues.push('Ingrediente de água não encontrado.');
+        } else {
+            const waterItems = normalized.liquids.filter(item => this.resolveItemRole(item, ingredients) === 'water');
+            if (waterItems.length === 0) {
+                normalized.liquids.push({
+                    id: this.generateId(),
+                    ingredientId: waterIngredient.id,
+                    name: waterIngredient.name,
+                    amount: 0,
+                    percentage: 0,
+                    role: 'water'
+                });
+            } else if (waterItems.length > 1) {
+                issues.push('Existem múltiplos itens marcados como água.');
+            }
+        }
+
+        const missingIngredientIds = [
+            ...normalized.fats,
+            ...normalized.liquids,
+            ...normalized.functionalAdditives,
+            ...normalized.lyeAdditives,
+            ...normalized.traceAdditives,
+            ...normalized.superfatOils,
+            ...normalized.essentialOils
+        ].filter(item => !item.ingredientId);
+        if (missingIngredientIds.length > 0) {
+            issues.push('Existem itens sem ingredientId. Verifique as seleções.');
+        }
+
+        return { recipe: normalized, issues };
+    }
+
+    private static applyWaterAmount(recipe: Recipe, waterAmount: number, ingredients: Ingredient[]): Recipe {
+        const updatedLiquids: RecipeIngredient[] = (recipe.liquids || []).map(item => {
+            if (this.resolveItemRole(item, ingredients) === 'water') {
+                return { ...item, amount: waterAmount, role: 'water' as RecipeIngredientRole };
+            }
+            return item;
+        });
+        return { ...recipe, liquids: updatedLiquids };
+    }
+
+    private static computePhaseTotals(recipe: Recipe, results: CalculatorResult['results'], ingredients: Ingredient[], now?: Date) {
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
-        const nonWaterLiquids = (recipe.liquids || []).filter(item => !this.isWaterItem(item));
+        const nonWaterLiquids = (recipe.liquids || []).filter(item => this.resolveItemRole(item, ingredients) !== 'water');
         const phase1Total = sumAmounts(recipe.fats);
         const phase2Total = sumAmounts(nonWaterLiquids)
             + results.waterAmount
@@ -26,147 +137,78 @@ export class CalculatorEngine implements CalculatorUseCase {
             + sumAmounts(recipe.lyeAdditives)
             + results.alkaliAmount;
         const phase3Total = sumAmounts(recipe.traceAdditives) + sumAmounts(recipe.superfatOils) + sumAmounts(recipe.essentialOils);
+        const today = now ? new Date(now) : new Date();
+        const physicalDays = this.getPhysicalCureDays(today);
         const physicalReadyDate = new Date(today.getTime());
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
         const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
         const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
-
         return {
-            results,
-            phaseTotals: {
-                phase1Total,
-                phase2Total,
-                phase3Total,
-                batchWeightWithLye,
-                estimatedDryWeight,
-                physicalDays,
-                physicalReadyDate,
-                nonWaterLiquids
-            },
-            fattyAcidLabels: FATTY_ACID_LABELS,
-            qualityRanges: QUALITY_RANGES
+            phase1Total,
+            phase2Total,
+            phase3Total,
+            batchWeightWithLye,
+            estimatedDryWeight,
+            physicalDays,
+            physicalReadyDate,
+            nonWaterLiquids
         };
     }
 
-    static applyRecipeChange(recipe: Recipe, field: keyof Recipe, value: any, ingredients: Ingredient[]): Recipe {
-        let updatedRecipe = { ...recipe, [field]: value };
-        if (field === 'waterConcentration' || field === 'superfat' || field === 'alkali' || field === 'alkaliPurity') {
-            updatedRecipe = this.recalculateWater(updatedRecipe, ingredients);
-        }
-        return updatedRecipe;
+    private static buildIngredientMeta(recipe: Recipe, ingredients: Ingredient[]): Record<string, IngredientRowMeta> {
+        const meta: Record<string, IngredientRowMeta> = {};
+        const totalFats = recipe.fats.reduce((sum, item) => sum + (item.amount || 0), 0);
+        const addMeta = (item: RecipeIngredient, includePercentage: boolean) => {
+            const ingredient = this.findIngredient(item, ingredients);
+            const sapValue = ingredient ? (recipe.alkali === 'NaOH' ? ingredient.sapNaOH : ingredient.sapKOH) : 0;
+            const percentage = includePercentage && totalFats > 0
+                ? ((item.amount || 0) / totalFats * 100).toFixed(1)
+                : undefined;
+            meta[item.id] = { sapValue, percentage, role: item.role };
+        };
+        (recipe.fats || []).forEach(item => addMeta(item, true));
+        (recipe.liquids || []).forEach(item => addMeta(item, false));
+        (recipe.functionalAdditives || []).forEach(item => addMeta(item, false));
+        (recipe.lyeAdditives || []).forEach(item => addMeta(item, false));
+        (recipe.traceAdditives || []).forEach(item => addMeta(item, false));
+        (recipe.superfatOils || []).forEach(item => addMeta(item, false));
+        (recipe.essentialOils || []).forEach(item => addMeta(item, false));
+        return meta;
     }
 
-    static recalculateWater(recipe: Recipe, ingredients: Ingredient[]): Recipe {
-        const fats = recipe.fats || [];
-        const totalFats = fats.reduce((acc, f) => acc + (f.amount || 0), 0);
-        const normalizeCategory = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        const isBaseOil = (ing?: Ingredient) => {
-            if (!ing) return false;
-            if (ing.menuKey && ing.menuKey.toLowerCase() === 'baseoils') return true;
-            if (!ing.category) return false;
-            const category = normalizeCategory(ing.category);
-            return category.includes('oleos base') || category.includes('oleo base') || category.includes('leos base');
-        };
-        const isCitricAcid = (ing?: Ingredient) => {
-            if (!ing) return false;
-            if (ing.flags?.citricAcid) return true;
-            const text = `${ing.name} ${ing.inci}`.toLowerCase();
-            return text.includes('citric acid') || text.includes('acido citrico') || text.includes('ácido citrico');
-        };
-        const getSapKOH = (ing?: Ingredient) => {
-            if (!ing) return 0;
-            if (ing.sapKOH) return ing.sapKOH;
-            return ing.sapNaOH ? ing.sapNaOH * 1.403 : 0;
-        };
-        const naohConversion = 0.713;
-        let totalSapKOH = 0;
-
-        const normalizeLabel = (value?: string) =>
-            (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-        fats.forEach((fat) => {
-            if ((fat.amount || 0) <= 0) return;
-            const ing = ingredients.find(i => i.id === fat.ingredientId)
-                || ingredients.find(i => normalizeLabel(i.name) === normalizeLabel(fat.name));
-            if (!ing || !isBaseOil(ing)) return;
-            totalSapKOH += (fat.amount || 0) * getSapKOH(ing);
-        });
-
-        const superfatRatio = 1 - (recipe.superfat / 100);
-        const lyeBase = totalSapKOH * (recipe.alkali === 'NaOH' ? naohConversion : 1);
-        const citricAcidAmount = (recipe.lyeAdditives || []).reduce((sum, item) => {
-            const ing = ingredients.find(i => i.id === item.id || i.id === item.ingredientId);
-            return isCitricAcid(ing) ? sum + (item.amount || 0) : sum;
-        }, 0);
-        const citricLyeFactor = recipe.alkali === 'NaOH' ? 0.624 : 0.876;
-        const citricLye = citricAcidAmount * citricLyeFactor;
-        const alkaliPurity = recipe.alkaliPurity ?? 100;
-        const purityRatio = alkaliPurity > 0 ? (alkaliPurity / 100) : 1;
-        const lyeAmount = purityRatio > 0
-            ? ((lyeBase * superfatRatio) + citricLye) / purityRatio
-            : (lyeBase * superfatRatio) + citricLye;
-        const lyeRatio = recipe.waterConcentration / 100;
-        const fallbackWaterAmount = parseFloat((totalFats * (recipe.waterConcentration / 100)).toFixed(1));
-        const newWaterAmount = lyeAmount > 0 && lyeRatio > 0
-            ? parseFloat((lyeAmount * (1 / lyeRatio - 1)).toFixed(1))
-            : fallbackWaterAmount;
-
-        const liquids = recipe.liquids || [];
-        const updatedLiquids = liquids.length > 0
-            ? liquids.map(l => l.name.toLowerCase().includes('água') ? { ...l, amount: newWaterAmount } : l)
-            : [{ id: this.generateId(), ingredientId: '12', name: 'Água', amount: newWaterAmount, percentage: 0 }];
-
-        return { ...recipe, fats, liquids: updatedLiquids };
-    }
-
-    static getSuggestedAmount(ingredientName: string, totalFats: number): number | null {
-        const name = ingredientName.toLowerCase();
-        for (const key in TEASPOON_WEIGHTS) {
-            if (name.includes(key)) {
-                const tsWeight = TEASPOON_WEIGHTS[key];
-                const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
-                return parseFloat((tsWeight * ratio).toFixed(2));
+    private static buildQualityProgress(results: CalculatorResult['results']): CalculatorResult['qualityProgress'] {
+        const makeProgress = (value: number, rangeKey: keyof typeof QUALITY_RANGES) => {
+            const range = QUALITY_RANGES[rangeKey];
+            const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
+            const denom = range.max - range.min;
+            const score = denom > 0 ? clamp(((value - range.min) / denom) * 100, 0, 100) : 0;
+            let tone: 'danger' | 'warning' | 'good' = 'good';
+            for (const threshold of range.thresholds) {
+                if (threshold.inclusive ? value <= threshold.max : value < threshold.max) {
+                    tone = threshold.tone;
+                    break;
+                }
             }
-        }
-        if (name.includes('infusão') || name.includes('infusao') || name.includes('seco') || name.includes('seca')) {
-            const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
-            return parseFloat((DEFAULT_HERB_WEIGHT * ratio).toFixed(2));
-        }
-        return null;
+            return { value, score, tone };
+        };
+        return {
+            conditioning: makeProgress(results.properties.conditioning, 'conditioning'),
+            cleansing: makeProgress(results.properties.cleansing, 'cleansing'),
+            bubbles: makeProgress(results.properties.bubbles, 'bubbles'),
+            persistence: makeProgress(results.properties.persistence, 'persistence'),
+            hardness: makeProgress(results.properties.hardness, 'hardness')
+        };
     }
 
-    static getIngredientRowMeta(item: RecipeIngredient, recipe: Recipe, ingredients: Ingredient[], totalFats?: number): IngredientRowMeta {
-        const selectedIng = ingredients.find(i => i.id === item.ingredientId);
-        const sapValue = selectedIng ? (recipe.alkali === 'NaOH' ? selectedIng.sapNaOH : selectedIng.sapKOH) : 0;
-        const percentage = totalFats && totalFats > 0 ? ((item.amount || 0) / totalFats * 100).toFixed(1) : '0.0';
-        return { sapValue, percentage };
+    private static buildExports(recipe: Recipe, results: CalculatorResult['results']): CalculatorExports {
+        return {
+            markdown: this.buildMarkdown(recipe, results),
+            json: this.buildJson(recipe, results)
+        };
     }
 
-    static isWaterItem(item: RecipeIngredient): boolean {
-        const label = (item.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-        return label.includes('agua') || label.includes('water');
-    }
-
-    static getQualityProgress(value: number, range: QualityRange): QualityProgress {
-        const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
-        const denom = range.max - range.min;
-        const score = denom > 0 ? clamp(((value - range.min) / denom) * 100, 0, 100) : 0;
-        let tone: 'danger' | 'warning' | 'good' = 'good';
-
-        for (const threshold of range.thresholds) {
-            if (threshold.inclusive ? value <= threshold.max : value < threshold.max) {
-                tone = threshold.tone;
-                break;
-            }
-        }
-
-        return { score, tone };
-    }
-
-    static buildMarkdown(recipe: Recipe, ingredients: Ingredient[]): MarkdownExport {
-        const calc = this.calculate({ recipe, ingredients });
-        const results = calc.results;
+    private static buildMarkdown(recipe: Recipe, results: CalculatorResult['results']) {
         const recipeRef = formatRecipeReference(recipe.code);
-
         let md = `# Receita: ${recipe.name || 'Sem Nome'} \n`;
         if (recipeRef) {
             md += `Codigo: ${recipeRef} | Data: ${recipe.date} \n\n`;
@@ -219,8 +261,7 @@ export class CalculatorEngine implements CalculatorUseCase {
         return { content: md, filename };
     }
 
-    static buildJson(recipe: Recipe, ingredients: Ingredient[]): JsonExport {
-        const results = CalculatorService.calculate(recipe, ingredients);
+    private static buildJson(recipe: Recipe, results: CalculatorResult['results']) {
         const payload = {
             ...recipe,
             calculations: {
@@ -237,6 +278,35 @@ export class CalculatorEngine implements CalculatorUseCase {
         const codePrefix = formatRecipeCodeForFile(recipe.code);
         const filename = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.json`;
         return { content: JSON.stringify(payload, null, 2), filename };
+    }
+
+    private static getSuggestedAmount(ingredientName: string, totalFats: number): number | null {
+        const name = ingredientName.toLowerCase();
+        for (const key in TEASPOON_WEIGHTS) {
+            if (name.includes(key)) {
+                const tsWeight = TEASPOON_WEIGHTS[key];
+                const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
+                return parseFloat((tsWeight * ratio).toFixed(2));
+            }
+        }
+        if (name.includes('infusão') || name.includes('infusao') || name.includes('seco') || name.includes('seca')) {
+            const ratio = totalFats > 0 ? totalFats / INFUSION_RATIO_FATS_PER_TS : 1;
+            return parseFloat((DEFAULT_HERB_WEIGHT * ratio).toFixed(2));
+        }
+        return null;
+    }
+
+    private static resolveItemRole(item: RecipeIngredient, ingredients: Ingredient[]): RecipeIngredientRole {
+        if (item.role) return item.role;
+        const ingredient = this.findIngredient(item, ingredients);
+        if (ingredient?.kind === 'water') return 'water';
+        return 'other';
+    }
+
+    private static findIngredient(item: RecipeIngredient, ingredients: Ingredient[]): Ingredient | undefined {
+        const ref = item.ingredientId || item.id;
+        if (!ref) return undefined;
+        return ingredients.find(i => i.id === ref);
     }
 
     private static generateId(): string {

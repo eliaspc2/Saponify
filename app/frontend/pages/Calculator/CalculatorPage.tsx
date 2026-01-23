@@ -127,7 +127,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 alkaliPurity: settings.defaultAlkaliPurity ?? 100,
                 fats: [],
                 liquids: [
-                    { id: crypto.randomUUID(), ingredientId: '12', name: 'Água', amount: 0, percentage: 0 }
+                    { id: crypto.randomUUID(), ingredientId: '12', name: 'Água', amount: 0, percentage: 0, role: 'water' }
                 ],
                 functionalAdditives: [],
                 lyeAdditives: [],
@@ -153,7 +153,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             }
         }
 
-        this.setState({ availableIngredients: ingredients, clients, recipe, loading: false });
+        const calc = this.props.appController.calculateRecipe({
+            recipe,
+            ingredients
+        });
+        this.setState({ availableIngredients: ingredients, clients, recipe: calc.normalizedRecipe, loading: false });
     }
 
     componentWillUnmount() {
@@ -167,11 +171,21 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             if (this.props.recipeId) {
                 const saved = RecipeService.getInstance().getById(this.props.recipeId);
                 if (saved) {
-                    this.setState({ recipe: { ...this.getInitialState().recipe!, ...saved } });
+                    const merged = { ...this.getInitialState().recipe!, ...saved };
+                    const calc = this.props.appController.calculateRecipe({
+                        recipe: merged,
+                        ingredients: this.state.availableIngredients
+                    });
+                    this.setState({ recipe: calc.normalizedRecipe });
                 }
             } else {
                 // Reset to new recipe
-                this.setState({ recipe: this.getInitialState().recipe! });
+                const nextRecipe = this.getInitialState().recipe!;
+                const calc = this.props.appController.calculateRecipe({
+                    recipe: nextRecipe,
+                    ingredients: this.state.availableIngredients
+                });
+                this.setState({ recipe: calc.normalizedRecipe });
             }
         }
 
@@ -190,13 +204,12 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleRecipeChange(field: keyof Recipe, value: any) {
         this.setState(prev => {
-            const updatedRecipe = this.props.appController.applyRecipeChange(
-                prev.recipe,
-                field,
-                value,
-                prev.availableIngredients
-            );
-            return { recipe: updatedRecipe };
+            const updatedRecipe = { ...prev.recipe, [field]: value };
+            const calc = this.props.appController.calculateRecipe({
+                recipe: updatedRecipe,
+                ingredients: prev.availableIngredients
+            });
+            return { recipe: calc.normalizedRecipe };
         });
     }
 
@@ -215,11 +228,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 ...prev.recipe,
                 [type]: [...currentArray, newItem]
             };
-            return {
-                recipe: type === 'fats'
-                    ? this.props.appController.recalculateWater(updatedRecipe, prev.availableIngredients)
-                    : updatedRecipe
-            };
+            const calc = this.props.appController.calculateRecipe({
+                recipe: updatedRecipe,
+                ingredients: prev.availableIngredients
+            });
+            return { recipe: calc.normalizedRecipe };
         });
     }
 
@@ -229,10 +242,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 ...prev.recipe,
                 [type]: (prev.recipe[type] as any[]).filter(item => item.id !== id)
             };
-            if (type === 'fats' || type === 'lyeAdditives') {
-                return { recipe: this.props.appController.recalculateWater(updatedRecipe, prev.availableIngredients) };
-            }
-            return { recipe: updatedRecipe };
+            const calc = this.props.appController.calculateRecipe({
+                recipe: updatedRecipe,
+                ingredients: prev.availableIngredients
+            });
+            return { recipe: calc.normalizedRecipe };
         });
     }
 
@@ -243,11 +257,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             const ing = availableIngredients.find(i => i.id === updates.ingredientId);
             if (ing) {
                 updates.name = ing.name;
-                const totalFats = this.state.recipe.fats.reduce((acc, f) => acc + (f.amount || 0), 0);
-                const suggestedAmount = this.props.appController.getSuggestedAmount(ing.name, totalFats);
-                if (suggestedAmount !== null && (!updates.amount || updates.amount === 0)) {
-                    updates.amount = suggestedAmount;
-                }
+                updates.autoAmount = true;
             }
         }
 
@@ -255,11 +265,12 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             const updatedItems = (prev.recipe[type] as any[]).map(item =>
                 item.id === id ? { ...item, ...updates } : item
             );
-            let updatedRecipe = { ...prev.recipe, [type]: updatedItems };
-            if ((type === 'fats' && updates.amount !== undefined) || type === 'lyeAdditives') {
-                updatedRecipe = this.props.appController.recalculateWater(updatedRecipe, prev.availableIngredients);
-            }
-            return { recipe: updatedRecipe };
+            const updatedRecipe = { ...prev.recipe, [type]: updatedItems };
+            const calc = this.props.appController.calculateRecipe({
+                recipe: updatedRecipe,
+                ingredients: prev.availableIngredients
+            });
+            return { recipe: calc.normalizedRecipe };
         });
     }
 
@@ -280,7 +291,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleDownloadMarkdown() {
         const { recipe, availableIngredients } = this.state;
-        const exportData = this.props.appController.buildMarkdown(recipe, availableIngredients);
+        const calc = this.props.appController.calculateRecipe({
+            recipe,
+            ingredients: availableIngredients
+        });
+        const exportData = calc.exports.markdown;
         const blob = new Blob([exportData.content], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -294,7 +309,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private handleDownloadJSON() {
         const { recipe, availableIngredients } = this.state;
-        const exportData = this.props.appController.buildJson(recipe, availableIngredients);
+        const calc = this.props.appController.calculateRecipe({
+            recipe,
+            ingredients: availableIngredients
+        });
+        const exportData = calc.exports.json;
         const blob = new Blob([exportData.content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -306,12 +325,20 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         URL.revokeObjectURL(url);
     }
 
-    private renderIngredientRow(item: RecipeIngredient, type: keyof Recipe, categories?: string[], totalFats?: number) {
-        const { availableIngredients, recipe } = this.state;
+    private renderIngredientRow(
+        item: RecipeIngredient,
+        type: keyof Recipe,
+        ingredientMetaById: Record<string, { sapValue: number; percentage?: string; role?: 'water' | 'other' }>,
+        categories?: string[]
+    ) {
+        const { availableIngredients } = this.state;
         const choices = categories
             ? availableIngredients.filter(i => categories.includes(i.category))
             : availableIngredients;
-        const { sapValue, percentage } = this.props.appController.getIngredientRowMeta(item, recipe, availableIngredients, totalFats);
+        const meta = ingredientMetaById[item.id] || { sapValue: 0 };
+        const sapValue = meta.sapValue;
+        const percentage = meta.percentage;
+        const hasPercentage = typeof percentage === 'string';
 
         return (
             <div key={item.id} className="ingredient-grid ingredient-grid-row">
@@ -339,7 +366,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                 </div>
 
                 <div style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-primary)', padding: '0 0.5rem' }}>
-                    {totalFats ? `${percentage}% ` : '-'}
+                    {hasPercentage ? `${percentage}% ` : '-'}
                 </div>
 
                 <button
@@ -354,26 +381,20 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
     private renderProgressBar(
         label: string,
-        value: number,
-        range: {
-            min: number;
-            max: number;
-            thresholds: ReadonlyArray<{ max: number; tone: 'danger' | 'warning' | 'good'; inclusive: boolean }>;
-        }
+        progress: { value: number; score: number; tone: 'danger' | 'warning' | 'good' }
     ) {
-        const { score, tone } = this.props.appController.getQualityProgress(value, range);
-        const colorClass = tone === 'warning' ? 'warning' : tone === 'danger' ? 'danger' : '';
+        const colorClass = progress.tone === 'warning' ? 'warning' : progress.tone === 'danger' ? 'danger' : '';
 
         return (
             <div className="progress-group" key={label}>
                 <div className="progress-label">
                     <span>{label}</span>
-                    <span style={{ fontWeight: 700 }}>{value.toFixed(0)}</span>
+                    <span style={{ fontWeight: 700 }}>{progress.value.toFixed(0)}</span>
                 </div>
                 <div className="progress-bar-bg">
                     <div
                         className={`progress-bar-fill ${colorClass}`}
-                        style={{ width: `${score}%` }}
+                        style={{ width: `${progress.score}%` }}
                     />
                 </div>
             </div>
@@ -421,9 +442,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
     renderContent() {
         if (this.state.loading) return <div>Carregando calculadora...</div>;
 
-        const { recipe, availableIngredients } = this.state;
-        const calc = this.props.appController.calculateRecipe({ recipe, ingredients: availableIngredients });
-        const { results, phaseTotals, qualityRanges, fattyAcidLabels } = calc;
+        const { availableIngredients } = this.state;
+        const baseRecipe = this.state.recipe;
+        const calc = this.props.appController.calculateRecipe({ recipe: baseRecipe, ingredients: availableIngredients });
+        const { results, phaseTotals, fattyAcidLabels, ingredientMetaById, qualityProgress } = calc;
+        const recipe = calc.normalizedRecipe;
         const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, physicalDays, physicalReadyDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
@@ -651,7 +674,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
-                                    {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ['Óleos Base'], results.totalFats))}
+                                    {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ingredientMetaById, ['Óleos Base']))}
                                 </div>
                             </div>
                         </div>
@@ -685,9 +708,9 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
                                     {(recipe.liquids || []).map((l) => (
-                                        this.props.appController.isWaterItem(l)
+                                        l.role === 'water'
                                             ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
-                                            : this.renderIngredientRow(l, 'liquids', ['Líquidos Lixívia'])
+                                            : this.renderIngredientRow(l, 'liquids', ingredientMetaById, ['Líquidos Lixívia'])
                                     ))}
                                 </div>
                             </div>
@@ -697,7 +720,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
-                                    {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ['Aditivos Funcionais']))}
+                                    {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ingredientMetaById, ['Aditivos Funcionais']))}
                                 </div>
                             </div>
                             <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
@@ -710,7 +733,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                         recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
                                         results.alkaliAmount
                                     )}
-                                    {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ['Aditivos Lixívia']))}
+                                    {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ingredientMetaById, ['Aditivos Lixívia']))}
                                 </div>
                             </div>
                         </div>
@@ -744,7 +767,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
-                                    {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ['Aditivos Traço']))}
+                                    {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ingredientMetaById, ['Aditivos Traço']))}
                                 </div>
                             </div>
 
@@ -754,7 +777,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
-                                    {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ['Superfat']))}
+                                    {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ingredientMetaById, ['Superfat']))}
                                 </div>
                             </div>
 
@@ -764,7 +787,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                                 <div className="table-wrap">
                                     {this.renderTableHeader()}
-                                    {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ['Óleos Essenciais']))}
+                                    {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ingredientMetaById, ['Óleos Essenciais']))}
                                 </div>
                             </div>
                         </div>
@@ -806,11 +829,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                             ) : (
                                 <>
-                                    {this.renderProgressBar('Condicionamento', results.properties.conditioning, qualityRanges.conditioning)}
-                                    {this.renderProgressBar('Limpeza', results.properties.cleansing, qualityRanges.cleansing)}
-                                    {this.renderProgressBar('Bolhas', results.properties.bubbles, qualityRanges.bubbles)}
-                                    {this.renderProgressBar('Persistência', results.properties.persistence, qualityRanges.persistence)}
-                                    {this.renderProgressBar('Dureza', results.properties.hardness, qualityRanges.hardness)}
+                                    {this.renderProgressBar('Condicionamento', qualityProgress.conditioning)}
+                                    {this.renderProgressBar('Limpeza', qualityProgress.cleansing)}
+                                    {this.renderProgressBar('Bolhas', qualityProgress.bubbles)}
+                                    {this.renderProgressBar('Persistência', qualityProgress.persistence)}
+                                    {this.renderProgressBar('Dureza', qualityProgress.hardness)}
                                     <div className="modal-grid-3" style={{ marginTop: '1.5rem' }}>
                                         <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
                                             <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
