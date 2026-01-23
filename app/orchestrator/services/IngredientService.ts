@@ -1,17 +1,29 @@
 import { BaseService } from '../core/BaseService';
 import { Ingredient } from '../../shared/types/Ingredient';
-import { touchDataVersion } from '../utils/dataVersion';
+import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
+import { IdService } from './IdService';
 
 export class IngredientService extends BaseService {
-    private ingredients: Ingredient[] = [];
     private static instance: IngredientService;
     private static readonly STORAGE_KEY = 'saponify_ingredients';
     private static readonly STORAGE_VERSION = 2;
     private initialized = false;
+    private repository: LocalStorageRepository<Ingredient>;
 
     private constructor() {
         super('IngredientService');
-        this.loadFromStorage();
+        this.repository = new LocalStorageRepository<Ingredient>(IngredientService.STORAGE_KEY, {
+            deserialize: (raw) => {
+                const items = Array.isArray(raw)
+                    ? raw
+                    : (raw && Array.isArray(raw.items) ? raw.items : []);
+                return items.map((ingredient: Ingredient) => this.normalizeIngredient(ingredient));
+            },
+            serialize: (items) => ({
+                version: IngredientService.STORAGE_VERSION,
+                items
+            })
+        });
     }
 
     static getInstance(): IngredientService {
@@ -27,7 +39,7 @@ export class IngredientService extends BaseService {
                 return;
             }
             this.initialized = true;
-            const storedIngredients = [...this.ingredients];
+            const storedIngredients = [...this.repository.getAll()];
             this.log('Fetching ingredients csv...');
             const response = await fetch(`${import.meta.env.BASE_URL}data/ingredients.csv`);
             const csvText = await response.text();
@@ -37,63 +49,50 @@ export class IngredientService extends BaseService {
                 const customIngredients = storedIngredients
                     .filter(ingredient => !csvIds.has(ingredient.id))
                     .map(ingredient => this.normalizeIngredient(ingredient));
-                this.ingredients = [...csvIngredients, ...customIngredients];
+                this.repository.replaceAll([...csvIngredients, ...customIngredients]);
             } else {
-                this.ingredients = csvIngredients;
+                this.repository.replaceAll(csvIngredients);
             }
-            this.log(`Loaded ${this.ingredients.length} ingredients.`);
-            this.saveToStorage();
+            this.log(`Loaded ${this.repository.getAll().length} ingredients.`);
         } catch (error) {
             this.handleError(error as Error);
         }
     }
 
     getAll(): Ingredient[] {
-        return this.ingredients;
+        return this.repository.getAll();
     }
 
     addIngredient(ingredient: Ingredient): void {
         // Ensure ID is unique if not present
         if (!ingredient.id) {
-            ingredient.id = `user_${Date.now()}`;
+            ingredient.id = `user_${IdService.create()}`;
         }
-        this.ingredients.push(ingredient);
-        this.saveToStorage();
+        this.repository.add(this.normalizeIngredient(ingredient));
     }
 
     deleteIngredient(id: string): void {
-        this.ingredients = this.ingredients.filter(i => i.id !== id);
-        this.saveToStorage();
+        this.repository.delete(id);
     }
 
     updateIngredient(updated: Ingredient): void {
-        const index = this.ingredients.findIndex(i => i.id === updated.id);
-        if (index !== -1) {
-            this.ingredients[index] = updated;
-            this.saveToStorage();
-        }
+        this.repository.update(this.normalizeIngredient(updated));
     }
 
     upsertIngredient(ingredient: Ingredient): void {
         const normalized = this.normalizeIngredient(ingredient);
         if (!normalized.id) {
-            normalized.id = `user_${Date.now()}`;
+            normalized.id = `user_${IdService.create()}`;
         }
-        const index = this.ingredients.findIndex(i => i.id === normalized.id);
-        if (index !== -1) {
-            this.ingredients[index] = normalized;
-        } else {
-            this.ingredients.push(normalized);
-        }
-        this.saveToStorage();
+        this.repository.upsert(normalized);
     }
 
     replaceAll(ingredients: Ingredient[], markInitialized = true): void {
-        this.ingredients = (ingredients || []).map((ingredient) => this.normalizeIngredient(ingredient));
+        const normalized = (ingredients || []).map((ingredient) => this.normalizeIngredient(ingredient));
         if (markInitialized) {
             this.initialized = true;
         }
-        this.saveToStorage();
+        this.repository.replaceAll(normalized);
     }
 
     exportToCSV(): string {
@@ -112,7 +111,7 @@ export class IngredientService extends BaseService {
             if (!Number.isFinite(value)) return '';
             return value.toString();
         };
-        const rows = this.ingredients.map((ingredient, index) => {
+        const rows = this.repository.getAll().map((ingredient, index) => {
             const values = [
                 ingredient.id || `ingredient_${index + 1}`,
                 (index + 1).toString(),
@@ -161,7 +160,7 @@ export class IngredientService extends BaseService {
         const newIngredients = this.parseCSV(csvContent)
             .map(ingredient => this.normalizeIngredient(ingredient));
         const merged = new Map<string, Ingredient>();
-        this.ingredients.forEach(ingredient => {
+        this.repository.getAll().forEach(ingredient => {
             if (ingredient.id) {
                 merged.set(ingredient.id, ingredient);
             }
@@ -170,36 +169,7 @@ export class IngredientService extends BaseService {
             const id = ingredient.id || `import_${Date.now()}_${index}`;
             merged.set(id, { ...ingredient, id });
         });
-        this.ingredients = Array.from(merged.values());
-        this.saveToStorage();
-    }
-
-    private loadFromStorage(): boolean {
-        const stored = localStorage.getItem(IngredientService.STORAGE_KEY);
-        if (stored === null) return false;
-        try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-                this.ingredients = parsed.map((ingredient) => this.normalizeIngredient(ingredient));
-                return true;
-            }
-            if (parsed && Array.isArray(parsed.items)) {
-                this.ingredients = parsed.items.map((ingredient: Ingredient) => this.normalizeIngredient(ingredient));
-                return true;
-            }
-        } catch (e) {
-            this.ingredients = [];
-        }
-        return false;
-    }
-
-    private saveToStorage(): void {
-        const payload = {
-            version: IngredientService.STORAGE_VERSION,
-            items: this.ingredients
-        };
-        localStorage.setItem(IngredientService.STORAGE_KEY, JSON.stringify(payload));
-        touchDataVersion();
+        this.repository.replaceAll(Array.from(merged.values()));
     }
 
     private normalizeIngredient(ingredient: Ingredient): Ingredient {

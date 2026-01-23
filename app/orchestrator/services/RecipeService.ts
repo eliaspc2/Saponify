@@ -3,15 +3,24 @@ import { Recipe } from '../../shared/types/Recipe';
 import { ClientService } from './ClientService';
 import { SettingsService } from './SettingsService';
 import { formatRecipeReferenceOrFallback } from '../../shared/utils/recipeFormat';
-import { touchDataVersion } from '../utils/dataVersion';
+import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 
 export class RecipeService extends BaseService {
-    private recipes: Recipe[] = [];
     private static instance: RecipeService;
+    private repository: LocalStorageRepository<Recipe>;
 
     private constructor() {
         super('RecipeService');
-        this.loadFromStorage();
+        this.repository = new LocalStorageRepository<Recipe>('saponify_recipes', {
+            deserialize: (raw) => {
+                const items = Array.isArray(raw) ? raw : [];
+                return items.map((recipe) => this.normalizeRecipe(recipe));
+            },
+            serialize: (items) => items,
+            onLoadError: () => {
+                this.handleError(new Error('Failed to parse recipes from storage'));
+            }
+        });
     }
 
     static getInstance(): RecipeService {
@@ -21,42 +30,22 @@ export class RecipeService extends BaseService {
         return RecipeService.instance;
     }
 
-    private loadFromStorage() {
-        const stored = localStorage.getItem('saponify_recipes');
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed)) {
-                    this.recipes = parsed.map(recipe => this.normalizeRecipe(recipe));
-                }
-            } catch (e) {
-                this.handleError(new Error('Failed to parse recipes from storage'));
-            }
-        }
-    }
-
-    private saveToStorage() {
-        localStorage.setItem('saponify_recipes', JSON.stringify(this.recipes));
-        touchDataVersion();
-    }
-
     getAll(): Recipe[] {
-        return this.recipes;
+        return this.repository.getAll();
     }
 
     getById(id: string): Recipe | undefined {
-        return this.recipes.find(r => r.id === id);
+        return this.repository.getById(id);
     }
 
     save(recipe: Recipe) {
         const normalized = this.normalizeRecipe(recipe);
-        const index = this.recipes.findIndex(r => r.id === recipe.id);
-        const isNew = index < 0;
+        const isNew = !this.repository.getById(recipe.id);
 
         if (!isNew) {
-            this.recipes[index] = normalized;
+            this.repository.update(normalized);
         } else {
-            this.recipes.push(normalized);
+            this.repository.add(normalized);
 
             // Log in client history if associated
             if (normalized.clientId) {
@@ -70,18 +59,17 @@ export class RecipeService extends BaseService {
                 });
             }
         }
-        this.saveToStorage();
     }
 
     delete(id: string) {
-        this.recipes = this.recipes.filter(r => r.id !== id);
-        this.saveToStorage();
+        this.repository.delete(id);
     }
 
     getNextCode(): string {
-        if (this.recipes.length === 0) return '0001';
+        const recipes = this.repository.getAll();
+        if (recipes.length === 0) return '0001';
 
-        const codes = this.recipes.map(r => parseInt(r.code)).filter(c => !isNaN(c));
+        const codes = recipes.map(r => parseInt(r.code)).filter(c => !isNaN(c));
         if (codes.length === 0) return '0001';
 
         const maxCode = Math.max(...codes);
@@ -89,9 +77,10 @@ export class RecipeService extends BaseService {
     }
 
     replaceAll(recipes: Recipe[]): void {
-        this.recipes = (recipes || []).map((recipe) => this.normalizeRecipe(recipe));
-        this.saveToStorage();
+        const normalized = (recipes || []).map((recipe) => this.normalizeRecipe(recipe));
+        this.repository.replaceAll(normalized);
     }
+
     private normalizeRecipe(recipe: Recipe): Recipe {
         const settings = SettingsService.getInstance().getSettings();
         return {
