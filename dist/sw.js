@@ -5,7 +5,9 @@ const CORE_ASSETS = [
     new URL('./', scopeUrl).toString(),
     new URL('index.html', scopeUrl).toString(),
     new URL('manifest.json', scopeUrl).toString(),
-    new URL('assets/brand/logo.png', scopeUrl).toString()
+    new URL('assets/brand/logo.png', scopeUrl).toString(),
+    new URL('assets/brand/logo-192.png', scopeUrl).toString(),
+    new URL('assets/brand/logo-512.png', scopeUrl).toString()
 ];
 
 // Instalacao - cachear recursos
