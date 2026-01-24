@@ -258,14 +258,18 @@ export class GeneratedRecipeValidator {
 
         if (isPlainObject(phase2) && isPlainObject(phase2.liquid)) {
             const item = phase2.liquid as GeneratedRecipeIngredient;
-            assertPhaseIngredient(
-                item,
-                'phases.phase2_lye.liquid',
-                ingredientIndex,
-                ['liquids', 'lyeLiquids'],
-                ['water'],
-                errors
-            );
+            const meta = ingredientIndex.get(item.ingredientId);
+            const menuKey = meta?.menuKey || '';
+            const kind = meta?.kind || '';
+            const isWater = kind === 'water';
+            const isLiquidMenu = menuKey === 'liquids' || menuKey === 'lyeLiquids';
+            if (!(isWater || isLiquidMenu)) {
+                if (menuKey === 'functionalAdditives' || menuKey === 'lyeAdditives') {
+                    // Ignore misplaced additives in liquid slot
+                } else {
+                    errors.push('phases.phase2_lye.liquid: ingrediente não permitido nesta fase.');
+                }
+            }
             if (typeof phase2.naoh_calculated === 'number' && Math.abs(phase2.naoh_calculated) > 0.0001) {
                 errors.push('phases.phase2_lye.naoh_calculated: deve ser 0 (calculado pela app).');
             }
