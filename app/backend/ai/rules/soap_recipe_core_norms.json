@@ -1,7 +1,7 @@
 {
   "meta": {
     "id": "noviessence_soap_recipe_core_norms_v1",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "language": "pt-PT",
     "strict": true,
     "scope": "Criação de fórmulas de sabonete artesanal e contexto do projeto/público-alvo",
@@ -177,5 +177,85 @@
     "content": "apenas_receita",
     "no_explanations": true,
     "must_be_importable": true
+  },
+  "decision_architecture": {
+    "principle": "separacao_rigida_dados_decisao_execucao",
+    "input_domains": {
+      "skin_state": ["seca", "normal", "mista", "oleosa", "reativa"],
+      "active_problems_intensity_0_3": [
+        "comichao",
+        "descamacao",
+        "acne",
+        "vermelhidao",
+        "fissuras",
+        "ardor_pos_lavagem"
+      ],
+      "context": {
+        "water": ["macia", "media", "dura"],
+        "climate": ["seco", "humido", "frio"],
+        "usage_frequency": ["ocasional", "diario", "multiplas_vezes_dia"],
+        "usage_zone": ["corpo", "rosto", "zonas_sensiveis", "maos"]
+      },
+      "restrictions": ["evitar_oleos_essenciais", "evitar_botanicos", "crianca_idade"],
+      "sensory_preferences": {
+        "aroma": ["nenhum", "suave", "presente"],
+        "profile": ["floral", "fresco", "neutro", "herbal"],
+        "foam": ["cremosa", "abundante", "indiferente"]
+      }
+    },
+    "analysis_layer": {
+      "matrix_examples": {
+        "comichao": { "calmante": 3 },
+        "acne": { "purificante": 3 },
+        "pele_reativa": { "agressividade": -2 },
+        "uso_facial": { "coco": -2 },
+        "agua_dura": { "quelante": 3 },
+        "crianca": { "oleos_essenciais": -3, "botanicos": -2 }
+      },
+      "aggregation_rule": "tudo_e_acumulativo_nunca_absoluto"
+    },
+    "base_profiles": {
+      "primary": [
+        "P1_sensivel_seca",
+        "P2_sensivel_com_comichao",
+        "P3_mista_acne_leve",
+        "P4_agua_dura",
+        "P5_infantil",
+        "P6_multiuso_diario"
+      ],
+      "selection": {
+        "max_profiles": 2,
+        "rule": "1_primario_e_1_secundario_no_maximo"
+      },
+      "constraints_reference": [
+        "limites_%_coco",
+        "superfat_minimo",
+        "oleos_essenciais_permitidos",
+        "botanicos_permitidos"
+      ]
+    },
+    "translation_layer": {
+      "fixed_rules": [
+        "perfil_sensivel -> coco <= 20%",
+        "crianca -> oleos_essenciais <= 0.5% ou zero",
+        "agua_dura -> acido_citrico_obrigatorio",
+        "acne -> tea_tree_permitido_nao_obrigatorio"
+      ],
+      "blocks": [
+        "bloco_base_gorduroso_A/B/C",
+        "bloco_calmante",
+        "bloco_purificante_suave",
+        "bloco_quelante",
+        "bloco_sensorial"
+      ],
+      "assembly_rule": "perfil_base + blocos_compatíveis + ajustes_finos"
+    },
+    "expected_output": [
+      "perfil_tecnico_final",
+      "justificacao_automatica_legivel",
+      "alertas_quando_existirem",
+      "receita_gerada_ou_selecionada",
+      "diferencas_face_receitas_anteriores_se_existirem"
+    ]
   }
 }
