@@ -234,9 +234,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
     }
 
     private getTotalFats(recipe: Recipe): number {
-        const baseFats = recipe.fats.reduce((sum, f) => sum + (f.amount || 0), 0);
-        const superfatFats = recipe.superfatOils?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
-        return baseFats + superfatFats;
+        return recipe.fats.reduce((sum, f) => sum + (f.amount || 0), 0);
     }
 
     private getDayOfYear(date: Date): number {
@@ -926,6 +924,53 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             this.loadData();
         };
 
+        const handleDelete = () => {
+            if (!confirm('Deseja eliminar esta receita? Esta ação é irreversível.')) return;
+            RecipeService.getInstance().delete(viewingRecipe.id);
+            this.setState({ isRecipeModalOpen: false, viewingRecipe: null });
+            this.loadData();
+        };
+
+        const applyScale = (targetFats: number) => {
+            const currentFats = this.getTotalFats(viewingRecipe);
+            if (!currentFats || currentFats <= 0) return;
+            const factor = targetFats / currentFats;
+            const scaleItems = (items: RecipeIngredient[]) =>
+                items.map(item => ({
+                    ...item,
+                    amount: parseFloat(((item.amount || 0) * factor).toFixed(2))
+                }));
+
+            const scaledFats = scaleItems(viewingRecipe.fats);
+            const fatsTotal = scaledFats.reduce((sum, f) => sum + (f.amount || 0), 0);
+            const normalizedFats = scaledFats.map(f => ({
+                ...f,
+                percentage: fatsTotal > 0 ? parseFloat(((f.amount / fatsTotal) * 100).toFixed(2)) : f.percentage
+            }));
+
+            this.setState({
+                viewingRecipe: {
+                    ...viewingRecipe,
+                    fats: normalizedFats,
+                    liquids: scaleItems(viewingRecipe.liquids),
+                    functionalAdditives: scaleItems(viewingRecipe.functionalAdditives),
+                    lyeAdditives: scaleItems(viewingRecipe.lyeAdditives),
+                    traceAdditives: scaleItems(viewingRecipe.traceAdditives),
+                    superfatOils: scaleItems(viewingRecipe.superfatOils),
+                    essentialOils: scaleItems(viewingRecipe.essentialOils)
+                }
+            });
+        };
+
+        const handleConvertToProduction = () => {
+            this.setState({
+                selectedRecipeId: viewingRecipe.id,
+                productionWeight: this.getTotalFats(viewingRecipe),
+                productionDate: new Date().toISOString().split('T')[0],
+                isProductionModalOpen: true
+            });
+        };
+
         const updateField = (field: keyof Recipe, value: any) => {
             this.setState({ viewingRecipe: { ...viewingRecipe, [field]: value } });
         };
@@ -942,6 +987,12 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         <button className="btn btn-secondary" onClick={() => this.handleExportMarkdown(viewingRecipe)}>
                             <Download size={16} /> Exportar MD
                         </button>
+                        <button className="btn btn-secondary" onClick={handleConvertToProduction}>
+                            <Beaker size={16} /> Converter Produção
+                        </button>
+                        <button className="btn btn-secondary" style={{ color: '#EF4444' }} onClick={handleDelete}>
+                            <Trash2 size={16} /> Eliminar
+                        </button>
                         <button className="btn btn-primary" onClick={handleSave}>Guardar Alterações</button>
                     </>
                 }
@@ -955,6 +1006,18 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                             value={viewingRecipe.name}
                             onChange={(e) => updateField('name', e.target.value)}
                         />
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <button className="btn btn-secondary" onClick={() => applyScale(1000)}>
+                            Escalar 1000g
+                        </button>
+                        <button className="btn btn-secondary" onClick={() => applyScale(500)}>
+                            Escalar 500g
+                        </button>
+                        <button className="btn btn-secondary" onClick={() => applyScale(250)}>
+                            Escalar 250g
+                        </button>
                     </div>
 
                     <div className="modal-grid-3" style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '0.5rem' }}>

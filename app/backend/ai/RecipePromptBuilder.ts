@@ -66,6 +66,7 @@ export class RecipePromptBuilder {
         const { clientForm, availableIngredients } = params;
         const targetOilsWeight = params.targetOilsWeight || 1000;
         const examples = this.buildExamples(availableIngredients, targetOilsWeight);
+        const productionRules = this.getProductionRules();
 
         return {
             role: 'soap_recipe_generation_engine',
@@ -75,12 +76,15 @@ export class RecipePromptBuilder {
                 no_explanations: true,
                 no_text_outside_json: true,
                 use_only_provided_ingredients: true,
-                respect_all_rules: true
+                respect_all_rules: true,
+                include_essential_oils_when_possible: true,
+                target_oils_weight_scope: 'phase1_base_fatty_only'
             },
             rules: {
                 core: coreRules,
                 extended: extendedRules
             },
+            custom_rules: productionRules,
             target_oils_weight_g: targetOilsWeight,
             client_questionnaire: clientForm,
             available_ingredients: availableIngredients,
@@ -152,6 +156,23 @@ export class RecipePromptBuilder {
             },
             technical_notes: ['string']
         };
+    }
+
+    private getProductionRules(): string {
+        return [
+            'NORMAS DE FORMULAÇÃO — NOVIESSENCE',
+            'Todas as decisões devem alinhar-se com sintomas reais, segurança, preferências éticas/sensoriais/etárias e ingredientes disponíveis.',
+            'Nunca usar classificações genéricas como único critério. Ingredientes decorativos só com justificação estética/simbólica.',
+            'Superfat inicial: 2-4% pele oleosa/corporal; 5-7% pele mista/uso frequente; 8-10% pele seca/reativa.',
+            'Base gordurosa: equilibrar limpeza, suavidade, espuma, durabilidade. Preferir banha em fórmulas regeneradoras e sebo para maior dureza.',
+            'Lixívia: infusões conforme pele. Sal 5g por 500g óleos. Mel cru preferível (5g por receita). Calcular NaOH via SAP e ajustar se houver ácido cítrico.',
+            'Traço: aditivos funcionais/decorativos conforme pele e justificação.',
+            'Superfat final: escolher óleos conforme objetivo terapêutico.',
+            'Óleos essenciais: usar sempre que possível e seguro; dose base 5 ml por receita completa. Selecionar conforme perfil de pele.',
+            'Restrições éticas: respeitar vegan/vegetariano/religioso/alergias.',
+            'Equilíbrio técnico final: limpeza + suavidade + espuma + durabilidade.',
+            'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
+        ].join('\n');
     }
 
     private buildExamples(availableIngredients: object[], targetOilsWeight: number): ExampleRecipe[] {
