@@ -31,15 +31,28 @@ export class OpenAIProvider {
     }
 
     async generateAndValidateRecipe(prompt: object): Promise<ValidatedRecipe> {
-        const response = await this.generateJson(prompt);
         const availableIngredients = (prompt as any)?.available_ingredients;
         const rules = (prompt as any)?.rules;
         if (!Array.isArray(availableIngredients)) {
             throw new Error('Prompt inválido: available_ingredients ausente.');
         }
-        return GeneratedRecipeValidator.validate(response, {
-            availableIngredients,
-            rules
-        });
+        try {
+            const response = await this.generateJson(prompt);
+            try {
+                return GeneratedRecipeValidator.validate(response, {
+                    availableIngredients,
+                    rules
+                });
+            } catch (error) {
+                const err = new Error((error as Error)?.message || 'Resposta inválida da IA.');
+                (err as any).debug = { prompt, response };
+                throw err;
+            }
+        } catch (error) {
+            const err = new Error((error as Error)?.message || 'Erro ao gerar receita com IA.');
+            (err as any).debug = { prompt };
+            throw err;
+        }
     }
+
 }

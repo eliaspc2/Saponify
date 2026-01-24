@@ -46,6 +46,9 @@ interface ClientDetailsState extends BasePageState {
     noteContent: string;
     isGeneratingAIRecipe: boolean;
     aiError: string | null;
+    aiDebugPrompt: string;
+    aiDebugResponse: string;
+    showAiDebug: boolean;
 
     // Production Form
     selectedRecipeId: string;
@@ -74,6 +77,9 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             productionDate: new Date().toISOString().split('T')[0],
             isGeneratingAIRecipe: false,
             aiError: null,
+            aiDebugPrompt: '',
+            aiDebugResponse: '',
+            showAiDebug: false,
             isLoading: false,
             error: null
         };
@@ -303,26 +309,35 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         const hasText = (value: string) => typeof value === 'string' && value.trim().length > 0;
         const hasList = (value: string[]) => Array.isArray(value) && value.length > 0;
 
-        return (
-            hasText(questionnaire.ageGroup) &&
-            hasText(questionnaire.usageFrequency) &&
-            hasList(questionnaire.usageZones) &&
-            hasText(questionnaire.previousReaction) &&
-            hasText(questionnaire.oiliness) &&
-            hasText(questionnaire.drynessAfterWash) &&
-            hasText(questionnaire.irritationFrequency) &&
-            hasList(questionnaire.skinProblems) &&
-            hasText(questionnaire.medications) &&
-            hasText(questionnaire.sleepQuality) &&
-            hasList(questionnaire.dietType) &&
-            hasText(questionnaire.waterIntake) &&
-            hasText(questionnaire.sweatIntensity) &&
-            hasList(questionnaire.environmentType) &&
-            hasText(questionnaire.sunReaction) &&
-            hasList(questionnaire.dailyProducts) &&
-            hasText(questionnaire.allergies) &&
-            hasText(questionnaire.animalProductRestrictions)
-        );
+        return [
+            questionnaire.ageGroup,
+            questionnaire.usageFrequency,
+            questionnaire.previousReaction,
+            questionnaire.oiliness,
+            questionnaire.drynessAfterWash,
+            questionnaire.irritationFrequency,
+            questionnaire.medications,
+            questionnaire.sleepQuality,
+            questionnaire.waterIntake,
+            questionnaire.sweatIntensity,
+            questionnaire.sunReaction,
+            questionnaire.allergies,
+            questionnaire.animalProductRestrictions,
+            questionnaire.extraSoapInfo,
+            questionnaire.skinCuriosity,
+            questionnaire.extraSkinDetails,
+            questionnaire.extraEnvironmentInfo,
+            questionnaire.specialCareHabits,
+            questionnaire.personalConvictions,
+            questionnaire.dailyProductsOther,
+            questionnaire.allergiesOther,
+            questionnaire.animalProductRestrictionsOther
+        ].some((value) => hasText(value || ''))
+        || hasList(questionnaire.usageZones)
+        || hasList(questionnaire.skinProblems)
+        || hasList(questionnaire.dietType)
+        || hasList(questionnaire.environmentType)
+        || hasList(questionnaire.dailyProducts);
     }
 
     private async handleGenerateRecipeAI() {
@@ -331,11 +346,11 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
 
         const questionnaire = this.getLatestQuestionnaire();
         if (!this.isQuestionnaireComplete(questionnaire)) {
-            this.setState({ aiError: 'Formulário incompleto.' });
+            this.setState({ aiError: 'Formulário incompleto.', aiDebugPrompt: '', aiDebugResponse: '', showAiDebug: false });
             return;
         }
 
-        this.setState({ isGeneratingAIRecipe: true, aiError: null });
+        this.setState({ isGeneratingAIRecipe: true, aiError: null, aiDebugPrompt: '', aiDebugResponse: '', showAiDebug: false });
         try {
             const recipe = await this.props.appController.generateRecipeFromAI({
                 clientId: client.id,
@@ -348,11 +363,20 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             });
             this.loadData();
         } catch (error) {
-            const message = (error as Error)?.message || '';
+            const err = error as any;
+            const message = err?.message || '';
             const safeMessage = message.toLowerCase().includes('configurada')
                 ? 'A IA não está configurada.'
                 : 'Erro ao gerar a receita. Tenta novamente.';
-            this.setState({ isGeneratingAIRecipe: false, aiError: safeMessage });
+            const debugPrompt = err?.debug?.prompt ? JSON.stringify(err.debug.prompt, null, 2) : '';
+            const debugResponse = err?.debug?.response ? JSON.stringify(err.debug.response, null, 2) : '';
+            this.setState({
+                isGeneratingAIRecipe: false,
+                aiError: safeMessage,
+                aiDebugPrompt: debugPrompt,
+                aiDebugResponse: debugResponse,
+                showAiDebug: false
+            });
         }
     }
 
@@ -363,6 +387,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         const isFormComplete = this.isQuestionnaireComplete(questionnaire);
         const isAIConfigured = this.props.appController.hasAIConfigured();
         const canGenerate = isFormComplete && isAIConfigured && !isGeneratingAIRecipe;
+        const showQuestionnaireHint = !isFormComplete;
 
         return (
             <Modal
@@ -403,6 +428,36 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     {aiError && (
                         <div style={{ fontSize: '0.85rem', color: '#B91C1C', marginBottom: '0.75rem' }}>
                             {aiError}
+                            {(this.state.aiDebugPrompt || this.state.aiDebugResponse) && (
+                                <button
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ marginLeft: '0.75rem', padding: '0.3rem 0.75rem' }}
+                                    onClick={() => this.setState({ showAiDebug: !this.state.showAiDebug })}
+                                >
+                                    {this.state.showAiDebug ? 'Ocultar detalhes' : 'Ver detalhes'}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {this.state.showAiDebug && (this.state.aiDebugPrompt || this.state.aiDebugResponse) && (
+                        <div style={{ marginBottom: '1rem', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+                            {this.state.aiDebugPrompt && (
+                                <div style={{ marginBottom: '0.75rem' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Prompt enviado</div>
+                                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.7rem', lineHeight: 1.4, color: '#111827' }}>{this.state.aiDebugPrompt}</pre>
+                                </div>
+                            )}
+                            {this.state.aiDebugResponse && (
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Resposta da IA</div>
+                                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.7rem', lineHeight: 1.4, color: '#111827' }}>{this.state.aiDebugResponse}</pre>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {showQuestionnaireHint && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', marginBottom: '0.75rem' }}>
+                            Preenche pelo menos um questionário para ativar a geração por IA.
                         </div>
                     )}
 

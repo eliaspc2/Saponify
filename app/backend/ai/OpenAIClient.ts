@@ -62,4 +62,5 @@ export class OpenAIClient {
             throw new Error('Resposta inválida da OpenAI: JSON inválido.');
         }
     }
+
 }

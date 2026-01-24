@@ -30,6 +30,7 @@ interface SettingsState extends BasePageState {
     openaiApiKeyDraft: string;
     openaiApiKeyTouched: boolean;
     hasStoredOpenaiKey: boolean;
+    showOpenaiApiKey: boolean;
 }
 
 const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
@@ -70,7 +71,8 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes',
             openaiApiKeyDraft: '',
             openaiApiKeyTouched: false,
-            hasStoredOpenaiKey
+            hasStoredOpenaiKey,
+            showOpenaiApiKey: false
         };
     }
 
@@ -281,6 +283,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         const apiKeyPlaceholder = this.state.hasStoredOpenaiKey && !this.state.openaiApiKeyTouched
             ? '********'
             : 'Introduza a API key';
+        const modelsToShow = ['gpt-4.1-mini', 'gpt-4.1'];
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -363,79 +366,93 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                     </div>
 
                     {/* Preferências da Aplicação */}
-                    <div className="card">
-                        <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>Preferências da Aplicação</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Idioma</label>
-                                <select
-                                    value={settings.language}
-                                    onChange={(e) => this.handleUpdate('language', e.target.value)}
-                                    style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                >
-                                    <option value="pt">Português</option>
-                                    <option value="en">English (Coming Soon)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Sistema de Medida</label>
-                                <select
-                                    value={settings.measurementSystem}
-                                    onChange={(e) => this.handleUpdate('measurementSystem', e.target.value)}
-                                    style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                >
-                                    <option value="metric">Métrico (Gramas/Kg)</option>
-                                    <option value="imperial">Imperial (Oz/Lb)</option>
-                                </select>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div className="card" style={{ padding: '1.25rem' }}>
+                            <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>Preferências da Aplicação</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Idioma</label>
+                                    <select
+                                        value={settings.language}
+                                        onChange={(e) => this.handleUpdate('language', e.target.value)}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                    >
+                                        <option value="pt">Português</option>
+                                        <option value="en">English (Coming Soon)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Sistema de Medida</label>
+                                    <select
+                                        value={settings.measurementSystem}
+                                        onChange={(e) => this.handleUpdate('measurementSystem', e.target.value)}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                    >
+                                        <option value="metric">Métrico (Gramas/Kg)</option>
+                                        <option value="imperial">Imperial (Oz/Lb)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Inteligência Artificial */}
-                <div className="card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.8rem' }}>
-                        <Sparkles size={20} color="var(--color-primary)" />
-                        <h3 style={{ margin: 0 }}>Inteligência Artificial (OpenAI)</h3>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                        <div style={{ fontSize: '0.85rem', color: aiConfigured ? '#15803D' : '#B45309' }}>
-                            {aiConfigured ? '✅ IA configurada' : '⚠️ IA não configurada'}
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>API Key</label>
-                            <input
-                                type="password"
-                                value={this.state.openaiApiKeyTouched ? this.state.openaiApiKeyDraft : ''}
-                                onChange={(e) => {
-                                    this.setState({ openaiApiKeyDraft: e.target.value, openaiApiKeyTouched: true });
-                                }}
-                                placeholder={apiKeyPlaceholder}
-                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                            />
-                            <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
-                                A API key nunca é mostrada nem validada nesta página.
-                            </p>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Modelo</label>
-                            <select
-                                value={settings.openaiModel || 'gpt-4.1-mini'}
-                                onChange={(e) => this.handleUpdate('openaiModel', e.target.value)}
-                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                            >
-                                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                                <option value="gpt-4.1">gpt-4.1</option>
-                            </select>
-                        </div>
-                        <div>
-                            <button
-                                className="btn btn-primary"
-                                style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }}
-                                onClick={() => this.handleSave()}
-                            >
-                                <Save size={18} /> Guardar
-                            </button>
+                        {/* Inteligência Artificial */}
+                        <div className="card">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.8rem' }}>
+                                <Sparkles size={20} color="var(--color-primary)" />
+                                <h3 style={{ margin: 0 }}>Inteligência Artificial (OpenAI)</h3>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                <div style={{ fontSize: '0.85rem', color: aiConfigured ? '#15803D' : '#B45309' }}>
+                                    {aiConfigured ? '✅ IA configurada' : '⚠️ IA não configurada'}
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>API Key</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type={this.state.showOpenaiApiKey ? 'text' : 'password'}
+                                            value={this.state.openaiApiKeyTouched ? this.state.openaiApiKeyDraft : ''}
+                                            onChange={(e) => {
+                                                this.setState({ openaiApiKeyDraft: e.target.value, openaiApiKeyTouched: true });
+                                            }}
+                                            placeholder={apiKeyPlaceholder}
+                                            style={{ width: '100%', padding: '0.6rem 2.5rem 0.6rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => this.setState(prev => ({ showOpenaiApiKey: !prev.showOpenaiApiKey }))}
+                                            className="icon-button"
+                                            style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)' }}
+                                            title={this.state.showOpenaiApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+                                        >
+                                            {this.state.showOpenaiApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
+                                    <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
+                                        A API key nunca é mostrada nem validada nesta página.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Modelo</label>
+                                    <select
+                                        value={settings.openaiModel || 'gpt-4.1-mini'}
+                                        onChange={(e) => this.handleUpdate('openaiModel', e.target.value)}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                    >
+                                        {modelsToShow.map((model) => (
+                                            <option key={model} value={model}>{model}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <button
+                                        className="btn btn-primary"
+                                        style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }}
+                                        onClick={() => this.handleSave()}
+                                    >
+                                        <Save size={18} /> Guardar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
