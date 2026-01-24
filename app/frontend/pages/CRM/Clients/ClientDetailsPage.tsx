@@ -1210,13 +1210,20 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                 className="btn btn-secondary"
                                 onClick={() => this.downloadJsonFile(
                                     `${viewingRecipe.code || 'receita'}_ia_debug.json`,
-                                    {
-                                        prompt: viewingRecipe.aiLastPrompt || null,
-                                        response: viewingRecipe.aiLastResponse || null,
-                                        responseAt: viewingRecipe.aiLastResponseAt || null,
-                                        responseText: this.state.aiDebugResponse || null,
-                                        conversation: viewingRecipe.aiConversation || []
-                                    }
+                                    (() => {
+                                        const response = viewingRecipe.aiLastResponse || null;
+                                        const responseText = this.state.aiDebugResponse
+                                            || (response ? JSON.stringify(response, null, 2) : null);
+                                        return {
+                                            prompt: viewingRecipe.aiLastPrompt || null,
+                                            response,
+                                            responseAt: viewingRecipe.aiLastResponseAt || null,
+                                            responseText,
+                                            responseLabel: this.state.aiDebugResponseLabel || null,
+                                            conversation: viewingRecipe.aiConversation || [],
+                                            recipeSnapshot: viewingRecipe
+                                        };
+                                    })()
                                 )}
                             >
                                 Exportar IA (JSON)

@@ -286,13 +286,59 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
 
             const normalizeEmail = (value: string) => value.trim().toLowerCase();
             const normalizePhone = (value: string) => value.replace(/\D+/g, '');
+            const normalizeName = (value: string) => this.normalizeHeader(value || '');
+            const normalizeAddress = (value: string) => this.normalizeHeader(value || '');
 
             const existingClients = ClientService.getInstance().getAll();
             const clientsByEmail = new Map(existingClients.filter(c => c.email).map(c => [normalizeEmail(c.email), c]));
-            const clientsByPhone = new Map(existingClients.filter(c => c.phone).map(c => [normalizePhone(c.phone), c]));
+            const phoneCounts = new Map<string, number>();
+            existingClients.filter(c => c.phone).forEach(c => {
+                const key = normalizePhone(c.phone);
+                phoneCounts.set(key, (phoneCounts.get(key) || 0) + 1);
+            });
+            const clientsByPhone = new Map(
+                existingClients
+                    .filter(c => c.phone)
+                    .filter(c => phoneCounts.get(normalizePhone(c.phone)) === 1)
+                    .map(c => [normalizePhone(c.phone), c])
+            );
 
             const existingQuestionnaires = await QuestionnaireService.getQuestionnaires();
             const questionnaireIds = new Set(existingQuestionnaires.map(q => q.id));
+            const questionnaireKeys = new Set(existingQuestionnaires.map(q => {
+                const stamp = q.createdAt || q.date || q.updatedAt || '';
+                return `${q.clientId || ''}|${stamp}`;
+            }));
+            const questionnaireFingerprints = new Set(existingQuestionnaires.map(q => {
+                const values = [
+                    q.ageGroup || '',
+                    q.usageFrequency || '',
+                    (q.usageZones || []).join(','),
+                    q.previousReaction || '',
+                    q.oiliness || '',
+                    q.drynessAfterWash || '',
+                    q.irritationFrequency || '',
+                    (q.skinProblems || []).join(','),
+                    q.medications || '',
+                    q.sleepQuality || '',
+                    (q.dietType || []).join(','),
+                    q.waterIntake || '',
+                    q.sweatIntensity || '',
+                    (q.environmentType || []).join(','),
+                    q.sunReaction || '',
+                    (q.dailyProducts || []).join(','),
+                    q.dailyProductsOther || '',
+                    q.allergies || '',
+                    q.animalProductRestrictions || '',
+                    q.extraSoapInfo || '',
+                    q.skinCuriosity || '',
+                    q.extraSkinDetails || '',
+                    q.extraEnvironmentInfo || '',
+                    q.specialCareHabits || '',
+                    q.personalConvictions || ''
+                ].map(value => value.toLowerCase().trim());
+                return this.hashString(values.join('|'));
+            }));
 
             let createdClients = 0;
             let updatedClients = 0;
@@ -314,12 +360,24 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
 
                 const emailKey = email ? normalizeEmail(email) : '';
                 const phoneKey = phone ? normalizePhone(phone) : '';
+                const nameKey = name ? normalizeName(name) : '';
                 let existing: Client | undefined;
                 if (emailKey) {
                     existing = clientsByEmail.get(emailKey);
                 }
                 if (!existing && phoneKey) {
-                    existing = clientsByPhone.get(phoneKey);
+                    const byPhone = clientsByPhone.get(phoneKey);
+                    if (byPhone) {
+                        const existingName = normalizeName(byPhone.name || '');
+                        const existingAddress = normalizeAddress(byPhone.address || '');
+                        const addressKey = normalizeAddress(address || '');
+                        const addressMatches = !addressKey || !existingAddress || addressKey === existingAddress;
+                        if (!nameKey || existingName === nameKey) {
+                            if (addressMatches) {
+                                existing = byPhone;
+                            }
+                        }
+                    }
                 }
 
                 const requiredConsentText = getValue(row, cols.consentsRequired);
@@ -364,6 +422,35 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                 }
 
                 const timestampRaw = getValue(row, cols.timestamp);
+                const hasQuestionnaireData = [
+                    getValue(row, cols.usageFrequency),
+                    getValue(row, cols.usageZones),
+                    getValue(row, cols.previousReaction),
+                    getValue(row, cols.oiliness),
+                    getValue(row, cols.drynessAfterWash),
+                    getValue(row, cols.irritationFrequency),
+                    getValue(row, cols.skinProblems),
+                    getValue(row, cols.medications),
+                    getValue(row, cols.sleepQuality),
+                    getValue(row, cols.dietType),
+                    getValue(row, cols.waterIntake),
+                    getValue(row, cols.sweatIntensity),
+                    getValue(row, cols.environmentType),
+                    getValue(row, cols.sunReaction),
+                    getValue(row, cols.dailyProducts),
+                    getValue(row, cols.allergies),
+                    getValue(row, cols.animalRestrictions),
+                    getValue(row, cols.extraSoapInfo),
+                    getValue(row, cols.skinCuriosity),
+                    getValue(row, cols.extraSkinDetails),
+                    getValue(row, cols.extraEnvironmentInfo),
+                    getValue(row, cols.specialCareHabits),
+                    getValue(row, cols.personalConvictions)
+                ].some(value => value && value.trim().length > 0);
+
+                if (!hasQuestionnaireData) {
+                    continue;
+                }
                 const questionnaireIdBase = `${emailKey || phoneKey || name}-${timestampRaw}`;
                 const questionnaireId = `q_${this.hashString(questionnaireIdBase)}`;
                 if (questionnaireIds.has(questionnaireId)) {
@@ -376,6 +463,39 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                 const dailyProducts = rawProducts.toLowerCase().startsWith('nao') ? [] : productsList;
 
                 const timestampIso = this.parseTimestampIso(timestampRaw) || new Date().toISOString();
+                const questionnaireKey = `${baseClient.id}|${timestampIso}`;
+                if (questionnaireKeys.has(questionnaireKey)) {
+                    continue;
+                }
+                const questionnaireFingerprint = this.hashString([
+                    getValue(row, cols.ageGroup),
+                    getValue(row, cols.usageFrequency),
+                    getValue(row, cols.usageZones),
+                    getValue(row, cols.previousReaction),
+                    getValue(row, cols.oiliness),
+                    getValue(row, cols.drynessAfterWash),
+                    getValue(row, cols.irritationFrequency),
+                    getValue(row, cols.skinProblems),
+                    getValue(row, cols.medications),
+                    getValue(row, cols.sleepQuality),
+                    getValue(row, cols.dietType),
+                    getValue(row, cols.waterIntake),
+                    getValue(row, cols.sweatIntensity),
+                    getValue(row, cols.environmentType),
+                    getValue(row, cols.sunReaction),
+                    getValue(row, cols.dailyProducts),
+                    getValue(row, cols.allergies),
+                    getValue(row, cols.animalRestrictions),
+                    getValue(row, cols.extraSoapInfo),
+                    getValue(row, cols.skinCuriosity),
+                    getValue(row, cols.extraSkinDetails),
+                    getValue(row, cols.extraEnvironmentInfo),
+                    getValue(row, cols.specialCareHabits),
+                    getValue(row, cols.personalConvictions)
+                ].map(value => (value || '').toLowerCase().trim()).join('|'));
+                if (questionnaireFingerprints.has(questionnaireFingerprint)) {
+                    continue;
+                }
                 const questionnaire: Questionnaire = {
                     id: questionnaireId,
                     clientId: baseClient.id,
@@ -416,6 +536,8 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
 
                 await QuestionnaireService.saveQuestionnaire(questionnaire);
                 questionnaireIds.add(questionnaireId);
+                questionnaireKeys.add(questionnaireKey);
+                questionnaireFingerprints.add(questionnaireFingerprint);
                 createdQuestionnaires += 1;
             }
 
