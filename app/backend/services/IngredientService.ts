@@ -3,7 +3,7 @@ import { Ingredient } from '../../shared/types/Ingredient';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { IdService } from './IdService';
 import { normalizeIngredient } from '../ingredients/IngredientNormalizer';
-import { migrateMissingKind } from '../ingredients/IngredientMigration';
+import { migrateMissingKind, removeDeprecatedIngredients } from '../ingredients/IngredientMigration';
 import { parseIngredientCSV } from '../ingredients/IngredientCsvParser';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
@@ -104,8 +104,9 @@ export class IngredientService extends BaseService {
 
     private persistKindMigration(): void {
         const items = this.repository.getAll();
-        const migration = migrateMissingKind(items);
-        if (migration.changed) {
+        const removal = removeDeprecatedIngredients(items);
+        const migration = migrateMissingKind(removal.items);
+        if (removal.changed || migration.changed) {
             this.repository.replaceAll(migration.items);
         }
     }
