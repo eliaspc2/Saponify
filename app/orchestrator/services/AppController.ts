@@ -15,6 +15,7 @@ import { RecipeService } from '../../backend/infrastructure/services/RecipeServi
 import { ClientService } from '../../backend/infrastructure/services/ClientService';
 import { IdService } from '../../backend/shared/ids/IdService';
 import { QuestionnaireService } from '../../backend/infrastructure/services/QuestionnaireService';
+import { getVersionInfo } from '../../backend/shared/versioning/VersionService';
 import type { Ingredient } from '../../shared/types/Ingredient';
 import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import type { Questionnaire } from '../../shared/types/Questionnaire';
@@ -52,6 +53,13 @@ export class AppController {
 
     // Contract: initialize orchestration (sync bootstrap + pending import handling).
     public async init(): Promise<boolean> {
+        const versionInfo = getVersionInfo();
+        console.info('[Noviessence] App Version Info');
+        console.info('App version:', versionInfo.appVersion);
+        console.info('Data schema: v' + versionInfo.dataSchemaVersion);
+        console.info('Domain fingerprint:', versionInfo.recipeDomainFingerprint);
+        console.info('Build time:', versionInfo.buildTime);
+
         this.backupService.setSyncProvider(this.syncProvider);
         if (this.syncProvider) {
             await this.syncProvider.start();

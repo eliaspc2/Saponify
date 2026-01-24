@@ -14,6 +14,7 @@ export type RecipeVersionInfo = {
     appVersion: string;
     dataSchemaVersion: number;
     recipeDomainFingerprint: string;
+    buildTime: string;
 };
 
 export interface Recipe {

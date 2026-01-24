@@ -23,6 +23,7 @@ const inputFiles = [
 const normalizeContent = (content) => content.replace(/\r\n/g, '\n');
 
 const sortedFiles = [...inputFiles].sort();
+const buildTime = new Date().toISOString();
 let combined = '';
 
 sortedFiles.forEach((relativePath) => {
@@ -39,6 +40,7 @@ const hash = crypto.createHash('sha256').update(combined, 'utf8').digest('hex');
 const outputPath = path.join(__dirname, 'DomainFingerprint.generated.ts');
 const output = [
     `export const RECIPE_DOMAIN_FINGERPRINT = '${hash}';`,
+    `export const BUILD_TIME = '${buildTime}';`,
     `export const RECIPE_DOMAIN_FINGERPRINT_INPUTS = ${JSON.stringify(sortedFiles, null, 4)} as const;`,
     ''
 ].join('\n');
