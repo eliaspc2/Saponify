@@ -402,13 +402,39 @@ export class AppController {
 
         const fats = (validated.phases.phase1_base_fatty || []).map((item) => mapIngredient(item));
         const liquid = validated.phases.phase2_lye?.liquid;
-        const liquids = liquid ? [mapIngredient(liquid)] : [];
+        const liquids: RecipeIngredient[] = [];
 
         const functionalAdditives: RecipeIngredient[] = [];
         const lyeAdditives: RecipeIngredient[] = [];
         const traceAdditives: RecipeIngredient[] = [];
         const superfatOils: RecipeIngredient[] = [];
         const essentialOils: RecipeIngredient[] = [];
+
+        if (liquid) {
+            const ingredient = ingredientById.get(liquid.ingredientId);
+            const menuKey = ingredient?.menuKey || '';
+            const kind = ingredient?.kind || '';
+            const mapped = mapIngredient(liquid);
+            const loweredName = (ingredient?.name || liquid.name || '').toLowerCase();
+            const isAlkaliName = loweredName.includes('naoh')
+                || loweredName.includes('koh')
+                || loweredName.includes('soda')
+                || loweredName.includes('potassa');
+
+            if (kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
+                liquids.push(mapped);
+            } else if (menuKey === 'functionalAdditives') {
+                functionalAdditives.push(mapped);
+            } else if (menuKey === 'lyeAdditives' && !isAlkaliName) {
+                lyeAdditives.push(mapped);
+            } else if (menuKey === 'traceAdditives') {
+                traceAdditives.push(mapped);
+            } else if (menuKey === 'essentialOils') {
+                essentialOils.push(mapped);
+            } else if (menuKey === 'superfatOils' || kind === 'oil') {
+                superfatOils.push(mapped);
+            }
+        }
 
         const pushByMenuKey = (item: GeneratedRecipeIngredient) => {
             const ingredient = ingredientById.get(item.ingredientId);

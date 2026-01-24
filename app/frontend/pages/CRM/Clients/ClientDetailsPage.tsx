@@ -307,18 +307,24 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
     }
 
     private renderRecipeGroup(title: string, items: RecipeIngredient[]) {
-        if (!items || items.length === 0) return null;
+        const hasItems = !!items && items.length > 0;
         return (
             <div>
                 <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.5rem' }}>{title}</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {items.map((item, idx) => (
-                        <div key={`${title}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                            <span>{item.name}</span>
-                            <span style={{ fontWeight: 700 }}>{item.amount}g</span>
-                        </div>
-                    ))}
-                </div>
+                {hasItems ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        {items.map((item, idx) => (
+                            <div key={`${title}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                <span>{item.name}</span>
+                                <span style={{ fontWeight: 700 }}>{item.amount}g</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                        Sem ingredientes.
+                    </div>
+                )}
             </div>
         );
     }
