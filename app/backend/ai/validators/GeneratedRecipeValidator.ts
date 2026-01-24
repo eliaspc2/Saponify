@@ -276,16 +276,24 @@ export class GeneratedRecipeValidator {
 
         if (Array.isArray(phase3)) {
             phase3.forEach((item, idx) => {
-                if (item && typeof item.ingredientId === 'string') {
-                    assertPhaseIngredient(
-                        item,
-                        `phases.phase3_trace[${idx}]`,
-                        ingredientIndex,
-                        ['traceAdditives', 'superfatOils', 'essentialOils'],
-                        ['additive', 'oil'],
-                        errors
-                    );
+                if (!item || typeof item.ingredientId !== 'string') return;
+                const meta = ingredientIndex.get(item.ingredientId);
+                const menuKey = meta?.menuKey || '';
+                const kind = meta?.kind || '';
+                if (kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
+                    return;
                 }
+                if (menuKey === 'lyeAdditives') {
+                    return;
+                }
+                assertPhaseIngredient(
+                    item,
+                    `phases.phase3_trace[${idx}]`,
+                    ingredientIndex,
+                    ['traceAdditives', 'superfatOils', 'essentialOils'],
+                    ['additive', 'oil'],
+                    errors
+                );
             });
         }
 

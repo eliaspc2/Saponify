@@ -414,6 +414,18 @@ export class AppController {
             const ingredient = ingredientById.get(item.ingredientId);
             const menuKey = ingredient?.menuKey || '';
             const mapped = mapIngredient(item);
+            const loweredName = (ingredient?.name || item.name || '').toLowerCase();
+            const isAlkaliName = loweredName.includes('naoh')
+                || loweredName.includes('koh')
+                || loweredName.includes('soda')
+                || loweredName.includes('potassa');
+
+            if (ingredient?.kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
+                return;
+            }
+            if (menuKey === 'lyeAdditives' && isAlkaliName) {
+                return;
+            }
 
             switch (menuKey) {
                 case 'essentialOils':

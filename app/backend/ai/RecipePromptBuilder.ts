@@ -216,6 +216,7 @@ export class RecipePromptBuilder {
             'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids ou menuKey=lyeLiquids. Preferir infusões/lichas existentes sempre que disponíveis.',
             'Fase 3 (phase3_trace): usar APENAS ingredientes de menuKey=traceAdditives, superfatOils ou essentialOils. O campo function deve refletir o subtipo (trace_additive | superfat_oil | essential_oil).',
             'Água e soda cáustica são calculadas pela app. Definir phase2_lye.naoh_calculated = 0 e phase2_lye.liquid.weight = 0.',
+            'Nunca incluir água ou soda cáustica dentro de phase3_trace.',
             'Justificação: preencher o campo rationale (array de strings) com as razões principais das escolhas.',
             'Se user_feedback estiver presente, incorporar essas notas na nova receita.',
             'Usar o valor target_lye_concentration_percent para technical.lye_concentration.',
