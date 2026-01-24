@@ -43,7 +43,9 @@ interface ClientDetailsState extends BasePageState {
     questionnaires: Questionnaire[];
     isProductionModalOpen: boolean;
     isRecipeModalOpen: boolean;
+    isQuestionnaireModalOpen: boolean;
     viewingRecipe: Recipe | null;
+    viewingQuestionnaire: Questionnaire | null;
     noteContent: string;
     isGeneratingAIRecipe: boolean;
     aiError: string | null;
@@ -73,7 +75,9 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             questionnaires: [],
             isProductionModalOpen: false,
             isRecipeModalOpen: false,
+            isQuestionnaireModalOpen: false,
             viewingRecipe: null,
+            viewingQuestionnaire: null,
             noteContent: '',
             selectedRecipeId: '',
             productionWeight: 0,
@@ -630,7 +634,20 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                         {this.state.questionnaires.map((q) => {
                                             const when = q.date || q.createdAt || q.updatedAt;
                                             return (
-                                                <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#F9FAFB', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                                                <div
+                                                    key={q.id}
+                                                    onClick={() => this.setState({ viewingQuestionnaire: q, isQuestionnaireModalOpen: true })}
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        padding: '0.75rem',
+                                                        background: '#F9FAFB',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        border: '1px solid #E5E7EB',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
                                                     <div>
                                                         <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Questionário</div>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--color-text-light)' }}>
@@ -656,7 +673,20 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                         {associatedRecipes.map(r => (
-                                            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#F9FAFB', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                                            <div
+                                                key={r.id}
+                                                onClick={() => this.setState({ viewingRecipe: r, isRecipeModalOpen: true })}
+                                                style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    padding: '0.75rem',
+                                                    background: '#F9FAFB',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid #E5E7EB',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
                                                 <div>
                                                     <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{r.name}</div>
                                                     <div style={{ fontSize: '0.7rem', color: 'var(--color-text-light)' }}>RE{r.code}</div>
@@ -665,7 +695,10 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                                     <button
                                                         title="Ver/Editar Receita"
                                                         className="btn btn-secondary"
-                                                        onClick={() => this.setState({ viewingRecipe: r, isRecipeModalOpen: true })}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            this.setState({ viewingRecipe: r, isRecipeModalOpen: true });
+                                                        }}
                                                         style={{ padding: '0.4rem', minWidth: 'auto', color: 'var(--color-primary)' }}
                                                     >
                                                         <FileText size={16} />
@@ -673,12 +706,15 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                                     <button
                                                         title="Produzir esta Receita"
                                                         className="btn btn-secondary"
-                                                        onClick={() => this.setState({
-                                                            selectedRecipeId: r.id,
-                                                            productionWeight: this.getTotalFats(r),
-                                                            productionDate: new Date().toISOString().split('T')[0],
-                                                            isProductionModalOpen: true
-                                                        })}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            this.setState({
+                                                                selectedRecipeId: r.id,
+                                                                productionWeight: this.getTotalFats(r),
+                                                                productionDate: new Date().toISOString().split('T')[0],
+                                                                isProductionModalOpen: true
+                                                            });
+                                                        }}
                                                         style={{ padding: '0.4rem', minWidth: 'auto', color: 'var(--color-accent)' }}
                                                     >
                                                         <Beaker size={16} />
@@ -815,6 +851,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     {/* Modals inner */}
                     {this.renderProductionModal()}
                     {this.renderRecipeModal()}
+                    {this.renderQuestionnaireModal()}
                 </div>
             </Modal>
         );
@@ -1057,6 +1094,68 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                             value={viewingRecipe.notes || ''}
                             onChange={(e) => updateField('notes', e.target.value)}
                         />
+                    </div>
+                </div>
+            </Modal>
+        );
+    }
+
+    private renderQuestionnaireModal() {
+        const { viewingQuestionnaire } = this.state;
+        if (!viewingQuestionnaire) return null;
+
+        const renderField = (label: string, value: string | string[] | undefined) => {
+            const text = Array.isArray(value) ? value.join(', ') : (value || '—');
+            return (
+                <div style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.25rem' }}>{label}</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{text}</div>
+                </div>
+            );
+        };
+
+        return (
+            <Modal
+                isOpen={this.state.isQuestionnaireModalOpen}
+                onClose={() => this.setState({ isQuestionnaireModalOpen: false, viewingQuestionnaire: null })}
+                title={`Questionário: ${viewingQuestionnaire.clientName || 'Cliente'}`}
+                maxWidth="900px"
+                footer={
+                    <button className="btn btn-secondary" onClick={() => this.setState({ isQuestionnaireModalOpen: false, viewingQuestionnaire: null })}>Fechar</button>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div className="modal-grid-2">
+                        {renderField('Data', viewingQuestionnaire.date)}
+                        {renderField('Faixa Etária', viewingQuestionnaire.ageGroup)}
+                        {renderField('Frequência de Uso', viewingQuestionnaire.usageFrequency)}
+                        {renderField('Zonas de Uso', viewingQuestionnaire.usageZones)}
+                        {renderField('Reação Anterior', viewingQuestionnaire.previousReaction)}
+                        {renderField('Info extra (sabão)', viewingQuestionnaire.extraSoapInfo)}
+                        {renderField('Oleosidade', viewingQuestionnaire.oiliness)}
+                        {renderField('Repuxamento', viewingQuestionnaire.drynessAfterWash)}
+                        {renderField('Comichão', viewingQuestionnaire.irritationFrequency)}
+                        {renderField('Curiosidade da pele', viewingQuestionnaire.skinCuriosity)}
+                        {renderField('Problemas de pele', viewingQuestionnaire.skinProblems)}
+                        {renderField('Problemas outros', viewingQuestionnaire.skinProblemsOther)}
+                        {renderField('Medicações', viewingQuestionnaire.medications)}
+                        {renderField('Medicações outras', viewingQuestionnaire.medicationsOther)}
+                        {renderField('Detalhes pele', viewingQuestionnaire.extraSkinDetails)}
+                        {renderField('Qualidade do sono', viewingQuestionnaire.sleepQuality)}
+                        {renderField('Tipo de dieta', viewingQuestionnaire.dietType)}
+                        {renderField('Ingestão de água', viewingQuestionnaire.waterIntake)}
+                        {renderField('Transpiração', viewingQuestionnaire.sweatIntensity)}
+                        {renderField('Ambiente', viewingQuestionnaire.environmentType)}
+                        {renderField('Reação ao sol', viewingQuestionnaire.sunReaction)}
+                        {renderField('Info ambiente', viewingQuestionnaire.extraEnvironmentInfo)}
+                        {renderField('Produtos diários', viewingQuestionnaire.dailyProducts)}
+                        {renderField('Produtos diários (outros)', viewingQuestionnaire.dailyProductsOther)}
+                        {renderField('Cuidados especiais', viewingQuestionnaire.specialCareHabits)}
+                        {renderField('Alergias', viewingQuestionnaire.allergies)}
+                        {renderField('Alergias outras', viewingQuestionnaire.allergiesOther)}
+                        {renderField('Restrições animais', viewingQuestionnaire.animalProductRestrictions)}
+                        {renderField('Restrições outras', viewingQuestionnaire.animalProductRestrictionsOther)}
+                        {renderField('Convicções pessoais', viewingQuestionnaire.personalConvictions)}
                     </div>
                 </div>
             </Modal>

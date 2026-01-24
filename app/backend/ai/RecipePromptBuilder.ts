@@ -171,6 +171,11 @@ export class RecipePromptBuilder {
             'Óleos essenciais: usar sempre que possível e seguro; dose base 5 ml por receita completa. Selecionar conforme perfil de pele.',
             'Restrições éticas: respeitar vegan/vegetariano/religioso/alergias.',
             'Equilíbrio técnico final: limpeza + suavidade + espuma + durabilidade.',
+            'NOMES DE RECEITA: "Sabonete" para uso cutâneo regular e "Sabão" para uso doméstico/técnico. Estrutura obrigatória: Sabonete|Sabão + Função principal + Qualificador(es).',
+            'Função principal é o objetivo dominante (ex.: Suavizante, Calmante, Nutritivo, Regenerador, Purificante, Equilibrante, Sensorial, Protetor, Multiusos). Evitar múltiplas funções no núcleo do nome.',
+            'Qualificadores opcionais (máx. 2) apenas para clarificar uso: tipo de pele, contexto, público, perfil sensorial.',
+            'Não incluir ingredientes no nome, exceto se definem inequivocamente a função. Nunca incluir nome do cliente, datas ou quantidades.',
+            'Nome deve ser descritivo, neutro, reprodutível e válido fora do contexto do cliente. Não usar termos promocionais.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
         ].join('\n');
     }
@@ -292,7 +297,7 @@ export class RecipePromptBuilder {
         };
 
         const example1 = buildExample(
-            'Exemplo A (1kg óleos)',
+            'Sabonete Suavizante para Pele Sensível',
             example1Oils.length ? example1Oils : pick(baseOils, 1),
             example1Oils.length >= 3 ? [50, 30, 20] : example1Oils.length === 2 ? [60, 40] : [100],
             essentialOils.slice(0, 1),
@@ -301,7 +306,7 @@ export class RecipePromptBuilder {
         );
 
         const example2 = buildExample(
-            'Exemplo B (1kg óleos)',
+            'Sabonete Equilibrante Uso Diário',
             example2Oils.length ? example2Oils : pick(baseOils, 1),
             example2Oils.length >= 3 ? [40, 35, 25] : example2Oils.length === 2 ? [70, 30] : [100],
             essentialOils.slice(1, 2),

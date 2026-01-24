@@ -486,15 +486,6 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                         <p style={{ fontSize: '0.75rem', color: '#B91C1C', marginTop: '0.4rem' }}>{openaiModelsError}</p>
                                     )}
                                 </div>
-                                <div>
-                                    <button
-                                        className="btn btn-primary"
-                                        style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }}
-                                        onClick={() => this.handleSave()}
-                                    >
-                                        <Save size={18} /> Guardar
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
