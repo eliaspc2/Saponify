@@ -16,6 +16,10 @@ import { ClientService } from '../../backend/infrastructure/services/ClientServi
 import { IdService } from '../../backend/shared/ids/IdService';
 import { QuestionnaireService } from '../../backend/infrastructure/services/QuestionnaireService';
 import { getVersionInfo } from '../../backend/shared/versioning/VersionService';
+import { AnalyticsUseCase } from '../../backend/application/analytics/AnalyticsUseCase';
+import type { ProductionStats } from '../../backend/domain/analytics/productionAnalytics';
+import type { ClientConsumptionStats } from '../../backend/domain/analytics/clientConsumptionAnalytics';
+import type { ClientConsumptionAlertResult } from '../../backend/domain/analytics/clientConsumptionAlert';
 import type { Ingredient } from '../../shared/types/Ingredient';
 import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import type { Questionnaire } from '../../shared/types/Questionnaire';
@@ -40,6 +44,7 @@ export class AppController {
     private calculatorUseCase: CalculatorUseCase;
     private openAIProvider: OpenAIProvider;
     private lastExamplePairKeys: string[] = [];
+    private analyticsUseCase: AnalyticsUseCase;
 
     constructor({ backupService, syncProvider, settingsService, calculatorUseCase }: AppControllerDeps) {
         this.backupService = backupService;
@@ -49,6 +54,7 @@ export class AppController {
         this.lastDataVersion = getDataVersion();
         this.calculatorUseCase = calculatorUseCase;
         this.openAIProvider = new OpenAIProvider(this.settingsService);
+        this.analyticsUseCase = AnalyticsUseCase.getInstance();
     }
 
     // Contract: initialize orchestration (sync bootstrap + pending import handling).
@@ -80,6 +86,21 @@ export class AppController {
     // Contract: high-level status for external integrations (no IO, no side-effects).
     public hasAIConfigured(): boolean {
         return this.openAIProvider.isConfigured();
+    }
+
+    // Contract: production analytics (delegates to backend application use case).
+    public getProductionStats(lastMonths: number): ProductionStats {
+        return this.analyticsUseCase.getProductionStats(lastMonths);
+    }
+
+    // Contract: client consumption analytics (delegates to backend application use case).
+    public getClientConsumptionStats(clientId: string): ClientConsumptionStats {
+        return this.analyticsUseCase.getClientConsumptionStats(clientId);
+    }
+
+    // Contract: client consumption alert (delegates to backend application use case).
+    public getClientConsumptionAlert(clientId: string): ClientConsumptionAlertResult {
+        return this.analyticsUseCase.getClientConsumptionAlert(clientId);
     }
 
     // Contract: fetch available OpenAI models via backend provider.
