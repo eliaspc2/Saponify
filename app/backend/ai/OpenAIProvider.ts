@@ -30,7 +30,7 @@ export class OpenAIProvider {
         return client.generateJson(prompt);
     }
 
-    async generateAndValidateRecipe(prompt: object): Promise<ValidatedRecipe> {
+    async generateAndValidateRecipe(prompt: object): Promise<{ validated: ValidatedRecipe; response: object }> {
         const availableIngredients = (prompt as any)?.available_ingredients;
         const rules = (prompt as any)?.rules;
         if (!Array.isArray(availableIngredients)) {
@@ -39,10 +39,11 @@ export class OpenAIProvider {
         try {
             const response = await this.generateJson(prompt);
             try {
-                return GeneratedRecipeValidator.validate(response, {
+                const validated = GeneratedRecipeValidator.validate(response, {
                     availableIngredients,
                     rules
                 });
+                return { validated, response };
             } catch (error) {
                 const err = new Error((error as Error)?.message || 'Resposta inválida da IA.');
                 (err as any).debug = {

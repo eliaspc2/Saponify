@@ -222,7 +222,7 @@ export class RecipePromptBuilder {
             'Usar o valor target_lye_concentration_percent para technical.lye_concentration.',
             'Se iteration_context.mode="revision", considerar current_pair.recipe como estado atual e ajustar a partir dele.',
             'Usar conversation_history apenas como contexto, nunca repetir texto fora de assistant_message.',
-            'assistant_message: responder ao utilizador em linguagem natural (curto), explicando se alterou algo.',
+            'assistant_message: responder ao utilizador em linguagem natural (curto), explicando se alterou algo. Se mencionar ingredientes, indicar o ingredientId entre parêntesis.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
         ].join('\n');
     }

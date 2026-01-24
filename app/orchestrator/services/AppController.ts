@@ -130,7 +130,7 @@ export class AppController {
             conversationHistory: existingRecipe?.aiConversation || []
         });
 
-        const validated = await this.openAIProvider.generateAndValidateRecipe(prompt);
+        const { validated, response } = await this.openAIProvider.generateAndValidateRecipe(prompt);
         const recipe = this.mapValidatedRecipeToRecipe(
             validated,
             clientId,
@@ -140,6 +140,9 @@ export class AppController {
             existingRecipe,
             userMessage
         );
+        recipe.aiLastPrompt = prompt;
+        recipe.aiLastResponse = response;
+        recipe.aiLastResponseAt = new Date().toISOString();
 
         if (existingRecipe) {
             recipe.id = existingRecipe.id;

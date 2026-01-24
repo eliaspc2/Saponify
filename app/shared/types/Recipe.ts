@@ -45,4 +45,7 @@ export interface Recipe {
         message: string;
         timestamp: string;
     }>;
+    aiLastPrompt?: object;
+    aiLastResponse?: object;
+    aiLastResponseAt?: string;
 }

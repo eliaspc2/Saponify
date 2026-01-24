@@ -1206,6 +1206,20 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                             >
                                 {this.state.isGeneratingAIRecipe ? 'A gerar...' : 'Enviar e recalcular'}
                             </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => this.downloadJsonFile(
+                                    `${viewingRecipe.code || 'receita'}_ia_debug.json`,
+                                    {
+                                        prompt: viewingRecipe.aiLastPrompt || null,
+                                        response: viewingRecipe.aiLastResponse || null,
+                                        responseAt: viewingRecipe.aiLastResponseAt || null,
+                                        conversation: viewingRecipe.aiConversation || []
+                                    }
+                                )}
+                            >
+                                Exportar IA (JSON)
+                            </button>
                         </div>
                     </div>
 
