@@ -1214,6 +1214,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                         prompt: viewingRecipe.aiLastPrompt || null,
                                         response: viewingRecipe.aiLastResponse || null,
                                         responseAt: viewingRecipe.aiLastResponseAt || null,
+                                        responseText: this.state.aiDebugResponse || null,
                                         conversation: viewingRecipe.aiConversation || []
                                     }
                                 )}
