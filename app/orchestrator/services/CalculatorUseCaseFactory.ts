@@ -1,4 +1,5 @@
-import type { CalculatorUseCase } from '../../backend/calculator/CalculatorUseCase';
-import { CalculatorEngine } from '../../backend/calculator/CalculatorEngine';
+import type { CalculatorUseCase } from '../../backend/application/calculator/CalculatorUseCase';
+import { CalculatorEngine } from '../../backend/domain/calculator/CalculatorEngine';
 
 export const createCalculatorUseCase = (): CalculatorUseCase => new CalculatorEngine();
+

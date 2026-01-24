@@ -1,13 +1,13 @@
 import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Client } from '../../../../shared/types/Client';
-import { ClientService } from '../../../../backend/services/ClientService';
-import { ClientActivityService } from '../../../../backend/services/ClientActivityService';
+import { ClientService } from '../../../../backend/infrastructure/services/ClientService';
+import { ClientActivityService } from '../../../../backend/infrastructure/services/ClientActivityService';
 import { Plus, Trash2, Edit2, Check, User, AlertTriangle, Beaker, Clock, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
-import { RecipeService } from '../../../../backend/services/RecipeService';
-import { RecipeDomainService } from '../../../../backend/services/RecipeDomainService';
-import { QuestionnaireService } from '../../../../backend/services/QuestionnaireService';
+import { RecipeService } from '../../../../backend/infrastructure/services/RecipeService';
+import { RecipeDomainService } from '../../../../backend/application/recipes/RecipeDomainService';
+import { QuestionnaireService } from '../../../../backend/infrastructure/services/QuestionnaireService';
 import { Recipe } from '../../../../shared/types/Recipe';
 import { Questionnaire } from '../../../../shared/types/Questionnaire';
 import { ClientDetailsPage } from './ClientDetailsPage';
@@ -1070,3 +1070,4 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
         );
     }
 }
+

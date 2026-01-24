@@ -1,4 +1,4 @@
-import { SettingsService } from '../services/SettingsService';
+import { SettingsService } from '../infrastructure/services/SettingsService';
 import { OpenAIClient } from './OpenAIClient';
 import { GeneratedRecipeValidator } from './validators/GeneratedRecipeValidator';
 import type { ValidatedRecipe } from './schemas/GeneratedRecipeSchema';

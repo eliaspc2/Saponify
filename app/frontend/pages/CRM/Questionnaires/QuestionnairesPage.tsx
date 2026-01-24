@@ -2,8 +2,8 @@ import React from 'react';
 import { BaseListPage, BaseListPageState } from '../../../core/BaseListPage';
 import { StatCard } from '../../../templates/StatsHeader';
 import { Questionnaire } from '../../../../shared/types/Questionnaire';
-import { QuestionnaireService } from '../../../../backend/services/QuestionnaireService';
-import { ClientService } from '../../../../backend/services/ClientService';
+import { QuestionnaireService } from '../../../../backend/infrastructure/services/QuestionnaireService';
+import { ClientService } from '../../../../backend/infrastructure/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Modal } from '../../../components/Modal';
 import { Plus, Trash2, Edit2, FileText, Upload, Download } from 'lucide-react';
@@ -614,3 +614,4 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
         );
     }
 }
+

@@ -1,20 +1,20 @@
-import { BackupService } from '../../backend/services/BackupService';
-import type { ISyncProvider } from '../../backend/services/ISyncProvider';
-import { SettingsService } from '../../backend/services/SettingsService';
-import { AutoBackupStorage } from '../../backend/services/AutoBackupStorage';
-import { getDataVersion } from '../../backend/utils/dataVersion';
-import type { CalculatorUseCase } from '../../backend/calculator/CalculatorUseCase';
-import type { CalculatorInput, CalculatorResult } from '../../backend/calculator/CalculatorModels';
+import { BackupService } from '../../backend/application/backup/BackupService';
+import type { ISyncProvider } from '../../backend/infrastructure/sync/ISyncProvider';
+import { SettingsService } from '../../backend/infrastructure/services/SettingsService';
+import { AutoBackupStorage } from '../../backend/infrastructure/storage/AutoBackupStorage';
+import { getDataVersion } from '../../backend/shared/versioning/dataVersion';
+import type { CalculatorUseCase } from '../../backend/application/calculator/CalculatorUseCase';
+import type { CalculatorInput, CalculatorResult } from '../../backend/domain/calculator/CalculatorModels';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
 import { OpenAIProvider } from '../../backend/ai/OpenAIProvider';
 import { RecipePromptBuilder } from '../../backend/ai/RecipePromptBuilder';
 import type { ValidatedRecipe, GeneratedRecipeIngredient } from '../../backend/ai/schemas/GeneratedRecipeSchema';
-import { IngredientService } from '../../backend/services/IngredientService';
-import { RecipeService } from '../../backend/services/RecipeService';
-import { ClientService } from '../../backend/services/ClientService';
-import { IdService } from '../../backend/services/IdService';
-import { QuestionnaireService } from '../../backend/services/QuestionnaireService';
+import { IngredientService } from '../../backend/infrastructure/services/IngredientService';
+import { RecipeService } from '../../backend/infrastructure/services/RecipeService';
+import { ClientService } from '../../backend/infrastructure/services/ClientService';
+import { IdService } from '../../backend/shared/ids/IdService';
+import { QuestionnaireService } from '../../backend/infrastructure/services/QuestionnaireService';
 import type { Ingredient } from '../../shared/types/Ingredient';
 import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import type { Questionnaire } from '../../shared/types/Questionnaire';
@@ -552,3 +552,4 @@ export class AppController {
         return recipe;
     }
 }
+

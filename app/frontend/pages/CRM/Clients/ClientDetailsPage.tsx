@@ -2,12 +2,12 @@ import React from 'react';
 import { BasePage, BasePageState } from '../../../core/BasePage';
 import { Client } from '../../../../shared/types/Client';
 import { ClientActivity, ProductionDetails } from '../../../../shared/types/ClientActivity';
-import { ClientService } from '../../../../backend/services/ClientService';
-import { ClientActivityService } from '../../../../backend/services/ClientActivityService';
-import { RecipeService } from '../../../../backend/services/RecipeService';
-import { RecipeDomainService } from '../../../../backend/services/RecipeDomainService';
+import { ClientService } from '../../../../backend/infrastructure/services/ClientService';
+import { ClientActivityService } from '../../../../backend/infrastructure/services/ClientActivityService';
+import { RecipeService } from '../../../../backend/infrastructure/services/RecipeService';
+import { RecipeDomainService } from '../../../../backend/application/recipes/RecipeDomainService';
 import { Recipe, RecipeIngredient } from '../../../../shared/types/Recipe';
-import { IngredientService } from '../../../../backend/services/IngredientService';
+import { IngredientService } from '../../../../backend/infrastructure/services/IngredientService';
 import {
     User,
     Phone,
@@ -24,7 +24,7 @@ import {
     Trash2
 } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
-import { QuestionnaireService } from '../../../../backend/services/QuestionnaireService';
+import { QuestionnaireService } from '../../../../backend/infrastructure/services/QuestionnaireService';
 import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 import type { Questionnaire } from '../../../../shared/types/Questionnaire';
 import type { AppController } from '../../../../orchestrator/services/AppController';
@@ -1312,3 +1312,4 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         return super.render();
     }
 }
+

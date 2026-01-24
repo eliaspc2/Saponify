@@ -1,10 +1,10 @@
 import { BasePage, BasePageState } from '../../core/BasePage';
-import { SettingsService } from '../../../backend/services/SettingsService';
+import { SettingsService } from '../../../backend/infrastructure/services/SettingsService';
 import type { AppSettings } from '../../../shared/settings/AppSettings';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff, Sparkles } from 'lucide-react';
-import { BackupService } from '../../../backend/services/BackupService';
+import { BackupService } from '../../../backend/application/backup/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
 import type { AppController } from '../../../orchestrator/services/AppController';
 
@@ -783,3 +783,4 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         );
     }
 }
+

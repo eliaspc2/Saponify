@@ -1,6 +1,6 @@
-import type { ISyncProvider } from '../../backend/services/ISyncProvider';
+import type { ISyncProvider } from '../../backend/infrastructure/sync/ISyncProvider';
 import { FirestoreSyncService } from './FirestoreSyncService';
-import { AutoBackupStorage } from '../../backend/services/AutoBackupStorage';
+import { AutoBackupStorage } from '../../backend/infrastructure/storage/AutoBackupStorage';
 
 export class FirestoreSyncProvider implements ISyncProvider {
     private storage: AutoBackupStorage;
@@ -31,3 +31,4 @@ export class FirestoreSyncProvider implements ISyncProvider {
             && service.hasCompletedInitialSync();
     }
 }
+
