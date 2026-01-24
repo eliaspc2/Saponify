@@ -187,7 +187,7 @@ export class RecipePromptBuilder {
             'Nome deve ser descritivo, neutro, reprodutível e válido fora do contexto do cliente. Não usar termos promocionais.',
             'USO DE INGREDIENTES: só usar IDs presentes em available_ingredients e respeitar o menuKey/phase correto.',
             'Fase 1 (phase1_base_fatty): usar APENAS ingredientes de menuKey=baseOils.',
-            'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids. Não inventar infusões que não existam.',
+            'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids ou menuKey=lyeLiquids. Não inventar infusões que não existam.',
             'Fase 3 (phase3_trace): usar APENAS ingredientes de menuKey=traceAdditives, superfatOils ou essentialOils. O campo function deve refletir o subtipo (trace_additive | superfat_oil | essential_oil).',
             'Água e soda cáustica são calculadas pela app. Definir phase2_lye.naoh_calculated = 0 e phase2_lye.liquid.weight = 0.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
@@ -197,9 +197,10 @@ export class RecipePromptBuilder {
     private groupIngredientsByPhase(availableIngredients: object[]) {
         const items = (availableIngredients || []) as IngredientLike[];
         const byKey = (menuKey: string) => items.filter((i) => i.menuKey === menuKey);
+        const byKeys = (keys: string[]) => items.filter((i) => keys.includes(i.menuKey || ''));
         return {
             phase1_base_fatty: byKey('baseOils'),
-            phase2_liquids: byKey('liquids'),
+            phase2_liquids: byKeys(['liquids', 'lyeLiquids']),
             phase3_trace_additives: byKey('traceAdditives'),
             phase3_superfat_oils: byKey('superfatOils'),
             phase3_essential_oils: byKey('essentialOils')
@@ -209,7 +210,7 @@ export class RecipePromptBuilder {
     private buildExamples(availableIngredients: object[], targetOilsWeight: number): ExampleRecipe[] {
         const items = (availableIngredients || []) as IngredientLike[];
         const baseOils = items.filter((i) => (i.menuKey === 'baseOils' || i.kind === 'oil') && (i.sapNaOH || 0) > 0);
-        const liquids = items.filter((i) => i.menuKey === 'liquids' || i.kind === 'water');
+        const liquids = items.filter((i) => i.menuKey === 'liquids' || i.menuKey === 'lyeLiquids' || i.kind === 'water');
         const essentialOils = items.filter((i) => i.menuKey === 'essentialOils');
         const traceAdditives = items.filter((i) => i.menuKey === 'traceAdditives');
         const superfatOils = items.filter((i) => i.menuKey === 'superfatOils');

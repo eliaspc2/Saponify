@@ -252,7 +252,7 @@ export class GeneratedRecipeValidator {
                 item,
                 'phases.phase2_lye.liquid',
                 ingredientIndex,
-                ['liquids'],
+                ['liquids', 'lyeLiquids'],
                 ['water'],
                 errors
             );
