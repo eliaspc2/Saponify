@@ -70,7 +70,7 @@ function App() {
                     appController={controllerRef.current!}
                 />;
             case 'settings':
-                return <SettingsPage title="Configurações" />;
+                return <SettingsPage title="Configurações" appController={controllerRef.current!} />;
             default:
                 // Fallback for pages not yet implemented
                 return (

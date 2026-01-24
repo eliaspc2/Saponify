@@ -3,9 +3,14 @@ import { SettingsService } from '../../../backend/services/SettingsService';
 import type { AppSettings } from '../../../shared/settings/AppSettings';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
-import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff } from 'lucide-react';
+import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { BackupService } from '../../../backend/services/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
+import type { AppController } from '../../../orchestrator/services/AppController';
+
+type SettingsPageProps = {
+    appController: AppController;
+};
 
 interface SettingsState extends BasePageState {
     settings: AppSettings;
@@ -22,6 +27,9 @@ interface SettingsState extends BasePageState {
     remoteDeviceId: string;
     localBackupUpdatedAt: string;
     localBackupSize: string;
+    openaiApiKeyDraft: string;
+    openaiApiKeyTouched: boolean;
+    hasStoredOpenaiKey: boolean;
 }
 
 const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
@@ -32,9 +40,10 @@ const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
 const AUTO_BACKUP_TS_KEY = StorageKeys.AUTO_BACKUP_TIMESTAMP;
 const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
 
-export class SettingsPage extends BasePage<{}, SettingsState> {
+export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
 
     protected getInitialState(): Partial<SettingsState> {
+        const storedSettings = SettingsService.getInstance().getSettings();
         const storedEnabled = localStorage.getItem(SYNC_ENABLED_KEY);
         const storedDeviceId = localStorage.getItem(DEVICE_ID_KEY) || '';
         const storedLastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
@@ -42,8 +51,10 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
         const storedLocalTs = localStorage.getItem(AUTO_BACKUP_TS_KEY) || '';
         const storedLocalData = localStorage.getItem(AUTO_BACKUP_KEY) || '';
         const storedSyncPassword = localStorage.getItem(SYNC_PASSWORD_KEY) || '';
+        const hasStoredOpenaiKey = !!storedSettings.openaiApiKey;
+        const normalizedOpenaiModel = storedSettings.openaiModel || 'gpt-4.1-mini';
         return {
-            settings: SettingsService.getInstance().getSettings(),
+            settings: { ...storedSettings, openaiModel: normalizedOpenaiModel },
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
             deviceId: storedDeviceId,
             authEmail: '',
@@ -56,7 +67,10 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             remoteUpdatedAt: '',
             remoteDeviceId: '',
             localBackupUpdatedAt: storedLocalTs,
-            localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes'
+            localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes',
+            openaiApiKeyDraft: '',
+            openaiApiKeyTouched: false,
+            hasStoredOpenaiKey
         };
     }
 
@@ -78,19 +92,30 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
     }
 
     private async handleSave() {
-        SettingsService.getInstance().updateSettings(this.state.settings);
+        const nextSettings = { ...this.state.settings };
+        if (this.state.openaiApiKeyTouched) {
+            nextSettings.openaiApiKey = this.state.openaiApiKeyDraft.trim();
+        }
+        if (!nextSettings.openaiModel) {
+            nextSettings.openaiModel = 'gpt-4.1-mini';
+        }
+        SettingsService.getInstance().updateSettings(nextSettings);
         this.persistSyncSettings();
 
         // Realizar backup automático se ativo
-        if (this.state.settings.autoBackupEnabled) {
+        if (nextSettings.autoBackupEnabled) {
             await BackupService.getInstance().performAutoBackup();
             this.refreshLocalBackupStatus();
         }
 
         alert('Configurações guardadas com sucesso!');
+        const refreshedSettings = SettingsService.getInstance().getSettings();
         this.setState({
-            settings: SettingsService.getInstance().getSettings(),
-            deviceId: localStorage.getItem(DEVICE_ID_KEY) || this.state.deviceId
+            settings: refreshedSettings,
+            deviceId: localStorage.getItem(DEVICE_ID_KEY) || this.state.deviceId,
+            openaiApiKeyDraft: '',
+            openaiApiKeyTouched: false,
+            hasStoredOpenaiKey: !!refreshedSettings.openaiApiKey
         });
     }
 
@@ -252,6 +277,10 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
             localBackupUpdatedAt,
             localBackupSize
         } = this.state;
+        const aiConfigured = this.props.appController.hasAIConfigured();
+        const apiKeyPlaceholder = this.state.hasStoredOpenaiKey && !this.state.openaiApiKeyTouched
+            ? '********'
+            : 'Introduza a API key';
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -359,6 +388,54 @@ export class SettingsPage extends BasePage<{}, SettingsState> {
                                     <option value="imperial">Imperial (Oz/Lb)</option>
                                 </select>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Inteligência Artificial */}
+                <div className="card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.8rem' }}>
+                        <Sparkles size={20} color="var(--color-primary)" />
+                        <h3 style={{ margin: 0 }}>Inteligência Artificial (OpenAI)</h3>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div style={{ fontSize: '0.85rem', color: aiConfigured ? '#15803D' : '#B45309' }}>
+                            {aiConfigured ? '✅ IA configurada' : '⚠️ IA não configurada'}
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>API Key</label>
+                            <input
+                                type="password"
+                                value={this.state.openaiApiKeyTouched ? this.state.openaiApiKeyDraft : ''}
+                                onChange={(e) => {
+                                    this.setState({ openaiApiKeyDraft: e.target.value, openaiApiKeyTouched: true });
+                                }}
+                                placeholder={apiKeyPlaceholder}
+                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                            />
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
+                                A API key nunca é mostrada nem validada nesta página.
+                            </p>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Modelo</label>
+                            <select
+                                value={settings.openaiModel || 'gpt-4.1-mini'}
+                                onChange={(e) => this.handleUpdate('openaiModel', e.target.value)}
+                                style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                            >
+                                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                                <option value="gpt-4.1">gpt-4.1</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button
+                                className="btn btn-primary"
+                                style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }}
+                                onClick={() => this.handleSave()}
+                            >
+                                <Save size={18} /> Guardar
+                            </button>
                         </div>
                     </div>
                 </div>
