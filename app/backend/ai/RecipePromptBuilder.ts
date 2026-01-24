@@ -11,6 +11,12 @@ export type RecipePromptParams = {
     }>;
     userFeedback?: string;
     targetLyeConcentration?: number;
+    currentRecipe?: object;
+    conversationHistory?: Array<{
+        role: 'user' | 'assistant';
+        message: string;
+        timestamp: string;
+    }>;
 };
 
 type IngredientLike = {
@@ -71,7 +77,7 @@ type ExampleRecipe = {
 
 export class RecipePromptBuilder {
     buildRecipePrompt(params: RecipePromptParams): object {
-        const { clientForm, availableIngredients, examplePairs, userFeedback } = params;
+        const { clientForm, availableIngredients, examplePairs, userFeedback, currentRecipe, conversationHistory } = params;
         const targetOilsWeight = params.targetOilsWeight || 1000;
         const targetLyeConcentration = typeof params.targetLyeConcentration === 'number'
             ? params.targetLyeConcentration
@@ -79,6 +85,7 @@ export class RecipePromptBuilder {
         const examples = this.buildExamples(availableIngredients, targetOilsWeight, targetLyeConcentration);
         const productionRules = this.getProductionRules();
         const ingredientsByPhase = this.groupIngredientsByPhase(availableIngredients);
+        const isRevision = !!currentRecipe;
 
         return {
             role: 'soap_recipe_generation_engine',
@@ -106,6 +113,14 @@ export class RecipePromptBuilder {
             available_ingredients_by_phase: ingredientsByPhase,
             example_pairs: Array.isArray(examplePairs) ? examplePairs : [],
             user_feedback: (userFeedback || '').trim(),
+            iteration_context: {
+                mode: isRevision ? 'revision' : 'initial',
+                current_pair: isRevision ? {
+                    questionnaire: clientForm,
+                    recipe: currentRecipe
+                } : null,
+                conversation_history: Array.isArray(conversationHistory) ? conversationHistory : []
+            },
             output_contract: {
                 description: 'Responder apenas com uma receita de sabonete válida e importável',
                 format: 'json',
@@ -198,12 +213,14 @@ export class RecipePromptBuilder {
             'Nome deve ser descritivo, neutro, reprodutível e válido fora do contexto do cliente. Não usar termos promocionais.',
             'USO DE INGREDIENTES: só usar IDs presentes em available_ingredients e respeitar o menuKey/phase correto.',
             'Fase 1 (phase1_base_fatty): usar APENAS ingredientes de menuKey=baseOils.',
-            'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids ou menuKey=lyeLiquids. Não inventar infusões que não existam.',
+            'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids ou menuKey=lyeLiquids. Preferir infusões/lichas existentes sempre que disponíveis.',
             'Fase 3 (phase3_trace): usar APENAS ingredientes de menuKey=traceAdditives, superfatOils ou essentialOils. O campo function deve refletir o subtipo (trace_additive | superfat_oil | essential_oil).',
             'Água e soda cáustica são calculadas pela app. Definir phase2_lye.naoh_calculated = 0 e phase2_lye.liquid.weight = 0.',
             'Justificação: preencher o campo rationale (array de strings) com as razões principais das escolhas.',
             'Se user_feedback estiver presente, incorporar essas notas na nova receita.',
             'Usar o valor target_lye_concentration_percent para technical.lye_concentration.',
+            'Se iteration_context.mode="revision", considerar current_pair.recipe como estado atual e ajustar a partir dele.',
+            'Usar conversation_history apenas como contexto, nunca repetir texto fora de assistant_message.',
             'assistant_message: responder ao utilizador em linguagem natural (curto), explicando se alterou algo.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
         ].join('\n');
@@ -216,6 +233,8 @@ export class RecipePromptBuilder {
         return {
             phase1_base_fatty: byKey('baseOils'),
             phase2_liquids: byKeys(['liquids', 'lyeLiquids']),
+            phase2_functional_additives: byKey('functionalAdditives'),
+            phase2_lye_additives: byKey('lyeAdditives'),
             phase3_trace_additives: byKey('traceAdditives'),
             phase3_superfat_oils: byKey('superfatOils'),
             phase3_essential_oils: byKey('essentialOils')

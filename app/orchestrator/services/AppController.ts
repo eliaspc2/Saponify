@@ -111,12 +111,23 @@ export class AppController {
         const userMessage = feedback?.trim();
 
         const examplePairs = await this.buildExamplePairs(ingredients);
+        const currentRecipe = existingRecipe
+            ? this.mapRecipeToGeneratedExample(
+                existingRecipe,
+                ingredients,
+                this.calculateRecipe({ recipe: existingRecipe, ingredients }).results.waterAmount,
+                this.calculateRecipe({ recipe: existingRecipe, ingredients }).results.alkaliAmount
+            )
+            : undefined;
+
         const prompt = new RecipePromptBuilder().buildRecipePrompt({
             clientForm: questionnaire,
             availableIngredients: ingredients,
             examplePairs,
             userFeedback: feedbackCombined,
-            targetLyeConcentration
+            targetLyeConcentration,
+            currentRecipe,
+            conversationHistory: existingRecipe?.aiConversation || []
         });
 
         const validated = await this.openAIProvider.generateAndValidateRecipe(prompt);
@@ -204,7 +215,7 @@ export class AppController {
         }));
     }
 
-    private mapRecipeToGeneratedExample(recipe: Recipe, ingredients: Ingredient[]) {
+    private mapRecipeToGeneratedExample(recipe: Recipe, ingredients: Ingredient[], waterAmount?: number, alkaliAmount?: number) {
         const ingredientById = new Map(ingredients.map(item => [item.id, item]));
         const totalFats = recipe.fats.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
         const safeName = (name?: string) => {
@@ -235,13 +246,13 @@ export class AppController {
             ingredientId: liquidSource.ingredientId || liquidSource.id,
             name: liquidSource.name,
             percentage: 0,
-            weight: 0,
+            weight: typeof waterAmount === 'number' ? parseFloat(waterAmount.toFixed(2)) : 0,
             function: 'liquid'
         } : {
             ingredientId: 'water',
             name: 'Água',
             percentage: 0,
-            weight: 0,
+            weight: typeof waterAmount === 'number' ? parseFloat(waterAmount.toFixed(2)) : 0,
             function: 'liquid'
         };
 
@@ -265,7 +276,7 @@ export class AppController {
                 phase2_lye: {
                     liquid,
                     lye_type: recipe.alkali || 'NaOH',
-                    naoh_calculated: 0,
+                    naoh_calculated: typeof alkaliAmount === 'number' ? parseFloat(alkaliAmount.toFixed(2)) : 0,
                     compensations_applied: citricIngredient ? ['citric_acid'] : []
                 },
                 phase3_trace: [
