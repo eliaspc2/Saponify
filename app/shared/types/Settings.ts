@@ -19,6 +19,7 @@ export interface AppSettings {
     // Integrações externas (IA)
     openaiApiKey: string;
     openaiModel: string;
+    openaiModels: string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -37,5 +38,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     autoBackupPassword: '',
     lastAutoBackup: null,
     openaiApiKey: '',
-    openaiModel: 'gpt-4o-mini'
+    openaiModel: 'gpt-4o-mini',
+    openaiModels: []
 };

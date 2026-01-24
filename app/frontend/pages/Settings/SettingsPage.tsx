@@ -57,8 +57,9 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         const storedSyncPassword = localStorage.getItem(SYNC_PASSWORD_KEY) || '';
         const hasStoredOpenaiKey = !!storedSettings.openaiApiKey;
         const normalizedOpenaiModel = storedSettings.openaiModel || 'gpt-4.1-mini';
+        const storedOpenaiModels = Array.isArray(storedSettings.openaiModels) ? storedSettings.openaiModels : [];
         return {
-            settings: { ...storedSettings, openaiModel: normalizedOpenaiModel },
+            settings: { ...storedSettings, openaiModel: normalizedOpenaiModel, openaiModels: storedOpenaiModels },
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
             deviceId: storedDeviceId,
             authEmail: '',
@@ -76,7 +77,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             openaiApiKeyTouched: false,
             hasStoredOpenaiKey,
             showOpenaiApiKey: false,
-            openaiModels: [],
+            openaiModels: storedOpenaiModels,
             openaiModelsLoading: false,
             openaiModelsError: ''
         };
@@ -106,7 +107,12 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             if (currentModel && !unique.includes(currentModel)) {
                 unique.unshift(currentModel);
             }
-            this.setState({ openaiModels: unique, openaiModelsLoading: false });
+            SettingsService.getInstance().updateSettings({ openaiModels: unique });
+            this.setState(prev => ({
+                openaiModels: unique,
+                openaiModelsLoading: false,
+                settings: { ...prev.settings, openaiModels: unique }
+            }));
         } catch (error) {
             this.setState({
                 openaiModels: [],
@@ -314,7 +320,8 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             ? '********'
             : 'Introduza a API key';
         const fallbackModels = ['gpt-4.1-mini', 'gpt-4.1'];
-        const modelsToShow = openaiModels.length > 0 ? openaiModels : fallbackModels;
+        const persistedModels = settings.openaiModels && settings.openaiModels.length > 0 ? settings.openaiModels : [];
+        const modelsToShow = openaiModels.length > 0 ? openaiModels : (persistedModels.length > 0 ? persistedModels : fallbackModels);
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
