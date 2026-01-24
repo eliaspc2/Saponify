@@ -3,7 +3,7 @@ import { Ingredient } from '../../shared/types/Ingredient';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { IdService } from './IdService';
 import { normalizeIngredient } from '../ingredients/IngredientNormalizer';
-import { migrateMissingKind, removeDeprecatedIngredients } from '../ingredients/IngredientMigration';
+import { migrateMissingKind, removeDeprecatedIngredients, removeDuplicateIngredients } from '../ingredients/IngredientMigration';
 import { parseIngredientCSV } from '../ingredients/IngredientCsvParser';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
@@ -45,18 +45,11 @@ export class IngredientService extends BaseService {
             }
             this.initialized = true;
             const storedIngredients = [...this.repository.getAll()];
-            this.log('Fetching ingredients csv...');
-            const response = await fetch(`${import.meta.env.BASE_URL}${AppConstants.DEFAULT_INGREDIENTS_CSV_PATH}`);
-            const csvText = await response.text();
-            const csvIngredients = parseIngredientCSV(csvText).map(ingredient => normalizeIngredient(ingredient));
-            if (storedIngredients.length > 0) {
-                const csvIds = new Set(csvIngredients.map(ingredient => ingredient.id));
-                const customIngredients = storedIngredients
-                    .filter(ingredient => !csvIds.has(ingredient.id))
-                    .map(ingredient => normalizeIngredient(ingredient));
-                const merged = [...csvIngredients, ...customIngredients];
-                this.repository.replaceAll(merged);
-            } else {
+            if (storedIngredients.length === 0) {
+                this.log('Fetching ingredients csv...');
+                const response = await fetch(`${import.meta.env.BASE_URL}${AppConstants.DEFAULT_INGREDIENTS_CSV_PATH}`);
+                const csvText = await response.text();
+                const csvIngredients = parseIngredientCSV(csvText).map(ingredient => normalizeIngredient(ingredient));
                 this.repository.replaceAll(csvIngredients);
             }
             this.persistKindMigration();
@@ -105,8 +98,9 @@ export class IngredientService extends BaseService {
     private persistKindMigration(): void {
         const items = this.repository.getAll();
         const removal = removeDeprecatedIngredients(items);
-        const migration = migrateMissingKind(removal.items);
-        if (removal.changed || migration.changed) {
+        const deduped = removeDuplicateIngredients(removal.items);
+        const migration = migrateMissingKind(deduped.items);
+        if (removal.changed || deduped.changed || migration.changed) {
             this.repository.replaceAll(migration.items);
         }
     }

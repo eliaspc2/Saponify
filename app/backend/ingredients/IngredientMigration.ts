@@ -35,3 +35,22 @@ export const removeDeprecatedIngredients = (ingredients: Ingredient[]) => {
     });
     return { items: filtered, changed };
 };
+
+export const removeDuplicateIngredients = (ingredients: Ingredient[]) => {
+    const seen = new Set<string>();
+    let changed = false;
+    const filtered = ingredients.filter((ingredient) => {
+        const key = [
+            normalizeText(ingredient.name || ''),
+            normalizeText(ingredient.inci || ''),
+            normalizeText(ingredient.menuKey || '')
+        ].join('|');
+        if (seen.has(key)) {
+            changed = true;
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+    return { items: filtered, changed };
+};
