@@ -7,6 +7,8 @@ import { CalculatorEngine } from '../../domain/calculator/CalculatorEngine';
 import { ClientActivityService } from '../../infrastructure/services/ClientActivityService';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 import { getVersionInfo } from '../../shared/versioning/VersionService';
+import { getDataSchemaVersion } from '../../shared/versioning/DataSchemaVersion';
+import { runMigrations } from '../../shared/migrations';
 
 export class BackupComposer {
     public async exportAllData(): Promise<string> {
@@ -45,10 +47,20 @@ export class BackupComposer {
 
     public async importAllData(jsonString: string): Promise<boolean> {
         try {
-            const data = JSON.parse(jsonString);
+            let data = JSON.parse(jsonString);
 
             if (!data.recipes || !data.clients || !data.settings) {
                 throw new Error('Formato de backup inválido');
+            }
+
+            // Migration hook (disabled by default; no-op for now).
+            const shouldRunMigrations = false;
+            if (shouldRunMigrations) {
+                const storedVersion = typeof data?.meta?.versionInfo?.dataSchemaVersion === 'number'
+                    ? data.meta.versionInfo.dataSchemaVersion
+                    : getDataSchemaVersion();
+                const result = runMigrations(data, storedVersion, getDataSchemaVersion());
+                data = result.data;
             }
 
             // 1. Settings
