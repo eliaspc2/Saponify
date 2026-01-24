@@ -109,6 +109,10 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
     private async loadData() {
         const client = ClientService.getInstance().getById(this.props.clientId);
         if (client) {
+            const ingredientService = IngredientService.getInstance();
+            if (ingredientService.getAll().length === 0) {
+                await ingredientService.loadInitialData();
+            }
             const activities = ClientActivityService.getInstance().getActivities(client.id);
             const recipes = RecipeService.getInstance().getAll().filter(r => r.clientId === client.id);
             const questionnaires = await QuestionnaireService.getQuestionnaires();
@@ -955,6 +959,64 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         const { viewingRecipe } = this.state;
         if (!viewingRecipe) return null;
 
+        const ingredientService = IngredientService.getInstance();
+        const ingredients = ingredientService.getAll();
+        let calculatedWater = 0;
+        let calculatedAlkali = 0;
+        let liquidsDisplay = viewingRecipe.liquids;
+        let lyeAdditivesDisplay = viewingRecipe.lyeAdditives;
+
+        if (ingredients.length > 0) {
+            try {
+                const calc = this.props.appController.calculateRecipe({ recipe: viewingRecipe, ingredients });
+                calculatedWater = calc.results.waterAmount;
+                calculatedAlkali = calc.results.alkaliAmount;
+
+                const ingredientById = new Map(ingredients.map(item => [item.id, item]));
+                const waterIngredient = ingredients.find(ing => ing.kind === 'water');
+                const hasWater = viewingRecipe.liquids.some(item => {
+                    const ing = ingredientById.get(item.ingredientId);
+                    return ing?.kind === 'water';
+                });
+
+                liquidsDisplay = viewingRecipe.liquids.map(item => {
+                    const ing = ingredientById.get(item.ingredientId);
+                    if (ing?.kind === 'water') {
+                        return { ...item, amount: parseFloat(calculatedWater.toFixed(2)) };
+                    }
+                    return item;
+                });
+
+                if (!hasWater && waterIngredient) {
+                    liquidsDisplay = [
+                        {
+                            id: 'calc-water',
+                            ingredientId: waterIngredient.id,
+                            name: waterIngredient.name,
+                            amount: parseFloat(calculatedWater.toFixed(2)),
+                            percentage: 0,
+                            role: 'water'
+                        },
+                        ...liquidsDisplay
+                    ];
+                }
+
+                const alkaliLabel = viewingRecipe.alkali === 'KOH' ? 'Potassa (KOH)' : 'Soda Cáustica (NaOH)';
+                const alkaliItem: RecipeIngredient = {
+                    id: 'calc-alkali',
+                    ingredientId: 'calc-alkali',
+                    name: alkaliLabel,
+                    amount: parseFloat(calculatedAlkali.toFixed(2)),
+                    percentage: 0,
+                    role: 'other'
+                };
+                lyeAdditivesDisplay = [alkaliItem, ...viewingRecipe.lyeAdditives];
+            } catch {
+                liquidsDisplay = viewingRecipe.liquids;
+                lyeAdditivesDisplay = viewingRecipe.lyeAdditives;
+            }
+        }
+
         const handleSave = () => {
             RecipeDomainService.getInstance().save(viewingRecipe);
             this.setState({ isRecipeModalOpen: false, viewingRecipe: null });
@@ -1075,9 +1137,9 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     <div className="modal-grid-2" style={{ gap: '2rem' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {this.renderRecipeGroup('Fase 1: Gorduras', viewingRecipe.fats)}
-                            {this.renderRecipeGroup('Fase 2: Líquidos', viewingRecipe.liquids)}
+                            {this.renderRecipeGroup('Fase 2: Líquidos', liquidsDisplay)}
                             {this.renderRecipeGroup('Fase 2: Aditivos Funcionais', viewingRecipe.functionalAdditives)}
-                            {this.renderRecipeGroup('Fase 2: Aditivos da Lixívia', viewingRecipe.lyeAdditives)}
+                            {this.renderRecipeGroup('Fase 2: Aditivos da Lixívia', lyeAdditivesDisplay)}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {this.renderRecipeGroup('Fase 3: Aditivos Traço', viewingRecipe.traceAdditives)}
