@@ -131,6 +131,17 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
         }
     }
 
+    private getRecipeNameFromActivity(activity: ClientActivity): string {
+        const recipeId = activity.details?.recipeId;
+        if (recipeId) {
+            const recipe = RecipeService.getInstance().getById(recipeId);
+            if (recipe?.name) {
+                return recipe.name;
+            }
+        }
+        return activity.details?.recipeName || activity.title || 'Receita';
+    }
+
     private renderRecipeGroup(title: string, items: RecipeIngredient[]) {
         if (!items || items.length === 0) return null;
         return (
@@ -333,7 +344,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        <div style={{ fontWeight: 700 }}>{a.details?.recipeName}</div>
+                                        <div style={{ fontWeight: 700 }}>{this.getRecipeNameFromActivity(a)}</div>
                                         <div style={{ opacity: 0.85, fontSize: '0.75rem' }}>
                                             Pronto em: {new Date(a.details?.physicalReadyDate || '').toLocaleDateString()}
                                         </div>
