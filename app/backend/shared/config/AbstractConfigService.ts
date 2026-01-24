@@ -3,7 +3,7 @@ import { touchDataVersion } from '../versioning/dataVersion';
 
 type MergeFn<T> = (defaults: T, stored: unknown) => T;
 
-export class AbstractConfigService<T> extends BaseService {
+export class AbstractConfigService<T> extends BaseService<T> {
     protected storageKey: string;
     protected defaults: T;
     protected data: T;

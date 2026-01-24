@@ -14,6 +14,7 @@ export class ClientActivityService extends BaseService {
             deserialize: (raw) => Array.isArray(raw) ? raw : [],
             serialize: (items) => items
         });
+        this.setRepository(this.repository);
     }
 
     public static getInstance(): ClientActivityService {
@@ -24,11 +25,11 @@ export class ClientActivityService extends BaseService {
     }
 
     public getAllActivities(): ClientActivity[] {
-        return this.repository.getAll();
+        return this.getAllItems();
     }
 
     public getActivities(clientId: string): ClientActivity[] {
-        return this.repository.getAll()
+        return this.getAllItems()
             .filter(activity => activity.clientId === clientId)
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }
@@ -39,20 +40,20 @@ export class ClientActivityService extends BaseService {
             idKey: 'id',
             timestampKey: 'timestamp'
         });
-        this.repository.add(normalized);
+        this.addItem(normalized);
     }
 
     public deleteActivity(activityId: string): void {
-        this.repository.delete(activityId);
+        this.deleteItem(activityId);
     }
 
     public deleteByClient(clientId: string): void {
-        const remaining = this.repository.getAll().filter(activity => activity.clientId !== clientId);
-        this.repository.replaceAll(remaining);
+        const remaining = this.getAllItems().filter(activity => activity.clientId !== clientId);
+        this.replaceAllItems(remaining);
     }
 
     public replaceAll(activities: ClientActivity[]): void {
-        this.repository.replaceAll(activities || []);
+        this.replaceAllItems(activities || []);
     }
 }
 

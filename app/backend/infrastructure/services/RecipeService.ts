@@ -22,6 +22,7 @@ export class RecipeService extends BaseService {
                 this.handleError(new Error('Failed to parse recipes from storage'));
             }
         });
+        this.setRepository(this.repository);
     }
 
     static getInstance(): RecipeService {
@@ -32,11 +33,11 @@ export class RecipeService extends BaseService {
     }
 
     getAll(): Recipe[] {
-        return this.repository.getAll();
+        return this.getAllItems();
     }
 
     getById(id: string): Recipe | undefined {
-        return this.repository.getById(id);
+        return this.getByIdItem(id);
     }
 
     save(recipe: Recipe) {
@@ -45,7 +46,7 @@ export class RecipeService extends BaseService {
     }
 
     delete(id: string) {
-        this.repository.delete(id);
+        this.deleteItem(id);
     }
 
     getNextCode(): string {
@@ -61,7 +62,7 @@ export class RecipeService extends BaseService {
 
     replaceAll(recipes: Recipe[]): void {
         const normalized = (recipes || []).map((recipe) => this.normalizeRecipe(recipe));
-        this.repository.replaceAll(normalized);
+        this.replaceAllItems(normalized);
     }
 
     private normalizeRecipe(recipe: Recipe): Recipe {

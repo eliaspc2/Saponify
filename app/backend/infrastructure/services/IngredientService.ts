@@ -29,6 +29,7 @@ export class IngredientService extends BaseService {
                 items
             })
         });
+        this.setRepository(this.repository);
     }
 
     static getInstance(): IngredientService {
@@ -60,7 +61,7 @@ export class IngredientService extends BaseService {
     }
 
     getAll(): Ingredient[] {
-        return this.repository.getAll();
+        return this.getAllItems();
     }
 
     addIngredient(ingredient: Ingredient): void {
@@ -68,15 +69,15 @@ export class IngredientService extends BaseService {
         if (!ingredient.id) {
             ingredient.id = `user_${IdService.create()}`;
         }
-        this.repository.add(normalizeIngredient(ingredient));
+        this.addItem(normalizeIngredient(ingredient));
     }
 
     deleteIngredient(id: string): void {
-        this.repository.delete(id);
+        this.deleteItem(id);
     }
 
     updateIngredient(updated: Ingredient): void {
-        this.repository.update(normalizeIngredient(updated));
+        this.updateItem(normalizeIngredient(updated));
     }
 
     upsertIngredient(ingredient: Ingredient): void {
@@ -84,7 +85,7 @@ export class IngredientService extends BaseService {
         if (!normalized.id) {
             normalized.id = `user_${IdService.create()}`;
         }
-        this.repository.upsert(normalized);
+        this.upsertItem(normalized);
     }
 
     replaceAll(ingredients: Ingredient[], markInitialized = true): void {
@@ -92,7 +93,7 @@ export class IngredientService extends BaseService {
         if (markInitialized) {
             this.initialized = true;
         }
-        this.repository.replaceAll(normalized);
+        this.replaceAllItems(normalized);
     }
 
     private persistKindMigration(): void {

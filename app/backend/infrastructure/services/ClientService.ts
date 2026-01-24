@@ -14,6 +14,7 @@ export class ClientService extends BaseService {
             deserialize: (raw) => Array.isArray(raw) ? raw : [],
             serialize: (items) => items
         });
+        this.setRepository(this.repository);
     }
 
     public static getInstance(): ClientService {
@@ -24,11 +25,11 @@ export class ClientService extends BaseService {
     }
 
     public getAll(): Client[] {
-        return this.repository.getAll();
+        return this.getAllItems();
     }
 
     public getById(id: string): Client | undefined {
-        return this.repository.getById(id);
+        return this.getByIdItem(id);
     }
 
     public save(client: Client): void {
@@ -42,11 +43,11 @@ export class ClientService extends BaseService {
     }
 
     public delete(id: string): void {
-        this.repository.delete(id);
+        this.deleteItem(id);
     }
 
     public replaceAll(clients: Client[]): void {
-        this.repository.replaceAll(clients || []);
+        this.replaceAllItems(clients || []);
     }
 }
 
