@@ -5,6 +5,10 @@ export type RecipePromptParams = {
     clientForm: object;
     availableIngredients: object[];
     targetOilsWeight?: number;
+    examplePairs?: Array<{
+        questionnaire: object;
+        recipe: object;
+    }>;
 };
 
 type IngredientLike = {
@@ -63,10 +67,11 @@ type ExampleRecipe = {
 
 export class RecipePromptBuilder {
     buildRecipePrompt(params: RecipePromptParams): object {
-        const { clientForm, availableIngredients } = params;
+        const { clientForm, availableIngredients, examplePairs } = params;
         const targetOilsWeight = params.targetOilsWeight || 1000;
         const examples = this.buildExamples(availableIngredients, targetOilsWeight);
         const productionRules = this.getProductionRules();
+        const ingredientsByPhase = this.groupIngredientsByPhase(availableIngredients);
 
         return {
             role: 'soap_recipe_generation_engine',
@@ -78,7 +83,9 @@ export class RecipePromptBuilder {
                 use_only_provided_ingredients: true,
                 respect_all_rules: true,
                 include_essential_oils_when_possible: true,
-                target_oils_weight_scope: 'phase1_base_fatty_only'
+                target_oils_weight_scope: 'phase1_base_fatty_only',
+                phase2_lye_calculated_by_app: true,
+                phase2_liquid_weight_calculated_by_app: true
             },
             rules: {
                 core: coreRules,
@@ -88,6 +95,8 @@ export class RecipePromptBuilder {
             target_oils_weight_g: targetOilsWeight,
             client_questionnaire: clientForm,
             available_ingredients: availableIngredients,
+            available_ingredients_by_phase: ingredientsByPhase,
+            example_pairs: Array.isArray(examplePairs) ? examplePairs : [],
             output_contract: {
                 description: 'Responder apenas com uma receita de sabonete válida e importável',
                 format: 'json',
@@ -176,8 +185,25 @@ export class RecipePromptBuilder {
             'Qualificadores opcionais (máx. 2) apenas para clarificar uso: tipo de pele, contexto, público, perfil sensorial.',
             'Não incluir ingredientes no nome, exceto se definem inequivocamente a função. Nunca incluir nome do cliente, datas ou quantidades.',
             'Nome deve ser descritivo, neutro, reprodutível e válido fora do contexto do cliente. Não usar termos promocionais.',
+            'USO DE INGREDIENTES: só usar IDs presentes em available_ingredients e respeitar o menuKey/phase correto.',
+            'Fase 1 (phase1_base_fatty): usar APENAS ingredientes de menuKey=baseOils.',
+            'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids. Não inventar infusões que não existam.',
+            'Fase 3 (phase3_trace): usar APENAS ingredientes de menuKey=traceAdditives, superfatOils ou essentialOils. O campo function deve refletir o subtipo (trace_additive | superfat_oil | essential_oil).',
+            'Água e soda cáustica são calculadas pela app. Definir phase2_lye.naoh_calculated = 0 e phase2_lye.liquid.weight = 0.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
         ].join('\n');
+    }
+
+    private groupIngredientsByPhase(availableIngredients: object[]) {
+        const items = (availableIngredients || []) as IngredientLike[];
+        const byKey = (menuKey: string) => items.filter((i) => i.menuKey === menuKey);
+        return {
+            phase1_base_fatty: byKey('baseOils'),
+            phase2_liquids: byKey('liquids'),
+            phase3_trace_additives: byKey('traceAdditives'),
+            phase3_superfat_oils: byKey('superfatOils'),
+            phase3_essential_oils: byKey('essentialOils')
+        };
     }
 
     private buildExamples(availableIngredients: object[], targetOilsWeight: number): ExampleRecipe[] {
@@ -206,21 +232,12 @@ export class RecipePromptBuilder {
             }));
         };
 
-        const computeNaoh = (phase1: ExampleIngredient[], superfat: number) => {
-            const total = phase1.reduce((sum, item) => {
-                const ing = items.find((i) => (i.id || i.ingredientId) === item.ingredientId);
-                const sap = ing?.sapNaOH || 0.13;
-                return sum + item.weight * sap;
-            }, 0);
-            return parseFloat((total * (1 - superfat / 100)).toFixed(2));
-        };
-
         const buildExample = (name: string, oils: IngredientLike[], percents: number[], essential: IngredientLike[], trace: IngredientLike[], superfatList: IngredientLike[]): ExampleRecipe => {
             const phase1 = makePhase1(oils, percents);
             const superfat = 6;
-            const lyeConcentration = 30;
-            const naoh = computeNaoh(phase1, superfat);
-            const waterAmount = parseFloat((naoh * ((100 - lyeConcentration) / lyeConcentration)).toFixed(1));
+            const lyeConcentration = 0;
+            const naoh = 0;
+            const waterAmount = 0;
             const liquid: ExampleIngredient = {
                 ingredientId: water?.id || water?.ingredientId || 'water',
                 name: water?.name || 'Água',

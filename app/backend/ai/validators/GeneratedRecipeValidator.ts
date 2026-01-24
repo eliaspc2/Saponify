@@ -54,6 +54,41 @@ const extractIngredientIds = (availableIngredients: object[]): Set<string> => {
     return ids;
 };
 
+const buildIngredientIndex = (availableIngredients: object[]): Map<string, { menuKey?: string; kind?: string }> => {
+    const index = new Map<string, { menuKey?: string; kind?: string }>();
+    for (const item of availableIngredients) {
+        if (!isPlainObject(item)) continue;
+        const id = (item as any).id || (item as any).ingredientId || (item as any).ref;
+        if (typeof id !== 'string' || !id.trim()) continue;
+        index.set(id, {
+            menuKey: typeof (item as any).menuKey === 'string' ? (item as any).menuKey : undefined,
+            kind: typeof (item as any).kind === 'string' ? (item as any).kind : undefined
+        });
+    }
+    return index;
+};
+
+const assertPhaseIngredient = (
+    item: GeneratedRecipeIngredient,
+    path: string,
+    ingredientIndex: Map<string, { menuKey?: string; kind?: string }>,
+    allowedMenuKeys: string[],
+    allowedKinds: string[],
+    errors: string[]
+) => {
+    const meta = ingredientIndex.get(item.ingredientId);
+    if (!meta) return;
+    const menuKey = meta.menuKey || '';
+    const kind = meta.kind || '';
+    if (menuKey && !allowedMenuKeys.includes(menuKey)) {
+        errors.push(`${path}: ingrediente não permitido nesta fase (menuKey=${menuKey}).`);
+        return;
+    }
+    if (!menuKey && allowedKinds.length && kind && !allowedKinds.includes(kind)) {
+        errors.push(`${path}: ingrediente não permitido nesta fase (kind=${kind}).`);
+    }
+};
+
 const extractCitricFactor = (rules?: any): number => {
     const formula = rules?.citric_acid_rules?.naoh_adjustment?.formula;
     if (typeof formula === 'string') {
@@ -183,6 +218,7 @@ export class GeneratedRecipeValidator {
         if (ingredientIds.size === 0) {
             errors.push('availableIngredients: lista inválida ou vazia.');
         }
+        const ingredientIndex = buildIngredientIndex(context.availableIngredients || []);
 
         const allIngredients: GeneratedRecipeIngredient[] = [];
         if (Array.isArray(phase1)) allIngredients.push(...phase1);
@@ -193,6 +229,54 @@ export class GeneratedRecipeValidator {
             if (item && typeof item.ingredientId === 'string' && !ingredientIds.has(item.ingredientId)) {
                 errors.push(`Ingrediente não permitido: ${item.ingredientId}.`);
             }
+        }
+
+        if (Array.isArray(phase1)) {
+            phase1.forEach((item, idx) => {
+                if (item && typeof item.ingredientId === 'string') {
+                    assertPhaseIngredient(
+                        item,
+                        `phases.phase1_base_fatty[${idx}]`,
+                        ingredientIndex,
+                        ['baseOils'],
+                        ['oil'],
+                        errors
+                    );
+                }
+            });
+        }
+
+        if (isPlainObject(phase2) && isPlainObject(phase2.liquid)) {
+            const item = phase2.liquid as GeneratedRecipeIngredient;
+            assertPhaseIngredient(
+                item,
+                'phases.phase2_lye.liquid',
+                ingredientIndex,
+                ['liquids'],
+                ['water'],
+                errors
+            );
+            if (typeof phase2.naoh_calculated === 'number' && Math.abs(phase2.naoh_calculated) > 0.0001) {
+                errors.push('phases.phase2_lye.naoh_calculated: deve ser 0 (calculado pela app).');
+            }
+            if (typeof item.weight === 'number' && Math.abs(item.weight) > 0.0001) {
+                errors.push('phases.phase2_lye.liquid.weight: deve ser 0 (calculado pela app).');
+            }
+        }
+
+        if (Array.isArray(phase3)) {
+            phase3.forEach((item, idx) => {
+                if (item && typeof item.ingredientId === 'string') {
+                    assertPhaseIngredient(
+                        item,
+                        `phases.phase3_trace[${idx}]`,
+                        ingredientIndex,
+                        ['traceAdditives', 'superfatOils', 'essentialOils'],
+                        ['additive', 'oil'],
+                        errors
+                    );
+                }
+            });
         }
 
         if (Array.isArray(phase1)) {

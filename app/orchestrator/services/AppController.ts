@@ -14,8 +14,10 @@ import { IngredientService } from '../../backend/services/IngredientService';
 import { RecipeService } from '../../backend/services/RecipeService';
 import { ClientService } from '../../backend/services/ClientService';
 import { IdService } from '../../backend/services/IdService';
+import { QuestionnaireService } from '../../backend/services/QuestionnaireService';
 import type { Ingredient } from '../../shared/types/Ingredient';
 import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
+import type { Questionnaire } from '../../shared/types/Questionnaire';
 
 type AppControllerDeps = {
     backupService: BackupService;
@@ -96,15 +98,159 @@ export class AppController {
             throw new Error('Ingredientes indisponíveis.');
         }
 
+        const examplePairs = await this.buildExamplePairs(ingredients);
         const prompt = new RecipePromptBuilder().buildRecipePrompt({
             clientForm: questionnaire,
-            availableIngredients: ingredients
+            availableIngredients: ingredients,
+            examplePairs
         });
 
         const validated = await this.openAIProvider.generateAndValidateRecipe(prompt);
         const recipe = this.mapValidatedRecipeToRecipe(validated, clientId, ingredients);
         RecipeService.getInstance().save(recipe);
         return recipe;
+    }
+
+    private async buildExamplePairs(ingredients: Ingredient[]): Promise<Array<{ questionnaire: object; recipe: object }>> {
+        const questionnaires = await QuestionnaireService.getQuestionnaires();
+        const recipes = RecipeService.getInstance().getAll();
+        const recipesByClient = new Map<string, Recipe[]>();
+
+        recipes.forEach((recipe) => {
+            if (!recipe.clientId) return;
+            if (!recipesByClient.has(recipe.clientId)) {
+                recipesByClient.set(recipe.clientId, []);
+            }
+            recipesByClient.get(recipe.clientId)!.push(recipe);
+        });
+
+        const pairs: Array<{ questionnaire: Questionnaire; recipe: Recipe }> = [];
+        questionnaires.forEach((q) => {
+            const clientId = q.clientId;
+            if (!clientId) return;
+            const clientRecipes = recipesByClient.get(clientId) || [];
+            if (!clientRecipes.length) return;
+            const latestRecipe = [...clientRecipes].sort((a, b) => {
+                const aTime = new Date(a.date || '').getTime();
+                const bTime = new Date(b.date || '').getTime();
+                return bTime - aTime;
+            })[0];
+            if (latestRecipe) {
+                pairs.push({ questionnaire: q, recipe: latestRecipe });
+            }
+        });
+
+        if (!pairs.length) return [];
+
+        for (let i = pairs.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+        }
+
+        return pairs.slice(0, 2).map((pair) => ({
+            questionnaire: pair.questionnaire,
+            recipe: this.mapRecipeToGeneratedExample(pair.recipe, ingredients)
+        }));
+    }
+
+    private mapRecipeToGeneratedExample(recipe: Recipe, ingredients: Ingredient[]) {
+        const ingredientById = new Map(ingredients.map(item => [item.id, item]));
+        const totalFats = recipe.fats.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+        const safeName = (name?: string) => {
+            const value = (name || '').trim();
+            if (!value) return 'Sabonete Suavizante Uso Diário';
+            if (value.startsWith('Sabonete ') || value.startsWith('Sabão ')) return value;
+            return `Sabonete ${value}`;
+        };
+
+        const mapBase = (item: RecipeIngredient) => ({
+            ingredientId: item.ingredientId,
+            name: item.name,
+            percentage: totalFats > 0 ? parseFloat(((item.amount / totalFats) * 100).toFixed(2)) : 0,
+            weight: item.amount,
+            function: 'base_oil'
+        });
+
+        const mapTrace = (item: RecipeIngredient, fn: string) => ({
+            ingredientId: item.ingredientId,
+            name: item.name,
+            percentage: 0,
+            weight: item.amount,
+            function: fn
+        });
+
+        const liquidSource = recipe.liquids[0] || ingredients.find((ing) => ing.kind === 'water');
+        const liquid = liquidSource ? {
+            ingredientId: liquidSource.ingredientId || liquidSource.id,
+            name: liquidSource.name,
+            percentage: 0,
+            weight: 0,
+            function: 'liquid'
+        } : {
+            ingredientId: 'water',
+            name: 'Água',
+            percentage: 0,
+            weight: 0,
+            function: 'liquid'
+        };
+
+        const essentialTotal = recipe.essentialOils.reduce((sum, item) => sum + (item.amount || 0), 0);
+        const essentialPct = totalFats > 0 ? parseFloat(((essentialTotal / totalFats) * 100).toFixed(2)) : 0;
+
+        const citricIngredient = recipe.lyeAdditives.find((item) => {
+            const ing = ingredientById.get(item.ingredientId);
+            return !!ing?.flags?.citricAcid;
+        });
+
+        return {
+            metadata: {
+                recipeName: safeName(recipe.name),
+                clientId: recipe.clientId || 'CLIENT_ID',
+                createdAt: this.toIsoDate(recipe.date),
+                source: 'ai'
+            },
+            phases: {
+                phase1_base_fatty: recipe.fats.map(mapBase),
+                phase2_lye: {
+                    liquid,
+                    lye_type: recipe.alkali || 'NaOH',
+                    naoh_calculated: 0,
+                    compensations_applied: citricIngredient ? ['citric_acid'] : []
+                },
+                phase3_trace: [
+                    ...recipe.traceAdditives.map(item => mapTrace(item, 'trace_additive')),
+                    ...recipe.superfatOils.map(item => mapTrace(item, 'superfat_oil')),
+                    ...recipe.essentialOils.map(item => mapTrace(item, 'essential_oil'))
+                ]
+            },
+            technical: {
+                superfat_initial: recipe.superfat || 0,
+                superfat_final: recipe.superfat || 0,
+                lye_concentration: recipe.waterConcentration || 0,
+                citric_acid: {
+                    used: !!citricIngredient,
+                    weight: citricIngredient?.amount || 0,
+                    naoh_adjustment: 0
+                },
+                essential_oils_total_percentage: essentialPct
+            },
+            curing: {
+                days: 30,
+                calculation_basis: 'média',
+                estimated_ready_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            },
+            technical_notes: ['Exemplo derivado de dados reais para referência de formato.']
+        };
+    }
+
+    private toIsoDate(dateStr?: string): string {
+        if (dateStr) {
+            const parsed = new Date(`${dateStr}T00:00:00`);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed.toISOString();
+            }
+        }
+        return new Date().toISOString();
     }
 
     private onStateChanged(): void {
