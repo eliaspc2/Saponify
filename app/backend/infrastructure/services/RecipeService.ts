@@ -6,13 +6,13 @@ import { normalizeEntity } from '../../shared/normalizers/EntityNormalizer';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 
-export class RecipeService extends BaseService {
+export class RecipeService extends BaseService<Recipe> {
     private static instance: RecipeService;
-    private repository: LocalStorageRepository<Recipe>;
+    private storageRepository: LocalStorageRepository<Recipe>;
 
     private constructor() {
         super('RecipeService');
-        this.repository = new LocalStorageRepository<Recipe>(StorageKeys.RECIPES, {
+        this.storageRepository = new LocalStorageRepository<Recipe>(StorageKeys.RECIPES, {
             deserialize: (raw) => {
                 const items = Array.isArray(raw) ? raw : [];
                 return items.map((recipe) => this.normalizeRecipe(recipe));
@@ -22,7 +22,7 @@ export class RecipeService extends BaseService {
                 this.handleError(new Error('Failed to parse recipes from storage'));
             }
         });
-        this.setRepository(this.repository);
+        this.setRepository(this.storageRepository);
     }
 
     static getInstance(): RecipeService {
@@ -42,7 +42,7 @@ export class RecipeService extends BaseService {
 
     save(recipe: Recipe) {
         const normalized = this.normalizeRecipe(recipe);
-        this.repository.upsert(normalized);
+        this.storageRepository.upsert(normalized);
     }
 
     delete(id: string) {
@@ -50,7 +50,7 @@ export class RecipeService extends BaseService {
     }
 
     getNextCode(): string {
-        const recipes = this.repository.getAll();
+        const recipes = this.storageRepository.getAll();
         if (recipes.length === 0) return AppConstants.DEFAULT_RECIPE_CODE;
 
         const codes = recipes.map(r => parseInt(r.code)).filter(c => !isNaN(c));

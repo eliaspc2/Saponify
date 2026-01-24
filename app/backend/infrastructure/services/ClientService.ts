@@ -4,17 +4,17 @@ import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { prepareClientForSave } from '../../domain/clients/ClientNormalizer';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 
-export class ClientService extends BaseService {
+export class ClientService extends BaseService<Client> {
     private static instance: ClientService;
-    private repository: LocalStorageRepository<Client>;
+    private storageRepository: LocalStorageRepository<Client>;
 
     private constructor() {
         super('ClientService');
-        this.repository = new LocalStorageRepository<Client>(StorageKeys.CLIENTS, {
+        this.storageRepository = new LocalStorageRepository<Client>(StorageKeys.CLIENTS, {
             deserialize: (raw) => Array.isArray(raw) ? raw : [],
             serialize: (items) => items
         });
-        this.setRepository(this.repository);
+        this.setRepository(this.storageRepository);
     }
 
     public static getInstance(): ClientService {
@@ -33,12 +33,12 @@ export class ClientService extends BaseService {
     }
 
     public save(client: Client): void {
-        const exists = this.repository.getAll().some(c => c.id === client.id);
+        const exists = this.storageRepository.getAll().some(c => c.id === client.id);
         const normalized = prepareClientForSave(client, exists);
         if (exists) {
-            this.repository.update(normalized);
+            this.storageRepository.update(normalized);
         } else {
-            this.repository.add(normalized);
+            this.storageRepository.add(normalized);
         }
     }
 

@@ -8,16 +8,16 @@ import { parseIngredientCSV } from '../../domain/ingredients/IngredientCsvParser
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 
-export class IngredientService extends BaseService {
+export class IngredientService extends BaseService<Ingredient> {
     private static instance: IngredientService;
     private static readonly STORAGE_KEY = StorageKeys.INGREDIENTS;
     private static readonly STORAGE_VERSION = AppConstants.INGREDIENTS_STORAGE_VERSION;
     private initialized = false;
-    private repository: LocalStorageRepository<Ingredient>;
+    private storageRepository: LocalStorageRepository<Ingredient>;
 
     private constructor() {
         super('IngredientService');
-        this.repository = new LocalStorageRepository<Ingredient>(IngredientService.STORAGE_KEY, {
+        this.storageRepository = new LocalStorageRepository<Ingredient>(IngredientService.STORAGE_KEY, {
             deserialize: (raw) => {
                 const items = Array.isArray(raw)
                     ? raw
@@ -29,7 +29,7 @@ export class IngredientService extends BaseService {
                 items
             })
         });
-        this.setRepository(this.repository);
+        this.setRepository(this.storageRepository);
     }
 
     static getInstance(): IngredientService {
@@ -45,16 +45,16 @@ export class IngredientService extends BaseService {
                 return;
             }
             this.initialized = true;
-            const storedIngredients = [...this.repository.getAll()];
+            const storedIngredients = [...this.storageRepository.getAll()];
             if (storedIngredients.length === 0) {
                 this.log('Fetching ingredients csv...');
                 const response = await fetch(`${import.meta.env.BASE_URL}${AppConstants.DEFAULT_INGREDIENTS_CSV_PATH}`);
                 const csvText = await response.text();
                 const csvIngredients = parseIngredientCSV(csvText).map(ingredient => normalizeIngredient(ingredient));
-                this.repository.replaceAll(csvIngredients);
+                this.storageRepository.replaceAll(csvIngredients);
             }
             this.persistKindMigration();
-            this.log(`Loaded ${this.repository.getAll().length} ingredients.`);
+            this.log(`Loaded ${this.storageRepository.getAll().length} ingredients.`);
         } catch (error) {
             this.handleError(error as Error);
         }
@@ -97,12 +97,12 @@ export class IngredientService extends BaseService {
     }
 
     private persistKindMigration(): void {
-        const items = this.repository.getAll();
+        const items = this.storageRepository.getAll();
         const removal = removeDeprecatedIngredients(items);
         const deduped = removeDuplicateIngredients(removal.items);
         const migration = migrateMissingKind(deduped.items);
         if (removal.changed || deduped.changed || migration.changed) {
-            this.repository.replaceAll(migration.items);
+            this.storageRepository.replaceAll(migration.items);
         }
     }
 
@@ -122,7 +122,7 @@ export class IngredientService extends BaseService {
             if (!Number.isFinite(value)) return '';
             return value.toString();
         };
-        const rows = this.repository.getAll().map((ingredient, index) => {
+        const rows = this.storageRepository.getAll().map((ingredient, index) => {
             const values = [
                 ingredient.id || `ingredient_${index + 1}`,
                 (index + 1).toString(),
@@ -171,7 +171,7 @@ export class IngredientService extends BaseService {
         const newIngredients = parseIngredientCSV(csvContent)
             .map(ingredient => normalizeIngredient(ingredient));
         const merged = new Map<string, Ingredient>();
-        this.repository.getAll().forEach(ingredient => {
+        this.storageRepository.getAll().forEach(ingredient => {
             if (ingredient.id) {
                 merged.set(ingredient.id, ingredient);
             }
@@ -180,7 +180,7 @@ export class IngredientService extends BaseService {
             const id = ingredient.id || `import_${Date.now()}_${index}`;
             merged.set(id, { ...ingredient, id });
         });
-        this.repository.replaceAll(Array.from(merged.values()));
+        this.storageRepository.replaceAll(Array.from(merged.values()));
     }
 
 }

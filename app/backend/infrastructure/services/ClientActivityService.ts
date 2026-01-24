@@ -4,17 +4,17 @@ import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { normalizeEntity } from '../../shared/normalizers/EntityNormalizer';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 
-export class ClientActivityService extends BaseService {
+export class ClientActivityService extends BaseService<ClientActivity> {
     private static instance: ClientActivityService;
-    private repository: LocalStorageRepository<ClientActivity>;
+    private storageRepository: LocalStorageRepository<ClientActivity>;
 
     private constructor() {
         super('ClientActivityService');
-        this.repository = new LocalStorageRepository<ClientActivity>(StorageKeys.ACTIVITIES, {
+        this.storageRepository = new LocalStorageRepository<ClientActivity>(StorageKeys.ACTIVITIES, {
             deserialize: (raw) => Array.isArray(raw) ? raw : [],
             serialize: (items) => items
         });
-        this.setRepository(this.repository);
+        this.setRepository(this.storageRepository);
     }
 
     public static getInstance(): ClientActivityService {
