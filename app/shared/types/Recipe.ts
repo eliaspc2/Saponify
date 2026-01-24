@@ -36,4 +36,8 @@ export interface Recipe {
     traceAdditives: RecipeIngredient[];     // e.g. Botanicals, Clays
     superfatOils: RecipeIngredient[];       // Oils added at trace
     essentialOils: RecipeIngredient[];
+
+    // AI metadata (optional)
+    aiRationale?: string[];
+    aiFeedback?: string;
 }

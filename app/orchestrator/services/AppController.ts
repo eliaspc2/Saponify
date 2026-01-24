@@ -38,6 +38,7 @@ export class AppController {
     private pendingBackupTimer: number | null = null;
     private calculatorUseCase: CalculatorUseCase;
     private openAIProvider: OpenAIProvider;
+    private lastExamplePairKeys: string[] = [];
 
     constructor({ backupService, syncProvider, settingsService, calculatorUseCase }: AppControllerDeps) {
         this.backupService = backupService;
@@ -79,8 +80,8 @@ export class AppController {
     }
 
     // Contract: generate a recipe via AI and persist it, without exposing IA to UI.
-    public async generateRecipeFromAI(params: { clientId: string; questionnaire: object; }): Promise<Recipe> {
-        const { clientId, questionnaire } = params;
+    public async generateRecipeFromAI(params: { clientId: string; questionnaire: object; feedback?: string; replaceRecipeId?: string; }): Promise<Recipe> {
+        const { clientId, questionnaire, feedback, replaceRecipeId } = params;
         if (!clientId || typeof clientId !== 'string') {
             throw new Error('Cliente inválido.');
         }
@@ -98,17 +99,45 @@ export class AppController {
             throw new Error('Ingredientes indisponíveis.');
         }
 
+        const settings = this.settingsService.getSettings();
+        const targetLyeConcentration = typeof settings.defaultWaterConcentration === 'number'
+            ? settings.defaultWaterConcentration
+            : 0;
+
+        const existingRecipe = replaceRecipeId
+            ? RecipeService.getInstance().getById(replaceRecipeId)
+            : null;
+        const feedbackCombined = this.combineFeedback(existingRecipe?.aiFeedback, feedback);
+
         const examplePairs = await this.buildExamplePairs(ingredients);
         const prompt = new RecipePromptBuilder().buildRecipePrompt({
             clientForm: questionnaire,
             availableIngredients: ingredients,
-            examplePairs
+            examplePairs,
+            userFeedback: feedbackCombined,
+            targetLyeConcentration
         });
 
         const validated = await this.openAIProvider.generateAndValidateRecipe(prompt);
-        const recipe = this.mapValidatedRecipeToRecipe(validated, clientId, ingredients);
+        const recipe = this.mapValidatedRecipeToRecipe(validated, clientId, ingredients, feedbackCombined, targetLyeConcentration);
+
+        if (existingRecipe) {
+            recipe.id = existingRecipe.id;
+            recipe.code = existingRecipe.code;
+            recipe.date = existingRecipe.date;
+            recipe.notes = existingRecipe.notes;
+        }
         RecipeService.getInstance().save(recipe);
         return recipe;
+    }
+
+    private combineFeedback(existing: string | undefined, next: string | undefined): string {
+        const cleanedExisting = (existing || '').trim();
+        const cleanedNext = (next || '').trim();
+        if (!cleanedExisting && !cleanedNext) return '';
+        if (!cleanedExisting) return cleanedNext;
+        if (!cleanedNext) return cleanedExisting;
+        return `${cleanedExisting}\n---\n${cleanedNext}`;
     }
 
     private async buildExamplePairs(ingredients: Ingredient[]): Promise<Array<{ questionnaire: object; recipe: object }>> {
@@ -146,8 +175,21 @@ export class AppController {
             const j = Math.floor(Math.random() * (i + 1));
             [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
         }
+        const buildKeys = (items: Array<{ questionnaire: Questionnaire; recipe: Recipe }>) =>
+            items.map(item => `${item.questionnaire.id}:${item.recipe.id}`);
 
-        return pairs.slice(0, 2).map((pair) => ({
+        let selected = pairs.slice(0, 2);
+        if (pairs.length > 2) {
+            const selectedKeys = buildKeys(selected).join('|');
+            const lastKeys = this.lastExamplePairKeys.join('|');
+            if (selectedKeys === lastKeys) {
+                selected = pairs.slice(1, 3);
+            }
+        }
+
+        this.lastExamplePairKeys = buildKeys(selected);
+
+        return selected.map((pair) => ({
             questionnaire: pair.questionnaire,
             recipe: this.mapRecipeToGeneratedExample(pair.recipe, ingredients)
         }));
@@ -239,7 +281,10 @@ export class AppController {
                 calculation_basis: 'média',
                 estimated_ready_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
             },
-            technical_notes: ['Exemplo derivado de dados reais para referência de formato.']
+            technical_notes: ['Exemplo derivado de dados reais para referência de formato.'],
+            rationale: (recipe.aiRationale && recipe.aiRationale.length)
+                ? recipe.aiRationale
+                : ['Escolhas alinhadas com o perfil do questionário e ingredientes disponíveis.']
         };
     }
 
@@ -309,7 +354,13 @@ export class AppController {
         return true;
     }
 
-    private mapValidatedRecipeToRecipe(validated: ValidatedRecipe, clientId: string, ingredients: Ingredient[]): Recipe {
+    private mapValidatedRecipeToRecipe(
+        validated: ValidatedRecipe,
+        clientId: string,
+        ingredients: Ingredient[],
+        feedback?: string,
+        targetLyeConcentration?: number
+    ): Recipe {
         const ingredientById = new Map(ingredients.map(item => [item.id, item]));
         const now = new Date().toISOString();
 
@@ -402,14 +453,18 @@ export class AppController {
             notes: '',
             alkali: validated.phases.phase2_lye.lye_type === 'KOH' ? 'KOH' : 'NaOH',
             superfat: validated.technical?.superfat_initial ?? 0,
-            waterConcentration: validated.technical?.lye_concentration ?? 0,
+            waterConcentration: typeof targetLyeConcentration === 'number'
+                ? targetLyeConcentration
+                : (validated.technical?.lye_concentration ?? 0),
             fats,
             liquids,
             functionalAdditives,
             lyeAdditives,
             traceAdditives,
             superfatOils,
-            essentialOils
+            essentialOils,
+            aiRationale: Array.isArray((validated as any).rationale) ? (validated as any).rationale : [],
+            aiFeedback: feedback ? feedback.trim() : ''
         };
 
         const extended = recipe as Recipe & { source?: 'ai'; createdAt?: string; updatedAt?: string };

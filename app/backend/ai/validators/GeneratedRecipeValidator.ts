@@ -214,6 +214,11 @@ export class GeneratedRecipeValidator {
             errors.push('technical_notes: deve ser array de strings.');
         }
 
+        const rationale = (payload as any).rationale;
+        if (!Array.isArray(rationale) || rationale.some((n: any) => typeof n !== 'string' || !n.trim())) {
+            errors.push('rationale: deve ser array de strings não vazias.');
+        }
+
         const ingredientIds = extractIngredientIds(context.availableIngredients || []);
         if (ingredientIds.size === 0) {
             errors.push('availableIngredients: lista inválida ou vazia.');

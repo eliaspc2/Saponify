@@ -9,6 +9,8 @@ export type RecipePromptParams = {
         questionnaire: object;
         recipe: object;
     }>;
+    userFeedback?: string;
+    targetLyeConcentration?: number;
 };
 
 type IngredientLike = {
@@ -63,13 +65,17 @@ type ExampleRecipe = {
         estimated_ready_date: string;
     };
     technical_notes: string[];
+    rationale: string[];
 };
 
 export class RecipePromptBuilder {
     buildRecipePrompt(params: RecipePromptParams): object {
-        const { clientForm, availableIngredients, examplePairs } = params;
+        const { clientForm, availableIngredients, examplePairs, userFeedback } = params;
         const targetOilsWeight = params.targetOilsWeight || 1000;
-        const examples = this.buildExamples(availableIngredients, targetOilsWeight);
+        const targetLyeConcentration = typeof params.targetLyeConcentration === 'number'
+            ? params.targetLyeConcentration
+            : 0;
+        const examples = this.buildExamples(availableIngredients, targetOilsWeight, targetLyeConcentration);
         const productionRules = this.getProductionRules();
         const ingredientsByPhase = this.groupIngredientsByPhase(availableIngredients);
 
@@ -93,10 +99,12 @@ export class RecipePromptBuilder {
             },
             custom_rules: productionRules,
             target_oils_weight_g: targetOilsWeight,
+            target_lye_concentration_percent: targetLyeConcentration,
             client_questionnaire: clientForm,
             available_ingredients: availableIngredients,
             available_ingredients_by_phase: ingredientsByPhase,
             example_pairs: Array.isArray(examplePairs) ? examplePairs : [],
+            user_feedback: (userFeedback || '').trim(),
             output_contract: {
                 description: 'Responder apenas com uma receita de sabonete válida e importável',
                 format: 'json',
@@ -163,7 +171,8 @@ export class RecipePromptBuilder {
                 calculation_basis: 'string',
                 estimated_ready_date: 'YYYY-MM-DD'
             },
-            technical_notes: ['string']
+            technical_notes: ['string'],
+            rationale: ['string']
         };
     }
 
@@ -190,6 +199,9 @@ export class RecipePromptBuilder {
             'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids ou menuKey=lyeLiquids. Não inventar infusões que não existam.',
             'Fase 3 (phase3_trace): usar APENAS ingredientes de menuKey=traceAdditives, superfatOils ou essentialOils. O campo function deve refletir o subtipo (trace_additive | superfat_oil | essential_oil).',
             'Água e soda cáustica são calculadas pela app. Definir phase2_lye.naoh_calculated = 0 e phase2_lye.liquid.weight = 0.',
+            'Justificação: preencher o campo rationale (array de strings) com as razões principais das escolhas.',
+            'Se user_feedback estiver presente, incorporar essas notas na nova receita.',
+            'Usar o valor target_lye_concentration_percent para technical.lye_concentration.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
         ].join('\n');
     }
@@ -207,7 +219,7 @@ export class RecipePromptBuilder {
         };
     }
 
-    private buildExamples(availableIngredients: object[], targetOilsWeight: number): ExampleRecipe[] {
+    private buildExamples(availableIngredients: object[], targetOilsWeight: number, targetLyeConcentration: number): ExampleRecipe[] {
         const items = (availableIngredients || []) as IngredientLike[];
         const baseOils = items.filter((i) => (i.menuKey === 'baseOils' || i.kind === 'oil') && (i.sapNaOH || 0) > 0);
         const liquids = items.filter((i) => i.menuKey === 'liquids' || i.menuKey === 'lyeLiquids' || i.kind === 'water');
@@ -236,7 +248,7 @@ export class RecipePromptBuilder {
         const buildExample = (name: string, oils: IngredientLike[], percents: number[], essential: IngredientLike[], trace: IngredientLike[], superfatList: IngredientLike[]): ExampleRecipe => {
             const phase1 = makePhase1(oils, percents);
             const superfat = 6;
-            const lyeConcentration = 0;
+            const lyeConcentration = targetLyeConcentration;
             const naoh = 0;
             const waterAmount = 0;
             const liquid: ExampleIngredient = {
@@ -305,14 +317,15 @@ export class RecipePromptBuilder {
                     },
                     essential_oils_total_percentage: eoTotal
                 },
-                curing: {
-                    days: 30,
-                    calculation_basis: 'média',
-                    estimated_ready_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                },
-                technical_notes: ['Exemplo de receita válida para referência de formato.']
-            };
+            curing: {
+                days: 30,
+                calculation_basis: 'média',
+                estimated_ready_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            },
+            technical_notes: ['Exemplo de receita válida para referência de formato.'],
+            rationale: ['Escolhas alinhadas com o perfil do questionário e ingredientes disponíveis.']
         };
+    };
 
         const example1 = buildExample(
             'Sabonete Suavizante para Pele Sensível',

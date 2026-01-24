@@ -54,6 +54,7 @@ interface ClientDetailsState extends BasePageState {
     aiDebugResponseLabel: string;
     showAiPrompt: boolean;
     showAiResponse: boolean;
+    aiFeedbackDraft: string;
 
     // Production Form
     selectedRecipeId: string;
@@ -89,6 +90,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             aiDebugResponseLabel: '',
             showAiPrompt: false,
             showAiResponse: false,
+            aiFeedbackDraft: '',
             isLoading: false,
             error: null
         };
@@ -435,7 +437,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         || hasList(questionnaire.dailyProducts);
     }
 
-    private async handleGenerateRecipeAI() {
+    private async handleGenerateRecipeAI(feedback?: string, replaceRecipeId?: string) {
         const { client } = this.state;
         if (!client) return;
 
@@ -464,12 +466,15 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         try {
             const recipe = await this.props.appController.generateRecipeFromAI({
                 clientId: client.id,
-                questionnaire: questionnaire as object
+                questionnaire: questionnaire as object,
+                feedback: feedback?.trim(),
+                replaceRecipeId
             });
             this.setState({
                 isGeneratingAIRecipe: false,
                 viewingRecipe: recipe,
-                isRecipeModalOpen: true
+                isRecipeModalOpen: true,
+                aiFeedbackDraft: ''
             });
             this.loadData();
         } catch (error) {
@@ -1145,6 +1150,37 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                             {this.renderRecipeGroup('Fase 3: Aditivos Traço', viewingRecipe.traceAdditives)}
                             {this.renderRecipeGroup('Fase 3: Superfat Oils', viewingRecipe.superfatOils)}
                             {this.renderRecipeGroup('Fase 3: Óleos Essenciais', viewingRecipe.essentialOils)}
+                        </div>
+                    </div>
+
+                    {viewingRecipe.aiRationale && viewingRecipe.aiRationale.length > 0 && (
+                        <div>
+                            <label className="form-label" style={{ fontWeight: 700 }}>Justificação da IA</label>
+                            <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                {viewingRecipe.aiRationale.map((item, idx) => (
+                                    <li key={`ai-rationale-${idx}`}>{item}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Comentários para recalcular com IA</label>
+                        <textarea
+                            className="form-control"
+                            rows={3}
+                            placeholder="Escreve aqui o que queres ajustar na receita..."
+                            value={this.state.aiFeedbackDraft}
+                            onChange={(e) => this.setState({ aiFeedbackDraft: e.target.value })}
+                        />
+                        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>
+                            <button
+                                className="btn btn-secondary"
+                                disabled={!this.state.aiFeedbackDraft.trim() || this.state.isGeneratingAIRecipe}
+                                onClick={() => this.handleGenerateRecipeAI(this.state.aiFeedbackDraft, viewingRecipe.id)}
+                            >
+                                {this.state.isGeneratingAIRecipe ? 'A gerar...' : 'Recalcular com comentário'}
+                            </button>
                         </div>
                     </div>
 
