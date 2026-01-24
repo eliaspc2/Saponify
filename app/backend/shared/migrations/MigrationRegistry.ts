@@ -3,14 +3,11 @@ import type { Migration } from './Migration';
 const migrations: Migration[] = [];
 
 export const registerMigration = (migration: Migration): void => {
-    if (migration.toVersion <= migration.fromVersion) {
-        throw new Error('Invalid migration: toVersion must be greater than fromVersion.');
+    if (migration.toVersion < migration.fromVersion) {
+        throw new Error('Invalid migration: toVersion must be greater than or equal to fromVersion.');
     }
-    if (migrations.some(m => m.fromVersion === migration.fromVersion)) {
-        throw new Error(`Duplicate migration fromVersion: ${migration.fromVersion}`);
-    }
-    if (migrations.some(m => m.toVersion === migration.toVersion)) {
-        throw new Error(`Duplicate migration toVersion: ${migration.toVersion}`);
+    if (migrations.some(m => m.fromVersion === migration.fromVersion && m.toVersion === migration.toVersion)) {
+        throw new Error(`Duplicate migration range: ${migration.fromVersion} -> ${migration.toVersion}`);
     }
     migrations.push(migration);
 };
@@ -29,8 +26,15 @@ export const getMigrations = (fromVersion: number, toVersion: number): Migration
         return [];
     }
 
+    const identityAtTarget = ordered.filter(m => m.fromVersion === m.toVersion && m.toVersion === toVersion);
+    const nonIdentity = ordered.filter(m => m.fromVersion !== m.toVersion);
+
+    if (!nonIdentity.length) {
+        return identityAtTarget;
+    }
+
     let expectedFrom = fromVersion;
-    for (const migration of ordered) {
+    for (const migration of nonIdentity) {
         if (migration.fromVersion !== expectedFrom) {
             throw new Error('Migration chain is not contiguous.');
         }
@@ -41,5 +45,5 @@ export const getMigrations = (fromVersion: number, toVersion: number): Migration
         throw new Error('Migration chain does not reach target version.');
     }
 
-    return ordered;
+    return nonIdentity;
 };

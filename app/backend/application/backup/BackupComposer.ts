@@ -53,13 +53,12 @@ export class BackupComposer {
                 throw new Error('Formato de backup inválido');
             }
 
-            // Migration hook (disabled by default; no-op for now).
-            const shouldRunMigrations = false;
-            if (shouldRunMigrations) {
-                const storedVersion = typeof data?.meta?.versionInfo?.dataSchemaVersion === 'number'
-                    ? data.meta.versionInfo.dataSchemaVersion
-                    : getDataSchemaVersion();
-                const result = runMigrations(data, storedVersion, getDataSchemaVersion());
+            const storedVersion = typeof data?.meta?.versionInfo?.dataSchemaVersion === 'number'
+                ? data.meta.versionInfo.dataSchemaVersion
+                : 0;
+            const currentVersion = getDataSchemaVersion();
+            if (storedVersion < currentVersion) {
+                const result = runMigrations(data, storedVersion, currentVersion);
                 data = result.data;
             }
 

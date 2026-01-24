@@ -1,11 +1,13 @@
 import type { Migration } from './Migration';
 import { getMigrations } from './MigrationRegistry';
+import { registerDefaultMigrations } from './registerMigrations';
 
 export const runMigrations = <T>(
     data: T,
     storedVersion: number,
     currentVersion: number
 ): { data: T; applied: number[] } => {
+    registerDefaultMigrations();
     if (storedVersion === currentVersion) {
         return { data, applied: [] };
     }
@@ -23,6 +25,7 @@ export const runMigrations = <T>(
     for (const migration of chain) {
         next = migration.migrate(next);
         applied.push(migration.toVersion);
+        console.info(`[Migration] Applied migration ${migration.toVersion} (${migration.fromVersion} \u2192 ${migration.toVersion})`);
     }
 
     return { data: next, applied };
