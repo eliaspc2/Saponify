@@ -50,7 +50,7 @@ function App() {
     const renderPage = () => {
         switch (activePage) {
             case 'home':
-                return <HomePage title="Dashboard" onNavigate={handleNavigate} />;
+                return <HomePage title="Dashboard" onNavigate={handleNavigate} appController={controllerRef.current!} />;
             case 'calculator':
                 return <CalculatorPage
                     title="Calculadora de Receitas"
@@ -60,7 +60,7 @@ function App() {
             case 'ingredients':
                 return <IngredientsPage title="Base de Ingredientes" />;
             case 'clients':
-                return <ClientsPage title="Gestão de Clientes" onNavigate={handleNavigate} />;
+                return <ClientsPage title="Gestão de Clientes" onNavigate={handleNavigate} appController={controllerRef.current!} />;
             case 'questionnaires':
                 return <QuestionnairesPage title="Questionários" />;
             case 'recipes':

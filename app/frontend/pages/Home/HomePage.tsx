@@ -21,9 +21,11 @@ import {
     ArrowRight
 } from 'lucide-react';
 import type { BasePageProps } from '../../core/BasePage';
+import type { AppController } from '../../../orchestrator/services/AppController';
 
 interface HomePageProps extends BasePageProps {
     onNavigate: (page: string, params?: any) => void;
+    appController: AppController;
 }
 
 interface HomePageState extends BasePageState {
@@ -397,6 +399,7 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         clientId={this.state.selectedClientId}
                         isOpen={this.state.isClientDetailsOpen}
                         onClose={() => this.closeClientDetails()}
+                        appController={this.props.appController}
                     />
                 )}
                 {this.renderRecipePreviewModal()}

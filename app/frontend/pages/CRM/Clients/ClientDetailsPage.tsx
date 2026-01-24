@@ -25,21 +25,27 @@ import {
 import { Modal } from '../../../components/Modal';
 import { QuestionnaireService } from '../../../../backend/services/QuestionnaireService';
 import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
+import type { Questionnaire } from '../../../../shared/types/Questionnaire';
+import type { AppController } from '../../../../orchestrator/services/AppController';
 
 interface ClientDetailsProps {
     clientId: string;
     isOpen: boolean;
     onClose: () => void;
+    appController: AppController;
 }
 
 interface ClientDetailsState extends BasePageState {
     client: Client | null;
     activities: ClientActivity[];
     associatedRecipes: Recipe[];
+    questionnaires: Questionnaire[];
     isProductionModalOpen: boolean;
     isRecipeModalOpen: boolean;
     viewingRecipe: Recipe | null;
     noteContent: string;
+    isGeneratingAIRecipe: boolean;
+    aiError: string | null;
 
     // Production Form
     selectedRecipeId: string;
@@ -58,6 +64,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             client: null,
             activities: [],
             associatedRecipes: [],
+            questionnaires: [],
             isProductionModalOpen: false,
             isRecipeModalOpen: false,
             viewingRecipe: null,
@@ -65,6 +72,8 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             selectedRecipeId: '',
             productionWeight: 0,
             productionDate: new Date().toISOString().split('T')[0],
+            isGeneratingAIRecipe: false,
+            aiError: null,
             isLoading: false,
             error: null
         };
@@ -82,12 +91,14 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         }
     }
 
-    private loadData() {
+    private async loadData() {
         const client = ClientService.getInstance().getById(this.props.clientId);
         if (client) {
             const activities = ClientActivityService.getInstance().getActivities(client.id);
             const recipes = RecipeService.getInstance().getAll().filter(r => r.clientId === client.id);
-            this.setState({ client, activities, associatedRecipes: recipes });
+            const questionnaires = await QuestionnaireService.getQuestionnaires();
+            const clientQuestionnaires = questionnaires.filter(q => q.clientId === client.id);
+            this.setState({ client, activities, associatedRecipes: recipes, questionnaires: clientQuestionnaires });
         }
     }
 
@@ -276,9 +287,82 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         return total;
     }
 
+    private getLatestQuestionnaire(): Questionnaire | null {
+        const { questionnaires } = this.state;
+        if (!questionnaires.length) return null;
+        const sorted = [...questionnaires].sort((a, b) => {
+            const aTime = new Date(a.updatedAt || a.createdAt || a.date || '').getTime();
+            const bTime = new Date(b.updatedAt || b.createdAt || b.date || '').getTime();
+            return bTime - aTime;
+        });
+        return sorted[0] || null;
+    }
+
+    private isQuestionnaireComplete(questionnaire: Questionnaire | null): boolean {
+        if (!questionnaire) return false;
+        const hasText = (value: string) => typeof value === 'string' && value.trim().length > 0;
+        const hasList = (value: string[]) => Array.isArray(value) && value.length > 0;
+
+        return (
+            hasText(questionnaire.ageGroup) &&
+            hasText(questionnaire.usageFrequency) &&
+            hasList(questionnaire.usageZones) &&
+            hasText(questionnaire.previousReaction) &&
+            hasText(questionnaire.oiliness) &&
+            hasText(questionnaire.drynessAfterWash) &&
+            hasText(questionnaire.irritationFrequency) &&
+            hasList(questionnaire.skinProblems) &&
+            hasText(questionnaire.medications) &&
+            hasText(questionnaire.sleepQuality) &&
+            hasList(questionnaire.dietType) &&
+            hasText(questionnaire.waterIntake) &&
+            hasText(questionnaire.sweatIntensity) &&
+            hasList(questionnaire.environmentType) &&
+            hasText(questionnaire.sunReaction) &&
+            hasList(questionnaire.dailyProducts) &&
+            hasText(questionnaire.allergies) &&
+            hasText(questionnaire.animalProductRestrictions)
+        );
+    }
+
+    private async handleGenerateRecipeAI() {
+        const { client } = this.state;
+        if (!client) return;
+
+        const questionnaire = this.getLatestQuestionnaire();
+        if (!this.isQuestionnaireComplete(questionnaire)) {
+            this.setState({ aiError: 'Formulário incompleto.' });
+            return;
+        }
+
+        this.setState({ isGeneratingAIRecipe: true, aiError: null });
+        try {
+            const recipe = await this.props.appController.generateRecipeFromAI({
+                clientId: client.id,
+                questionnaire: questionnaire as object
+            });
+            this.setState({
+                isGeneratingAIRecipe: false,
+                viewingRecipe: recipe,
+                isRecipeModalOpen: true
+            });
+            this.loadData();
+        } catch (error) {
+            const message = (error as Error)?.message || '';
+            const safeMessage = message.toLowerCase().includes('configurada')
+                ? 'A IA não está configurada.'
+                : 'Erro ao gerar a receita. Tenta novamente.';
+            this.setState({ isGeneratingAIRecipe: false, aiError: safeMessage });
+        }
+    }
+
     renderContent() {
-        const { client, activities, associatedRecipes } = this.state;
+        const { client, activities, associatedRecipes, isGeneratingAIRecipe, aiError } = this.state;
         if (!client) return null as any;
+        const questionnaire = this.getLatestQuestionnaire();
+        const isFormComplete = this.isQuestionnaireComplete(questionnaire);
+        const isAIConfigured = this.props.appController.hasAIConfigured();
+        const canGenerate = isFormComplete && isAIConfigured && !isGeneratingAIRecipe;
 
         return (
             <Modal
@@ -290,10 +374,25 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                 maxHeight="95vh"
             >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', height: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                         <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700 }} onClick={() => this.handleExportClientAllData()}>
                             <Download size={16} /> Exportar Dados (JSON)
                         </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <button
+                                className="btn btn-secondary"
+                                style={{ borderRadius: '50px', fontWeight: 700 }}
+                                disabled={!canGenerate}
+                                onClick={() => this.handleGenerateRecipeAI()}
+                            >
+                                {isGeneratingAIRecipe ? 'A gerar receita...' : 'Gerar receita (IA)'}
+                            </button>
+                            {!isAIConfigured && (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', marginTop: '0.35rem' }}>
+                                    Configura a IA nas definições.
+                                </span>
+                            )}
+                        </div>
                         <button className="btn btn-secondary" style={{ borderRadius: '50px', fontWeight: 700, color: '#EF4444' }} onClick={() => this.handleDeleteClientData()}>
                             <Trash2 size={16} /> Eliminar Dados
                         </button>
@@ -301,6 +400,11 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                             <Beaker size={16} /> Marcar Produção
                         </button>
                     </div>
+                    {aiError && (
+                        <div style={{ fontSize: '0.85rem', color: '#B91C1C', marginBottom: '0.75rem' }}>
+                            {aiError}
+                        </div>
+                    )}
 
                     <div className="client-details-grid" style={{ flex: 1 }}>
                         {/* Left: Client Info */}

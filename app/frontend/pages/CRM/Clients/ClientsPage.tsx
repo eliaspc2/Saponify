@@ -12,6 +12,12 @@ import { Recipe } from '../../../../shared/types/Recipe';
 import { Questionnaire } from '../../../../shared/types/Questionnaire';
 import { ClientDetailsPage } from './ClientDetailsPage';
 import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
+import type { AppController } from '../../../../orchestrator/services/AppController';
+
+type ClientsPageProps = {
+    onNavigate: (page: string, params?: any) => void;
+    appController: AppController;
+};
 
 interface ClientsPageState extends BaseListPageState<Client> {
     isModalOpen: boolean;
@@ -32,7 +38,7 @@ interface ClientsPageState extends BaseListPageState<Client> {
     readyClientIds: string[];
 }
 
-export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavigate: (page: string, params?: any) => void }> {
+export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsPageProps> {
     private importInputRef: HTMLInputElement | null = null;
     private importJsonInputRef: HTMLInputElement | null = null;
     constructor(props: any) {
@@ -935,6 +941,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, { onNavi
                         clientId={this.state.selectedClientId}
                         isOpen={this.state.isDetailsOpen}
                         onClose={() => this.setState({ isDetailsOpen: false, selectedClientId: null })}
+                        appController={this.props.appController}
                     />
                 )}
             </>
