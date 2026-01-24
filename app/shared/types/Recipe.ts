@@ -40,4 +40,9 @@ export interface Recipe {
     // AI metadata (optional)
     aiRationale?: string[];
     aiFeedback?: string;
+    aiConversation?: Array<{
+        role: 'user' | 'assistant';
+        message: string;
+        timestamp: string;
+    }>;
 }

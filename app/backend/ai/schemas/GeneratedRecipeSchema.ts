@@ -51,12 +51,13 @@ export type GeneratedRecipe = {
     curing: GeneratedRecipeCuring;
     technical_notes: string[];
     rationale: string[];
+    assistant_message: string;
 };
 
 export type ValidatedRecipe = GeneratedRecipe;
 
 export const GeneratedRecipeSchema = {
-    topLevel: ['metadata', 'phases', 'technical', 'curing', 'technical_notes', 'rationale'],
+    topLevel: ['metadata', 'phases', 'technical', 'curing', 'technical_notes', 'rationale', 'assistant_message'],
     metadata: ['recipeName', 'clientId', 'createdAt', 'source'],
     phases: ['phase1_base_fatty', 'phase2_lye', 'phase3_trace'],
     ingredient: ['ingredientId', 'name', 'percentage', 'weight', 'function'],

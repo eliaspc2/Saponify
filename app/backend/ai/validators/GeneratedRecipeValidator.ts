@@ -219,6 +219,11 @@ export class GeneratedRecipeValidator {
             errors.push('rationale: deve ser array de strings não vazias.');
         }
 
+        const assistantMessage = (payload as any).assistant_message;
+        if (typeof assistantMessage !== 'string' || !assistantMessage.trim()) {
+            errors.push('assistant_message: deve ser string não vazia.');
+        }
+
         const ingredientIds = extractIngredientIds(context.availableIngredients || []);
         if (ingredientIds.size === 0) {
             errors.push('availableIngredients: lista inválida ou vazia.');

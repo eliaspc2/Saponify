@@ -1165,13 +1165,32 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     )}
 
                     <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: 700 }}>Comentários para recalcular com IA</label>
+                        <label className="form-label" style={{ fontWeight: 700 }}>Conversa com a IA</label>
+                        <div style={{ border: '1px solid #E5E7EB', borderRadius: 'var(--radius-sm)', padding: '0.75rem', maxHeight: '220px', overflowY: 'auto', background: '#F9FAFB' }}>
+                            {viewingRecipe.aiConversation && viewingRecipe.aiConversation.length > 0 ? (
+                                viewingRecipe.aiConversation.map((msg, idx) => (
+                                    <div key={`ai-msg-${idx}`} style={{ marginBottom: '0.75rem' }}>
+                                        <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.25rem' }}>
+                                            {msg.role === 'user' ? 'Tu' : 'IA'} · {new Date(msg.timestamp).toLocaleString()}
+                                        </div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: msg.role === 'assistant' ? 600 : 500 }}>
+                                            {msg.message}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>
+                                    Sem mensagens ainda.
+                                </div>
+                            )}
+                        </div>
                         <textarea
                             className="form-control"
                             rows={3}
-                            placeholder="Escreve aqui o que queres ajustar na receita..."
+                            placeholder="Escreve aqui para a IA e recalcular a receita..."
                             value={this.state.aiFeedbackDraft}
                             onChange={(e) => this.setState({ aiFeedbackDraft: e.target.value })}
+                            style={{ marginTop: '0.75rem' }}
                         />
                         <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem' }}>
                             <button
@@ -1179,7 +1198,7 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                 disabled={!this.state.aiFeedbackDraft.trim() || this.state.isGeneratingAIRecipe}
                                 onClick={() => this.handleGenerateRecipeAI(this.state.aiFeedbackDraft, viewingRecipe.id)}
                             >
-                                {this.state.isGeneratingAIRecipe ? 'A gerar...' : 'Recalcular com comentário'}
+                                {this.state.isGeneratingAIRecipe ? 'A gerar...' : 'Enviar e recalcular'}
                             </button>
                         </div>
                     </div>

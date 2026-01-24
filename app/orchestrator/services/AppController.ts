@@ -108,6 +108,7 @@ export class AppController {
             ? RecipeService.getInstance().getById(replaceRecipeId)
             : null;
         const feedbackCombined = this.combineFeedback(existingRecipe?.aiFeedback, feedback);
+        const userMessage = feedback?.trim();
 
         const examplePairs = await this.buildExamplePairs(ingredients);
         const prompt = new RecipePromptBuilder().buildRecipePrompt({
@@ -119,7 +120,15 @@ export class AppController {
         });
 
         const validated = await this.openAIProvider.generateAndValidateRecipe(prompt);
-        const recipe = this.mapValidatedRecipeToRecipe(validated, clientId, ingredients, feedbackCombined, targetLyeConcentration);
+        const recipe = this.mapValidatedRecipeToRecipe(
+            validated,
+            clientId,
+            ingredients,
+            feedbackCombined,
+            targetLyeConcentration,
+            existingRecipe,
+            userMessage
+        );
 
         if (existingRecipe) {
             recipe.id = existingRecipe.id;
@@ -284,7 +293,8 @@ export class AppController {
             technical_notes: ['Exemplo derivado de dados reais para referência de formato.'],
             rationale: (recipe.aiRationale && recipe.aiRationale.length)
                 ? recipe.aiRationale
-                : ['Escolhas alinhadas com o perfil do questionário e ingredientes disponíveis.']
+                : ['Escolhas alinhadas com o perfil do questionário e ingredientes disponíveis.'],
+            assistant_message: 'Resposta de exemplo ao utilizador.'
         };
     }
 
@@ -359,7 +369,9 @@ export class AppController {
         clientId: string,
         ingredients: Ingredient[],
         feedback?: string,
-        targetLyeConcentration?: number
+        targetLyeConcentration?: number,
+        existingRecipe?: Recipe | null,
+        userMessage?: string
     ): Recipe {
         const ingredientById = new Map(ingredients.map(item => [item.id, item]));
         const now = new Date().toISOString();
@@ -444,6 +456,15 @@ export class AppController {
             ? createdAt
             : parsedDate.toISOString().split('T')[0];
 
+        const conversation = [...(existingRecipe?.aiConversation || [])];
+        const assistantMessage = (validated as any).assistant_message ? String((validated as any).assistant_message) : '';
+        if (userMessage) {
+            conversation.push({ role: 'user', message: userMessage, timestamp: now });
+        }
+        if (assistantMessage) {
+            conversation.push({ role: 'assistant', message: assistantMessage, timestamp: now });
+        }
+
         const recipe: Recipe = {
             id: IdService.create(),
             code: RecipeService.getInstance().getNextCode(),
@@ -464,7 +485,8 @@ export class AppController {
             superfatOils,
             essentialOils,
             aiRationale: Array.isArray((validated as any).rationale) ? (validated as any).rationale : [],
-            aiFeedback: feedback ? feedback.trim() : ''
+            aiFeedback: feedback ? feedback.trim() : '',
+            aiConversation: conversation
         };
 
         const extended = recipe as Recipe & { source?: 'ai'; createdAt?: string; updatedAt?: string };

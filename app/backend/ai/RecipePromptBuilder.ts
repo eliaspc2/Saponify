@@ -66,6 +66,7 @@ type ExampleRecipe = {
     };
     technical_notes: string[];
     rationale: string[];
+    assistant_message: string;
 };
 
 export class RecipePromptBuilder {
@@ -172,7 +173,8 @@ export class RecipePromptBuilder {
                 estimated_ready_date: 'YYYY-MM-DD'
             },
             technical_notes: ['string'],
-            rationale: ['string']
+            rationale: ['string'],
+            assistant_message: 'string'
         };
     }
 
@@ -202,6 +204,7 @@ export class RecipePromptBuilder {
             'Justificação: preencher o campo rationale (array de strings) com as razões principais das escolhas.',
             'Se user_feedback estiver presente, incorporar essas notas na nova receita.',
             'Usar o valor target_lye_concentration_percent para technical.lye_concentration.',
+            'assistant_message: responder ao utilizador em linguagem natural (curto), explicando se alterou algo.',
             'O valor target_oils_weight_g refere-se apenas ao peso total da fase 1 (phase1_base_fatty).'
         ].join('\n');
     }
@@ -323,7 +326,8 @@ export class RecipePromptBuilder {
                 estimated_ready_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
             },
             technical_notes: ['Exemplo de receita válida para referência de formato.'],
-            rationale: ['Escolhas alinhadas com o perfil do questionário e ingredientes disponíveis.']
+            rationale: ['Escolhas alinhadas com o perfil do questionário e ingredientes disponíveis.'],
+            assistant_message: 'Exemplo de resposta curta ao utilizador.'
         };
     };
 
