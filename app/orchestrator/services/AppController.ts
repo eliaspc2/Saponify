@@ -282,6 +282,8 @@ export class AppController {
                     naoh_calculated: typeof alkaliAmount === 'number' ? parseFloat(alkaliAmount.toFixed(2)) : 0,
                     compensations_applied: citricIngredient ? ['citric_acid'] : []
                 },
+                phase2_functional_additives: recipe.functionalAdditives.map(item => mapTrace(item, 'functional_additive')),
+                phase2_lye_additives: recipe.lyeAdditives.map(item => mapTrace(item, 'lye_additive')),
                 phase3_trace: [
                     ...recipe.traceAdditives.map(item => mapTrace(item, 'trace_additive')),
                     ...recipe.superfatOils.map(item => mapTrace(item, 'superfat_oil')),
@@ -486,6 +488,8 @@ export class AppController {
             }
         };
 
+        (validated.phases.phase2_functional_additives || []).forEach(pushByMenuKey);
+        (validated.phases.phase2_lye_additives || []).forEach(pushByMenuKey);
         (validated.phases.phase3_trace || []).forEach(pushByMenuKey);
 
         if (validated.technical?.citric_acid?.used && validated.technical.citric_acid.weight > 0) {

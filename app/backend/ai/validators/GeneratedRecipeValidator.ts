@@ -135,6 +135,14 @@ export class GeneratedRecipeValidator {
         if (!Array.isArray(phase1)) {
             errors.push('phases.phase1_base_fatty: deve ser array.');
         }
+        const phase2Functional = phases?.phase2_functional_additives;
+        if (!Array.isArray(phase2Functional)) {
+            errors.push('phases.phase2_functional_additives: deve ser array.');
+        }
+        const phase2LyeAdditives = phases?.phase2_lye_additives;
+        if (!Array.isArray(phase2LyeAdditives)) {
+            errors.push('phases.phase2_lye_additives: deve ser array.');
+        }
         const phase3 = phases?.phase3_trace;
         if (!Array.isArray(phase3)) {
             errors.push('phases.phase3_trace: deve ser array.');
@@ -162,6 +170,12 @@ export class GeneratedRecipeValidator {
 
         if (Array.isArray(phase1)) {
             phase1.forEach((item, idx) => validateIngredient(item, `phases.phase1_base_fatty[${idx}]`));
+        }
+        if (Array.isArray(phase2Functional)) {
+            phase2Functional.forEach((item, idx) => validateIngredient(item, `phases.phase2_functional_additives[${idx}]`));
+        }
+        if (Array.isArray(phase2LyeAdditives)) {
+            phase2LyeAdditives.forEach((item, idx) => validateIngredient(item, `phases.phase2_lye_additives[${idx}]`));
         }
         if (Array.isArray(phase3)) {
             phase3.forEach((item, idx) => validateIngredient(item, `phases.phase3_trace[${idx}]`));
@@ -232,6 +246,8 @@ export class GeneratedRecipeValidator {
 
         const allIngredients: GeneratedRecipeIngredient[] = [];
         if (Array.isArray(phase1)) allIngredients.push(...phase1);
+        if (Array.isArray(phase2Functional)) allIngredients.push(...phase2Functional);
+        if (Array.isArray(phase2LyeAdditives)) allIngredients.push(...phase2LyeAdditives);
         if (Array.isArray(phase3)) allIngredients.push(...phase3);
         if (isPlainObject(phase2) && isPlainObject(phase2.liquid)) allIngredients.push(phase2.liquid as GeneratedRecipeIngredient);
 
@@ -276,6 +292,51 @@ export class GeneratedRecipeValidator {
             if (typeof item.weight === 'number' && Math.abs(item.weight) > 0.0001) {
                 errors.push('phases.phase2_lye.liquid.weight: deve ser 0 (calculado pela app).');
             }
+        }
+
+        if (Array.isArray(phase2Functional)) {
+            phase2Functional.forEach((item, idx) => {
+                if (!item || typeof item.ingredientId !== 'string') return;
+                const meta = ingredientIndex.get(item.ingredientId);
+                const menuKey = meta?.menuKey || '';
+                const kind = meta?.kind || '';
+                if (kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
+                    return;
+                }
+                assertPhaseIngredient(
+                    item,
+                    `phases.phase2_functional_additives[${idx}]`,
+                    ingredientIndex,
+                    ['functionalAdditives'],
+                    ['additive'],
+                    errors
+                );
+            });
+        }
+
+        if (Array.isArray(phase2LyeAdditives)) {
+            phase2LyeAdditives.forEach((item, idx) => {
+                if (!item || typeof item.ingredientId !== 'string') return;
+                const meta = ingredientIndex.get(item.ingredientId);
+                const menuKey = meta?.menuKey || '';
+                const kind = meta?.kind || '';
+                const loweredName = (item.name || '').toLowerCase();
+                const isAlkaliName = loweredName.includes('naoh')
+                    || loweredName.includes('koh')
+                    || loweredName.includes('soda')
+                    || loweredName.includes('potassa');
+                if (kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids' || isAlkaliName) {
+                    return;
+                }
+                assertPhaseIngredient(
+                    item,
+                    `phases.phase2_lye_additives[${idx}]`,
+                    ingredientIndex,
+                    ['lyeAdditives'],
+                    ['additive'],
+                    errors
+                );
+            });
         }
 
         if (Array.isArray(phase3)) {

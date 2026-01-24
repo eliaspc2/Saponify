@@ -16,6 +16,8 @@ export type GeneratedRecipeLyePhase = {
 export type GeneratedRecipePhases = {
     phase1_base_fatty: GeneratedRecipeIngredient[];
     phase2_lye: GeneratedRecipeLyePhase;
+    phase2_functional_additives: GeneratedRecipeIngredient[];
+    phase2_lye_additives: GeneratedRecipeIngredient[];
     phase3_trace: GeneratedRecipeIngredient[];
 };
 
@@ -59,7 +61,7 @@ export type ValidatedRecipe = GeneratedRecipe;
 export const GeneratedRecipeSchema = {
     topLevel: ['metadata', 'phases', 'technical', 'curing', 'technical_notes', 'rationale', 'assistant_message'],
     metadata: ['recipeName', 'clientId', 'createdAt', 'source'],
-    phases: ['phase1_base_fatty', 'phase2_lye', 'phase3_trace'],
+    phases: ['phase1_base_fatty', 'phase2_lye', 'phase2_functional_additives', 'phase2_lye_additives', 'phase3_trace'],
     ingredient: ['ingredientId', 'name', 'percentage', 'weight', 'function'],
     lyePhase: ['liquid', 'lye_type', 'naoh_calculated', 'compensations_applied'],
     technical: ['superfat_initial', 'superfat_final', 'lye_concentration', 'citric_acid', 'essential_oils_total_percentage'],

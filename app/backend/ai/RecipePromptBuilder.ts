@@ -52,6 +52,8 @@ type ExampleRecipe = {
             naoh_calculated: number;
             compensations_applied: string[];
         };
+        phase2_functional_additives: ExampleIngredient[];
+        phase2_lye_additives: ExampleIngredient[];
         phase3_trace: ExampleIngredient[];
     };
     technical: {
@@ -161,6 +163,24 @@ export class RecipePromptBuilder {
                     naoh_calculated: 'number',
                     compensations_applied: ['string']
                 },
+                phase2_functional_additives: [
+                    {
+                        ingredientId: 'string',
+                        name: 'string',
+                        percentage: 'number',
+                        weight: 'number',
+                        function: 'string'
+                    }
+                ],
+                phase2_lye_additives: [
+                    {
+                        ingredientId: 'string',
+                        name: 'string',
+                        percentage: 'number',
+                        weight: 'number',
+                        function: 'string'
+                    }
+                ],
                 phase3_trace: [
                     {
                         ingredientId: 'string',
@@ -214,6 +234,8 @@ export class RecipePromptBuilder {
             'USO DE INGREDIENTES: só usar IDs presentes em available_ingredients e respeitar o menuKey/phase correto.',
             'Fase 1 (phase1_base_fatty): usar APENAS ingredientes de menuKey=baseOils.',
             'Fase 2 (phase2_lye.liquid): usar APENAS ingredientes de menuKey=liquids ou menuKey=lyeLiquids. Preferir infusões/lichas existentes sempre que disponíveis.',
+            'Fase 2 (phase2_functional_additives): usar APENAS ingredientes de menuKey=functionalAdditives.',
+            'Fase 2 (phase2_lye_additives): usar APENAS ingredientes de menuKey=lyeAdditives (sal, mel, açúcar, ácido cítrico).',
             'Fase 3 (phase3_trace): usar APENAS ingredientes de menuKey=traceAdditives, superfatOils ou essentialOils. O campo function deve refletir o subtipo (trace_additive | superfat_oil | essential_oil).',
             'Água e soda cáustica são calculadas pela app. Definir phase2_lye.naoh_calculated = 0 e phase2_lye.liquid.weight = 0.',
             'Nunca incluir água ou soda cáustica dentro de phase3_trace.',
@@ -248,6 +270,8 @@ export class RecipePromptBuilder {
         const liquids = items.filter((i) => i.menuKey === 'liquids' || i.menuKey === 'lyeLiquids' || i.kind === 'water');
         const essentialOils = items.filter((i) => i.menuKey === 'essentialOils');
         const traceAdditives = items.filter((i) => i.menuKey === 'traceAdditives');
+        const functionalAdditives = items.filter((i) => i.menuKey === 'functionalAdditives');
+        const lyeAdditives = items.filter((i) => i.menuKey === 'lyeAdditives');
         const superfatOils = items.filter((i) => i.menuKey === 'superfatOils');
 
         const pick = (list: IngredientLike[], count: number) => list.slice(0, count);
@@ -268,7 +292,16 @@ export class RecipePromptBuilder {
             }));
         };
 
-        const buildExample = (name: string, oils: IngredientLike[], percents: number[], essential: IngredientLike[], trace: IngredientLike[], superfatList: IngredientLike[]): ExampleRecipe => {
+        const buildExample = (
+            name: string,
+            oils: IngredientLike[],
+            percents: number[],
+            essential: IngredientLike[],
+            trace: IngredientLike[],
+            superfatList: IngredientLike[],
+            functional: IngredientLike[],
+            lyeAdds: IngredientLike[]
+        ): ExampleRecipe => {
             const phase1 = makePhase1(oils, percents);
             const superfat = 6;
             const lyeConcentration = targetLyeConcentration;
@@ -281,6 +314,32 @@ export class RecipePromptBuilder {
                 weight: waterAmount,
                 function: 'liquid'
             };
+
+            const phase2Functional: ExampleIngredient[] = [];
+            if (functional[0]) {
+                phase2Functional.push({
+                    ingredientId: functional[0].id || functional[0].ingredientId || 'functional',
+                    name: functional[0].name || 'Aditivo Funcional',
+                    percentage: 0,
+                    weight: 5,
+                    function: 'functional_additive'
+                });
+            }
+
+            const phase2LyeAdditives: ExampleIngredient[] = [];
+            const lyePick = lyeAdds.find((item) => {
+                const lowered = (item.name || '').toLowerCase();
+                return !(lowered.includes('naoh') || lowered.includes('koh') || lowered.includes('soda') || lowered.includes('potassa'));
+            }) || lyeAdds[0];
+            if (lyePick) {
+                phase2LyeAdditives.push({
+                    ingredientId: lyePick.id || lyePick.ingredientId || 'lye_additive',
+                    name: lyePick.name || 'Aditivo Lixívia',
+                    percentage: 0,
+                    weight: 5,
+                    function: 'lye_additive'
+                });
+            }
 
             const phase3: ExampleIngredient[] = [];
             if (trace[0]) {
@@ -327,6 +386,8 @@ export class RecipePromptBuilder {
                         naoh_calculated: naoh,
                         compensations_applied: []
                     },
+                    phase2_functional_additives: phase2Functional,
+                    phase2_lye_additives: phase2LyeAdditives,
                     phase3_trace: phase3
                 },
                 technical: {
@@ -357,7 +418,9 @@ export class RecipePromptBuilder {
             example1Oils.length >= 3 ? [50, 30, 20] : example1Oils.length === 2 ? [60, 40] : [100],
             essentialOils.slice(0, 1),
             traceAdditives.slice(0, 1),
-            superfatOils.slice(0, 1)
+            superfatOils.slice(0, 1),
+            functionalAdditives.slice(0, 1),
+            lyeAdditives.slice(0, 1)
         );
 
         const example2 = buildExample(
@@ -366,7 +429,9 @@ export class RecipePromptBuilder {
             example2Oils.length >= 3 ? [40, 35, 25] : example2Oils.length === 2 ? [70, 30] : [100],
             essentialOils.slice(1, 2),
             traceAdditives.slice(1, 2),
-            superfatOils.slice(1, 2)
+            superfatOils.slice(1, 2),
+            functionalAdditives.slice(1, 2),
+            lyeAdditives.slice(1, 2)
         );
 
         return [example1, example2];
