@@ -45,14 +45,34 @@ export class OpenAIProvider {
                 });
             } catch (error) {
                 const err = new Error((error as Error)?.message || 'Resposta inválida da IA.');
-                (err as any).debug = { prompt, response };
+                (err as any).debug = {
+                    prompt,
+                    response,
+                    responseText: JSON.stringify(response, null, 2),
+                    responseLabel: 'Resposta da IA (inválida)'
+                };
                 throw err;
             }
         } catch (error) {
             const err = new Error((error as Error)?.message || 'Erro ao gerar receita com IA.');
-            (err as any).debug = { prompt };
+            (err as any).debug = {
+                prompt,
+                responseText: (error as Error)?.message || '',
+                responseLabel: 'Erro da IA'
+            };
             throw err;
         }
+    }
+
+    async listModels(): Promise<string[]> {
+        const settings = this.settingsService.getSettings();
+        const apiKey = settings.openaiApiKey?.trim();
+        if (!apiKey) {
+            throw new Error('OpenAI API key não configurada.');
+        }
+        const model = settings.openaiModel?.trim() || 'gpt-4.1-mini';
+        const client = new OpenAIClient({ apiKey, model });
+        return client.listModels();
     }
 
 }

@@ -6,7 +6,8 @@ import { ClientService } from '../../../../backend/services/ClientService';
 import { ClientActivityService } from '../../../../backend/services/ClientActivityService';
 import { RecipeService } from '../../../../backend/services/RecipeService';
 import { RecipeDomainService } from '../../../../backend/services/RecipeDomainService';
-import { Recipe } from '../../../../shared/types/Recipe';
+import { Recipe, RecipeIngredient } from '../../../../shared/types/Recipe';
+import { IngredientService } from '../../../../backend/services/IngredientService';
 import {
     User,
     Phone,
@@ -48,7 +49,9 @@ interface ClientDetailsState extends BasePageState {
     aiError: string | null;
     aiDebugPrompt: string;
     aiDebugResponse: string;
-    showAiDebug: boolean;
+    aiDebugResponseLabel: string;
+    showAiPrompt: boolean;
+    showAiResponse: boolean;
 
     // Production Form
     selectedRecipeId: string;
@@ -79,7 +82,9 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             aiError: null,
             aiDebugPrompt: '',
             aiDebugResponse: '',
-            showAiDebug: false,
+            aiDebugResponseLabel: '',
+            showAiPrompt: false,
+            showAiResponse: false,
             isLoading: false,
             error: null
         };
@@ -293,6 +298,90 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         return total;
     }
 
+    private renderRecipeGroup(title: string, items: RecipeIngredient[]) {
+        if (!items || items.length === 0) return null;
+        return (
+            <div>
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.5rem' }}>{title}</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {items.map((item, idx) => (
+                        <div key={`${title}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                            <span>{item.name}</span>
+                            <span style={{ fontWeight: 700 }}>{item.amount}g</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    private async handleExportMarkdown(recipe: Recipe) {
+        const ingredientService = IngredientService.getInstance();
+        if (ingredientService.getAll().length === 0) {
+            await ingredientService.loadInitialData();
+        }
+        const ingredients = ingredientService.getAll();
+        const results = this.props.appController.calculateRecipe({ recipe, ingredients }).results;
+
+        let md = `# Receita: ${recipe.name || 'Sem Nome'}\n`;
+        const recipeRef = formatRecipeReferenceOrFallback(recipe.code, '');
+        if (recipeRef) {
+            md += `Codigo: ${recipeRef} | Data: ${recipe.date}\n\n`;
+        } else {
+            md += `Data: ${recipe.date}\n\n`;
+        }
+        md += `## Configurações\n`;
+        md += `- Álcali: ${recipe.alkali}\n`;
+        md += `- Superfat: ${recipe.superfat}%\n`;
+        md += `- Concentração de Água: ${recipe.waterConcentration}%\n`;
+        md += `- Pureza do Álcali: ${recipe.alkaliPurity ?? 100}%\n\n`;
+
+        md += `## Composição\n`;
+        md += `### Fase 1: Gorduras\n`;
+        recipe.fats.forEach(f => {
+            const pct = results.totalFats > 0 ? ((f.amount / results.totalFats) * 100).toFixed(1) : '0.0';
+            md += `- ${f.name}: ${f.amount} g (${pct}%)\n`;
+        });
+
+        md += `\n### Fase 2: Lixívia & Aditivos\n`;
+        recipe.liquids.forEach(l => md += `- ${l.name}: ${l.amount} g\n`);
+        recipe.functionalAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+        md += `- ${recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}: ${results.alkaliAmount.toFixed(2)} g\n`;
+        recipe.lyeAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+
+        md += `\n### Fase 3: No Traço\n`;
+        recipe.traceAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
+        recipe.superfatOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
+        recipe.essentialOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
+
+        md += `\n## Resultados Técnicos\n`;
+        md += `- Total de Gorduras: ${results.totalFats.toFixed(1)} g\n`;
+        md += `- Lixívia (${recipe.alkali}): ${results.alkaliAmount.toFixed(2)} g\n`;
+        md += `- Água: ${results.waterAmount.toFixed(1)} g\n`;
+        md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n\n`;
+
+        md += `## Qualidade (valores crus)\n`;
+        md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)}\n`;
+        md += `- Limpeza: ${results.properties.cleansing.toFixed(0)}\n`;
+        md += `- Bolhas: ${results.properties.bubbles.toFixed(0)}\n`;
+        md += `- Persistência: ${results.properties.persistence.toFixed(0)}\n`;
+        md += `- Dureza: ${results.properties.hardness.toFixed(0)}\n\n`;
+
+        md += `## INCI\n`;
+        md += `${results.inciList.join(', ')}\n`;
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const codePrefix = recipe.code || 'sem_referencia';
+        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
     private getLatestQuestionnaire(): Questionnaire | null {
         const { questionnaires } = this.state;
         if (!questionnaires.length) return null;
@@ -346,11 +435,26 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
 
         const questionnaire = this.getLatestQuestionnaire();
         if (!this.isQuestionnaireComplete(questionnaire)) {
-            this.setState({ aiError: 'Formulário incompleto.', aiDebugPrompt: '', aiDebugResponse: '', showAiDebug: false });
+            this.setState({
+                aiError: 'Formulário incompleto.',
+                aiDebugPrompt: '',
+                aiDebugResponse: '',
+                aiDebugResponseLabel: '',
+                showAiPrompt: false,
+                showAiResponse: false
+            });
             return;
         }
 
-        this.setState({ isGeneratingAIRecipe: true, aiError: null, aiDebugPrompt: '', aiDebugResponse: '', showAiDebug: false });
+        this.setState({
+            isGeneratingAIRecipe: true,
+            aiError: null,
+            aiDebugPrompt: '',
+            aiDebugResponse: '',
+            aiDebugResponseLabel: '',
+            showAiPrompt: false,
+            showAiResponse: false
+        });
         try {
             const recipe = await this.props.appController.generateRecipeFromAI({
                 clientId: client.id,
@@ -369,13 +473,18 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                 ? 'A IA não está configurada.'
                 : 'Erro ao gerar a receita. Tenta novamente.';
             const debugPrompt = err?.debug?.prompt ? JSON.stringify(err.debug.prompt, null, 2) : '';
-            const debugResponse = err?.debug?.response ? JSON.stringify(err.debug.response, null, 2) : '';
+            const debugResponse = err?.debug?.responseText
+                ? String(err.debug.responseText)
+                : (err?.debug?.response ? JSON.stringify(err.debug.response, null, 2) : '');
+            const debugResponseLabel = err?.debug?.responseLabel || (debugResponse ? 'Resposta da IA' : 'Detalhes');
             this.setState({
                 isGeneratingAIRecipe: false,
                 aiError: safeMessage,
                 aiDebugPrompt: debugPrompt,
                 aiDebugResponse: debugResponse,
-                showAiDebug: false
+                aiDebugResponseLabel: debugResponseLabel,
+                showAiPrompt: false,
+                showAiResponse: false
             });
         }
     }
@@ -429,27 +538,40 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         <div style={{ fontSize: '0.85rem', color: '#B91C1C', marginBottom: '0.75rem' }}>
                             {aiError}
                             {(this.state.aiDebugPrompt || this.state.aiDebugResponse) && (
-                                <button
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ marginLeft: '0.75rem', padding: '0.3rem 0.75rem' }}
-                                    onClick={() => this.setState({ showAiDebug: !this.state.showAiDebug })}
-                                >
-                                    {this.state.showAiDebug ? 'Ocultar detalhes' : 'Ver detalhes'}
-                                </button>
+                                <span style={{ marginLeft: '0.75rem', display: 'inline-flex', gap: '0.5rem' }}>
+                                    {this.state.aiDebugPrompt && (
+                                        <button
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ padding: '0.3rem 0.75rem' }}
+                                            onClick={() => this.setState({ showAiPrompt: !this.state.showAiPrompt })}
+                                        >
+                                            {this.state.showAiPrompt ? 'Ocultar prompt' : 'Ver prompt'}
+                                        </button>
+                                    )}
+                                    {this.state.aiDebugResponse && (
+                                        <button
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ padding: '0.3rem 0.75rem' }}
+                                            onClick={() => this.setState({ showAiResponse: !this.state.showAiResponse })}
+                                        >
+                                            {this.state.showAiResponse ? 'Ocultar resposta' : 'Ver resposta'}
+                                        </button>
+                                    )}
+                                </span>
                             )}
                         </div>
                     )}
-                    {this.state.showAiDebug && (this.state.aiDebugPrompt || this.state.aiDebugResponse) && (
+                    {(this.state.showAiPrompt || this.state.showAiResponse) && (this.state.aiDebugPrompt || this.state.aiDebugResponse) && (
                         <div style={{ marginBottom: '1rem', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
-                            {this.state.aiDebugPrompt && (
+                            {this.state.showAiPrompt && this.state.aiDebugPrompt && (
                                 <div style={{ marginBottom: '0.75rem' }}>
                                     <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Prompt enviado</div>
                                     <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.7rem', lineHeight: 1.4, color: '#111827' }}>{this.state.aiDebugPrompt}</pre>
                                 </div>
                             )}
-                            {this.state.aiDebugResponse && (
+                            {this.state.showAiResponse && this.state.aiDebugResponse && (
                                 <div>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Resposta da IA</div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>{this.state.aiDebugResponseLabel || 'Resposta da IA'}</div>
                                     <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.7rem', lineHeight: 1.4, color: '#111827' }}>{this.state.aiDebugResponse}</pre>
                                 </div>
                             )}
@@ -497,6 +619,34 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="card" style={{ padding: '1.5rem' }}>
+                                <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: '1.25rem' }}>
+                                    Questionários ({this.state.questionnaires.length})
+                                </h3>
+                                {this.state.questionnaires.length === 0 ? (
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>Nenhum questionário associado.</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {this.state.questionnaires.map((q) => {
+                                            const when = q.date || q.createdAt || q.updatedAt;
+                                            return (
+                                                <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#F9FAFB', borderRadius: 'var(--radius-sm)', border: '1px solid #E5E7EB' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Questionário</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-light)' }}>
+                                                            {when ? new Date(when).toLocaleDateString() : 'Sem data'}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>
+                                                        ID: {q.id}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="card" style={{ padding: '1.5rem' }}>
@@ -789,6 +939,9 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                 footer={
                     <>
                         <button className="btn btn-secondary" onClick={() => this.setState({ isRecipeModalOpen: false, viewingRecipe: null })}>Fechar</button>
+                        <button className="btn btn-secondary" onClick={() => this.handleExportMarkdown(viewingRecipe)}>
+                            <Download size={16} /> Exportar MD
+                        </button>
                         <button className="btn btn-primary" onClick={handleSave}>Guardar Alterações</button>
                     </>
                 }
@@ -820,27 +973,16 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                     </div>
 
                     <div className="modal-grid-2" style={{ gap: '2rem' }}>
-                        <div>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.75rem', borderBottom: '1px solid #eee', paddingBottom: '0.25rem' }}>Gorduras</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {viewingRecipe.fats.map((f, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                        <span>{f.name}</span>
-                                        <strong>{f.amount}g</strong>
-                                    </div>
-                                ))}
-                            </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {this.renderRecipeGroup('Fase 1: Gorduras', viewingRecipe.fats)}
+                            {this.renderRecipeGroup('Fase 2: Líquidos', viewingRecipe.liquids)}
+                            {this.renderRecipeGroup('Fase 2: Aditivos Funcionais', viewingRecipe.functionalAdditives)}
+                            {this.renderRecipeGroup('Fase 2: Aditivos da Lixívia', viewingRecipe.lyeAdditives)}
                         </div>
-                        <div>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.75rem', borderBottom: '1px solid #eee', paddingBottom: '0.25rem' }}>Líquidos & Aditivos</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {viewingRecipe.liquids.map((l, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                        <span>{l.name}</span>
-                                        <strong>{l.amount}g</strong>
-                                    </div>
-                                ))}
-                            </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {this.renderRecipeGroup('Fase 3: Aditivos Traço', viewingRecipe.traceAdditives)}
+                            {this.renderRecipeGroup('Fase 3: Superfat Oils', viewingRecipe.superfatOils)}
+                            {this.renderRecipeGroup('Fase 3: Óleos Essenciais', viewingRecipe.essentialOils)}
                         </div>
                     </div>
 

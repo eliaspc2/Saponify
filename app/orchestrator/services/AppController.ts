@@ -71,6 +71,11 @@ export class AppController {
         return this.openAIProvider.isConfigured();
     }
 
+    // Contract: fetch available OpenAI models via backend provider.
+    public async getAvailableOpenAIModels(): Promise<string[]> {
+        return this.openAIProvider.listModels();
+    }
+
     // Contract: generate a recipe via AI and persist it, without exposing IA to UI.
     public async generateRecipeFromAI(params: { clientId: string; questionnaire: object; }): Promise<Recipe> {
         const { clientId, questionnaire } = params;

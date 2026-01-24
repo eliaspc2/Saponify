@@ -63,4 +63,35 @@ export class OpenAIClient {
         }
     }
 
+    async listModels(): Promise<string[]> {
+        const response = await fetch('https://api.openai.com/v1/models', {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${this.apiKey}`
+            }
+        });
+
+        if (!response.ok) {
+            let message = 'Erro ao obter modelos da OpenAI.';
+            try {
+                const errorBody = await response.json();
+                message = errorBody?.error?.message || message;
+            } catch {
+                // ignore parse errors
+            }
+            throw new Error(message);
+        }
+
+        const data = await response.json();
+        const models = Array.isArray(data?.data) ? data.data : [];
+        const ids = models
+            .map((item: any) => item?.id)
+            .filter((id: any) => typeof id === 'string' && id.trim().length > 0);
+
+        if (!ids.length) {
+            throw new Error('Nenhum modelo disponível.');
+        }
+
+        return ids;
+    }
 }

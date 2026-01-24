@@ -4,11 +4,68 @@ import extendedRules from './rules/soap_recipe_norms.json';
 export type RecipePromptParams = {
     clientForm: object;
     availableIngredients: object[];
+    targetOilsWeight?: number;
+};
+
+type IngredientLike = {
+    id?: string;
+    ingredientId?: string;
+    name?: string;
+    category?: string;
+    menuKey?: string;
+    kind?: string;
+    sapNaOH?: number;
+};
+
+type ExampleIngredient = {
+    ingredientId: string;
+    name: string;
+    percentage: number;
+    weight: number;
+    function: string;
+};
+
+type ExampleRecipe = {
+    metadata: {
+        recipeName: string;
+        clientId: string;
+        createdAt: string;
+        source: 'ai';
+    };
+    phases: {
+        phase1_base_fatty: ExampleIngredient[];
+        phase2_lye: {
+            liquid: ExampleIngredient;
+            lye_type: string;
+            naoh_calculated: number;
+            compensations_applied: string[];
+        };
+        phase3_trace: ExampleIngredient[];
+    };
+    technical: {
+        superfat_initial: number;
+        superfat_final: number;
+        lye_concentration: number;
+        citric_acid: {
+            used: boolean;
+            weight: number;
+            naoh_adjustment: number;
+        };
+        essential_oils_total_percentage: number;
+    };
+    curing: {
+        days: number;
+        calculation_basis: string;
+        estimated_ready_date: string;
+    };
+    technical_notes: string[];
 };
 
 export class RecipePromptBuilder {
     buildRecipePrompt(params: RecipePromptParams): object {
         const { clientForm, availableIngredients } = params;
+        const targetOilsWeight = params.targetOilsWeight || 1000;
+        const examples = this.buildExamples(availableIngredients, targetOilsWeight);
 
         return {
             role: 'soap_recipe_generation_engine',
@@ -24,13 +81,213 @@ export class RecipePromptBuilder {
                 core: coreRules,
                 extended: extendedRules
             },
+            target_oils_weight_g: targetOilsWeight,
             client_questionnaire: clientForm,
             available_ingredients: availableIngredients,
             output_contract: {
                 description: 'Responder apenas com uma receita de sabonete válida e importável',
                 format: 'json',
-                no_extra_fields: true
+                no_extra_fields: true,
+                response_schema: this.getResponseSchema(),
+                examples
             }
         };
+    }
+
+    private getResponseSchema() {
+        return {
+            metadata: {
+                recipeName: 'string',
+                clientId: 'string',
+                createdAt: 'ISO_8601',
+                source: 'ai'
+            },
+            phases: {
+                phase1_base_fatty: [
+                    {
+                        ingredientId: 'string',
+                        name: 'string',
+                        percentage: 'number',
+                        weight: 'number',
+                        function: 'string'
+                    }
+                ],
+                phase2_lye: {
+                    liquid: {
+                        ingredientId: 'string',
+                        name: 'string',
+                        percentage: 'number',
+                        weight: 'number',
+                        function: 'string'
+                    },
+                    lye_type: 'NaOH|KOH',
+                    naoh_calculated: 'number',
+                    compensations_applied: ['string']
+                },
+                phase3_trace: [
+                    {
+                        ingredientId: 'string',
+                        name: 'string',
+                        percentage: 'number',
+                        weight: 'number',
+                        function: 'string'
+                    }
+                ]
+            },
+            technical: {
+                superfat_initial: 'number',
+                superfat_final: 'number',
+                lye_concentration: 'number',
+                citric_acid: {
+                    used: 'boolean',
+                    weight: 'number',
+                    naoh_adjustment: 'number'
+                },
+                essential_oils_total_percentage: 'number'
+            },
+            curing: {
+                days: 'number',
+                calculation_basis: 'string',
+                estimated_ready_date: 'YYYY-MM-DD'
+            },
+            technical_notes: ['string']
+        };
+    }
+
+    private buildExamples(availableIngredients: object[], targetOilsWeight: number): ExampleRecipe[] {
+        const items = (availableIngredients || []) as IngredientLike[];
+        const baseOils = items.filter((i) => (i.menuKey === 'baseOils' || i.kind === 'oil') && (i.sapNaOH || 0) > 0);
+        const liquids = items.filter((i) => i.menuKey === 'liquids' || i.kind === 'water');
+        const essentialOils = items.filter((i) => i.menuKey === 'essentialOils');
+        const traceAdditives = items.filter((i) => i.menuKey === 'traceAdditives');
+        const superfatOils = items.filter((i) => i.menuKey === 'superfatOils');
+
+        const pick = (list: IngredientLike[], count: number) => list.slice(0, count);
+        const pickOffset = (list: IngredientLike[], offset: number, count: number) => list.slice(offset, offset + count);
+
+        const example1Oils = pick(baseOils, 3);
+        const example2Oils = pickOffset(baseOils, 3, 3).length ? pickOffset(baseOils, 3, 3) : pick(baseOils, 2);
+
+        const water = liquids[0] || items[0];
+
+        const makePhase1 = (oils: IngredientLike[], percents: number[]) => {
+            return oils.map((oil, idx) => ({
+                ingredientId: oil.id || oil.ingredientId || `oil_${idx}`,
+                name: oil.name || `Óleo ${idx + 1}`,
+                percentage: percents[idx],
+                weight: parseFloat(((targetOilsWeight * percents[idx]) / 100).toFixed(1)),
+                function: 'base_oil'
+            }));
+        };
+
+        const computeNaoh = (phase1: ExampleIngredient[], superfat: number) => {
+            const total = phase1.reduce((sum, item) => {
+                const ing = items.find((i) => (i.id || i.ingredientId) === item.ingredientId);
+                const sap = ing?.sapNaOH || 0.13;
+                return sum + item.weight * sap;
+            }, 0);
+            return parseFloat((total * (1 - superfat / 100)).toFixed(2));
+        };
+
+        const buildExample = (name: string, oils: IngredientLike[], percents: number[], essential: IngredientLike[], trace: IngredientLike[], superfatList: IngredientLike[]): ExampleRecipe => {
+            const phase1 = makePhase1(oils, percents);
+            const superfat = 6;
+            const lyeConcentration = 30;
+            const naoh = computeNaoh(phase1, superfat);
+            const waterAmount = parseFloat((naoh * ((100 - lyeConcentration) / lyeConcentration)).toFixed(1));
+            const liquid: ExampleIngredient = {
+                ingredientId: water?.id || water?.ingredientId || 'water',
+                name: water?.name || 'Água',
+                percentage: 0,
+                weight: waterAmount,
+                function: 'liquid'
+            };
+
+            const phase3: ExampleIngredient[] = [];
+            if (trace[0]) {
+                phase3.push({
+                    ingredientId: trace[0].id || trace[0].ingredientId || 'trace',
+                    name: trace[0].name || 'Aditivo Traço',
+                    percentage: 0,
+                    weight: 5,
+                    function: 'trace_additive'
+                });
+            }
+            if (superfatList[0]) {
+                phase3.push({
+                    ingredientId: superfatList[0].id || superfatList[0].ingredientId || 'superfat',
+                    name: superfatList[0].name || 'Óleo Superfat',
+                    percentage: 0,
+                    weight: 20,
+                    function: 'superfat_oil'
+                });
+            }
+            const eoTotal = essential.length > 0 ? 2 : 0;
+            if (essential[0]) {
+                phase3.push({
+                    ingredientId: essential[0].id || essential[0].ingredientId || 'eo',
+                    name: essential[0].name || 'Óleo Essencial',
+                    percentage: eoTotal,
+                    weight: parseFloat(((targetOilsWeight * eoTotal) / 100).toFixed(1)),
+                    function: 'essential_oil'
+                });
+            }
+
+            return {
+                metadata: {
+                    recipeName: name,
+                    clientId: 'CLIENT_ID',
+                    createdAt: new Date().toISOString(),
+                    source: 'ai'
+                },
+                phases: {
+                    phase1_base_fatty: phase1,
+                    phase2_lye: {
+                        liquid,
+                        lye_type: 'NaOH',
+                        naoh_calculated: naoh,
+                        compensations_applied: []
+                    },
+                    phase3_trace: phase3
+                },
+                technical: {
+                    superfat_initial: superfat,
+                    superfat_final: superfat,
+                    lye_concentration: lyeConcentration,
+                    citric_acid: {
+                        used: false,
+                        weight: 0,
+                        naoh_adjustment: 0
+                    },
+                    essential_oils_total_percentage: eoTotal
+                },
+                curing: {
+                    days: 30,
+                    calculation_basis: 'média',
+                    estimated_ready_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                },
+                technical_notes: ['Exemplo de receita válida para referência de formato.']
+            };
+        };
+
+        const example1 = buildExample(
+            'Exemplo A (1kg óleos)',
+            example1Oils.length ? example1Oils : pick(baseOils, 1),
+            example1Oils.length >= 3 ? [50, 30, 20] : example1Oils.length === 2 ? [60, 40] : [100],
+            essentialOils.slice(0, 1),
+            traceAdditives.slice(0, 1),
+            superfatOils.slice(0, 1)
+        );
+
+        const example2 = buildExample(
+            'Exemplo B (1kg óleos)',
+            example2Oils.length ? example2Oils : pick(baseOils, 1),
+            example2Oils.length >= 3 ? [40, 35, 25] : example2Oils.length === 2 ? [70, 30] : [100],
+            essentialOils.slice(1, 2),
+            traceAdditives.slice(1, 2),
+            superfatOils.slice(1, 2)
+        );
+
+        return [example1, example2];
     }
 }

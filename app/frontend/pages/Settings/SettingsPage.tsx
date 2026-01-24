@@ -31,6 +31,9 @@ interface SettingsState extends BasePageState {
     openaiApiKeyTouched: boolean;
     hasStoredOpenaiKey: boolean;
     showOpenaiApiKey: boolean;
+    openaiModels: string[];
+    openaiModelsLoading: boolean;
+    openaiModelsError: string;
 }
 
 const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
@@ -72,7 +75,10 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             openaiApiKeyDraft: '',
             openaiApiKeyTouched: false,
             hasStoredOpenaiKey,
-            showOpenaiApiKey: false
+            showOpenaiApiKey: false,
+            openaiModels: [],
+            openaiModelsLoading: false,
+            openaiModelsError: ''
         };
     }
 
@@ -85,6 +91,29 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             });
         }
         this.refreshLocalBackupStatus();
+    }
+
+    private async handleRefreshModels() {
+        if (!this.props.appController.hasAIConfigured()) {
+            this.setState({ openaiModels: [], openaiModelsError: 'Configura a API key primeiro.' });
+            return;
+        }
+        this.setState({ openaiModelsLoading: true, openaiModelsError: '' });
+        try {
+            const models = await this.props.appController.getAvailableOpenAIModels();
+            const currentModel = this.state.settings.openaiModel || 'gpt-4.1-mini';
+            const unique = Array.from(new Set(models));
+            if (currentModel && !unique.includes(currentModel)) {
+                unique.unshift(currentModel);
+            }
+            this.setState({ openaiModels: unique, openaiModelsLoading: false });
+        } catch (error) {
+            this.setState({
+                openaiModels: [],
+                openaiModelsLoading: false,
+                openaiModelsError: 'Não foi possível obter modelos.'
+            });
+        }
     }
 
     private handleUpdate(field: keyof AppSettings, value: any) {
@@ -279,11 +308,13 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             localBackupUpdatedAt,
             localBackupSize
         } = this.state;
+        const { openaiModels, openaiModelsLoading, openaiModelsError } = this.state;
         const aiConfigured = this.props.appController.hasAIConfigured();
         const apiKeyPlaceholder = this.state.hasStoredOpenaiKey && !this.state.openaiApiKeyTouched
             ? '********'
             : 'Introduza a API key';
-        const modelsToShow = ['gpt-4.1-mini', 'gpt-4.1'];
+        const fallbackModels = ['gpt-4.1-mini', 'gpt-4.1'];
+        const modelsToShow = openaiModels.length > 0 ? openaiModels : fallbackModels;
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -442,6 +473,18 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                             <option key={model} value={model}>{model}</option>
                                         ))}
                                     </select>
+                                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                        <button
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => this.handleRefreshModels()}
+                                            disabled={openaiModelsLoading || !aiConfigured}
+                                        >
+                                            {openaiModelsLoading ? 'A consultar...' : 'Consultar modelos'}
+                                        </button>
+                                    </div>
+                                    {openaiModelsError && (
+                                        <p style={{ fontSize: '0.75rem', color: '#B91C1C', marginTop: '0.4rem' }}>{openaiModelsError}</p>
+                                    )}
                                 </div>
                                 <div>
                                     <button
