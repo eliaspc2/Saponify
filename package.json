@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node app/backend/shared/versioning/generateDomainFingerprint.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

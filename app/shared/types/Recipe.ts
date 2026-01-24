@@ -10,6 +10,12 @@ export interface RecipeIngredient {
     autoAmount?: boolean;
 }
 
+export type RecipeVersionInfo = {
+    appVersion: string;
+    dataSchemaVersion: number;
+    recipeDomainFingerprint: string;
+};
+
 export interface Recipe {
     id: string;
     code: string; // e.g., "RE0008"
@@ -48,4 +54,9 @@ export interface Recipe {
     aiLastPrompt?: object;
     aiLastResponse?: object;
     aiLastResponseAt?: string;
+
+    meta?: {
+        generatedBy?: string;
+        versionInfo?: RecipeVersionInfo;
+    };
 }

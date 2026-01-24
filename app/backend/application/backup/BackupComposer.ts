@@ -6,6 +6,7 @@ import { QuestionnaireService } from '../../infrastructure/services/Questionnair
 import { CalculatorEngine } from '../../domain/calculator/CalculatorEngine';
 import { ClientActivityService } from '../../infrastructure/services/ClientActivityService';
 import { AppConstants } from '../../../shared/constants/AppConstants';
+import { getVersionInfo } from '../../shared/versioning/VersionService';
 
 export class BackupComposer {
     public async exportAllData(): Promise<string> {
@@ -27,6 +28,9 @@ export class BackupComposer {
         const data = {
             version: AppConstants.BACKUP_VERSION,
             timestamp: new Date().toISOString(),
+            meta: {
+                versionInfo: getVersionInfo()
+            },
             recipes,
             recipeCalculations,
             clients: ClientService.getInstance().getAll(),

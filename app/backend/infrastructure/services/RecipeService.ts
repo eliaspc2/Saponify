@@ -5,6 +5,7 @@ import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { normalizeEntity } from '../../shared/normalizers/EntityNormalizer';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
+import { getVersionInfo } from '../../shared/versioning/VersionService';
 
 export class RecipeService extends BaseService<Recipe> {
     private static instance: RecipeService;
@@ -41,7 +42,7 @@ export class RecipeService extends BaseService<Recipe> {
     }
 
     save(recipe: Recipe) {
-        const normalized = this.normalizeRecipe(recipe);
+        const normalized = this.normalizeRecipe(this.applyVersionInfoIfAi(recipe));
         this.storageRepository.upsert(normalized);
     }
 
@@ -83,6 +84,23 @@ export class RecipeService extends BaseService<Recipe> {
             notes: recipe.notes || ''
         };
         return normalizeEntity(normalized, { ensureId: true });
+    }
+
+    private applyVersionInfoIfAi(recipe: Recipe): Recipe {
+        const source = (recipe as Recipe & { source?: string }).source;
+        if (source !== 'ai') {
+            return recipe;
+        }
+        const existingMeta = recipe.meta || {};
+        const versionInfo = existingMeta.versionInfo || getVersionInfo();
+        return {
+            ...recipe,
+            meta: {
+                ...existingMeta,
+                generatedBy: existingMeta.generatedBy || 'ai',
+                versionInfo
+            }
+        };
     }
 
 }
