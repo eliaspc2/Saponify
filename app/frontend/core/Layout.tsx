@@ -26,8 +26,8 @@ const SidebarItem = ({
         style={{
             display: 'flex',
             alignItems: 'center',
-            padding: '0.75rem 1rem',
-            gap: '0.75rem',
+            padding: '0.6rem 0.75rem',
+            gap: '0.5rem',
             borderRadius: '0.5rem',
             cursor: 'pointer',
             backgroundColor: active ? 'var(--color-primary-light)' : 'transparent',
@@ -35,8 +35,8 @@ const SidebarItem = ({
             transition: 'all 0.2s'
         }}
     >
-        <Icon size={20} />
-        <span style={{ fontWeight: 500 }}>{label}</span>
+        <Icon size={18} />
+        <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{label}</span>
     </div>
 );
 
@@ -55,10 +55,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
     return (
         <div className="layout" style={{ display: 'flex', minHeight: 'var(--vh)' }}>
             <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-                <div className="logo" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <img src={`${import.meta.env.BASE_URL}assets/brand/logo.png`} alt="Saponify Logo" style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover' }} />
+                <div className="logo" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <img src={`${import.meta.env.BASE_URL}assets/brand/logo.png`} alt="Saponify Logo" style={{ width: '34px', height: '34px', borderRadius: '0.5rem', objectFit: 'cover' }} />
                     <div>
-                        <h2 style={{ fontSize: '1.25rem', color: 'var(--color-primary-dark)' }}>Saponify</h2>
+                        <h2 style={{ fontSize: '1.05rem', color: 'var(--color-primary-dark)' }}>Saponify</h2>
                     </div>
                 </div>
 

@@ -49,7 +49,7 @@ export abstract class BasePage<P = {}, S = {}> extends React.Component<P & BaseP
         return (
             <header className="page-header">
                 <h1>{this.props.title || 'Saponify'}</h1>
-                {this.renderActions()}
+                <div className="page-header-actions">{this.renderActions()}</div>
             </header>
         );
     }

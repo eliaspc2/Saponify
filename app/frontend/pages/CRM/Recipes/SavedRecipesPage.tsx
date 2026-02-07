@@ -12,6 +12,7 @@ import { Modal } from '../../../components/Modal';
 import { IngredientService } from '../../../../backend/infrastructure/services/IngredientService';
 import { formatRecipeCodeForFile, formatRecipeReference, formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 import { AppController } from '../../../../orchestrator/services/AppController';
+import { showToast } from '../../../components/Toast';
 
 export interface SavedRecipesProps extends BasePageProps {
     onNavigate: (page: string, params?: any) => void;
@@ -171,7 +172,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                 : (parsed?.recipes || parsed?.recipe ? (parsed.recipes || [parsed.recipe]) : [parsed]);
             const validRecipes = recipes.filter((recipe: Recipe) => recipe && typeof recipe === 'object');
             if (validRecipes.length === 0) {
-                alert('Ficheiro invalido para receita.');
+                showToast('Ficheiro inválido para receita.', 'warning');
                 return;
             }
             validRecipes.forEach((recipe: Recipe) => {
@@ -180,7 +181,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             });
             this.loadRecipes();
         } catch (error) {
-            alert('Erro ao importar receita.');
+            showToast('Erro ao importar receita.', 'error');
         } finally {
             event.target.value = '';
         }
@@ -330,28 +331,25 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                                 </td>
                                 <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#6B7280' }}>{new Date(recipe.date).toLocaleDateString()}</td>
                                 <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <div className="table-row-actions">
                                         <button
                                             title="Editar Dados"
-                                            className="btn btn-secondary"
+                                            className="table-row-action-btn"
                                             onClick={() => this.openEditModal(recipe)}
-                                            style={{ padding: '0.4rem', minWidth: 'auto' }}
                                         >
                                             <Edit2 size={16} />
                                         </button>
                                         <button
                                             title="Abrir na Calculadora"
-                                            className="btn btn-secondary"
+                                            className="table-row-action-btn is-primary"
                                             onClick={() => this.props.onNavigate('calculator', { recipeId: recipe.id })}
-                                            style={{ padding: '0.4rem', minWidth: 'auto', color: 'var(--color-primary)' }}
                                         >
                                             <ExternalLink size={16} />
                                         </button>
                                         <button
                                             title="Remover"
-                                            className="btn btn-secondary"
+                                            className="table-row-action-btn is-danger"
                                             onClick={() => this.handleDelete(recipe.id)}
-                                            style={{ padding: '0.4rem', minWidth: 'auto', color: '#EF4444' }}
                                         >
                                             <Trash2 size={16} />
                                         </button>

@@ -10,6 +10,7 @@ interface IngredientFormModalProps {
 }
 
 import { INGREDIENT_CATEGORIES, formatCategoryLabel } from '../../shared/constants/Categories';
+import { showToast } from './Toast';
 
 // Remove local CATEGORIES definition and use imported one
 
@@ -132,7 +133,7 @@ export const IngredientFormModal: React.FC<IngredientFormModalProps> = ({ isOpen
             const fatty = formData.fattyAcids || DEFAULT_INGREDIENT.fattyAcids;
             const total = Object.values(fatty).reduce((sum, value) => sum + (typeof value === 'number' ? value : 0), 0);
             if (total < 98 || total > 102) {
-                alert(`O perfil de ácidos graxos deve somar ~100% (atual: ${total.toFixed(1)}%).`);
+                showToast('O perfil de ácidos graxos deve somar ~100% (atual: ' + total.toFixed(1) + '%).', 'warning', 4500);
                 return;
             }
         }

@@ -5,10 +5,12 @@ import { RecipeService } from '../../../backend/infrastructure/services/RecipeSe
 import { RecipeDomainService } from '../../../backend/application/recipes/RecipeDomainService';
 import { SettingsService } from '../../../backend/infrastructure/services/SettingsService';
 import { AppController } from '../../../orchestrator/services/AppController';
+import { BackupService } from '../../../backend/application/backup/BackupService';
 import { Ingredient } from '../../../shared/types/Ingredient';
-import { Beaker, ShieldCheck, Plus, Trash2, Save, FileText } from 'lucide-react';
+import { Beaker, ShieldCheck, Plus, Trash2, Save, Download } from 'lucide-react';
 import { Client } from '../../../shared/types/Client';
 import { ClientService } from '../../../backend/infrastructure/services/ClientService';
+import { showToast } from '../../components/Toast';
 
 interface CalculatorPageProps extends BasePageProps {
     recipeId?: string;
@@ -277,15 +279,15 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
     private async handleSaveRecipe() {
         const { recipe } = this.state;
         if (!recipe.name) {
-            alert('Por favor, dê um nome à receita antes de salvar.');
+            showToast('Por favor, dê um nome à receita antes de guardar.', 'warning');
             return;
         }
 
         try {
             RecipeDomainService.getInstance().save(recipe);
-            alert('Receita salva com sucesso!');
+            showToast('Receita guardada com sucesso!', 'success');
         } catch (e) {
-            alert('Erro ao salvar receita.');
+            showToast('Erro ao guardar receita.', 'error');
         }
     }
 
@@ -323,6 +325,11 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    private async handleDownloadBackup() {
+        const json = await BackupService.getInstance().exportAllData();
+        BackupService.getInstance().downloadBackup(json);
     }
 
     private renderIngredientRow(
@@ -439,6 +446,57 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         );
     }
 
+    protected renderActions(): React.ReactNode {
+        return (
+            <div className="calculator-header-actions">
+                <details className="phase-add-menu page-action-menu">
+                    <summary className="btn btn-secondary">
+                        <Download size={16} />
+                        Exportar
+                    </summary>
+                    <div className="phase-add-menu-list">
+                        <button
+                            type="button"
+                            className="phase-add-menu-item"
+                            onClick={(event) => {
+                                const details = event.currentTarget.closest('details') as HTMLDetailsElement | null;
+                                if (details) details.open = false;
+                                this.handleDownloadMarkdown();
+                            }}
+                        >
+                            Markdown
+                        </button>
+                        <button
+                            type="button"
+                            className="phase-add-menu-item"
+                            onClick={(event) => {
+                                const details = event.currentTarget.closest('details') as HTMLDetailsElement | null;
+                                if (details) details.open = false;
+                                this.handleDownloadJSON();
+                            }}
+                        >
+                            JSON
+                        </button>
+                        <button
+                            type="button"
+                            className="phase-add-menu-item"
+                            onClick={async (event) => {
+                                const details = event.currentTarget.closest('details') as HTMLDetailsElement | null;
+                                if (details) details.open = false;
+                                await this.handleDownloadBackup();
+                            }}
+                        >
+                            Backup
+                        </button>
+                    </div>
+                </details>
+                <button className="btn btn-primary" style={{ fontWeight: 700 }} onClick={() => this.handleSaveRecipe()}>
+                    <Save size={18} /> Guardar Receita
+                </button>
+            </div>
+        );
+    }
+
     renderContent() {
         if (this.state.loading) return <div>Carregando calculadora...</div>;
 
@@ -447,34 +505,13 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const calc = this.props.appController.calculateRecipe({ recipe: baseRecipe, ingredients: availableIngredients });
         const { results, phaseTotals, fattyAcidLabels, ingredientMetaById, qualityProgress } = calc;
         const recipe = calc.normalizedRecipe;
-        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, physicalDays, physicalReadyDate } = phaseTotals;
+        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, physicalDays, physicalReadyDate, goodConditionDays, goodConditionEndDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                {/* 1. Control Pill (Sticky) */}
-                <div className="list-controls card" style={{ paddingLeft: '2rem', paddingRight: '2rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <h2 style={{ fontSize: '1rem', fontWeight: 700, marginRight: '1rem', color: 'var(--color-primary-dark)' }}>Editor de Receita</h2>
-                    </div>
-
-                    <div style={{ flex: 1 }}></div>
-
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleDownloadMarkdown()}>
-                            <FileText size={16} /> Markdown
-                        </button>
-                        <button className="btn btn-secondary" style={{ borderRadius: '50px', padding: '0.5rem 1.25rem' }} onClick={() => this.handleDownloadJSON()}>
-                            <Save size={16} /> JSON Backup
-                        </button>
-                        <button className="btn btn-primary" style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }} onClick={() => this.handleSaveRecipe()}>
-                            <Save size={18} /> Salvar Receita
-                        </button>
-                    </div>
-                </div>
-
-                {/* 2. Main Layout */}
+                {/* Main Layout */}
                 <div className="calculator-layout">
                     <div className="calculator-form">
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -543,7 +580,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 </div>
                             </div>
                             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Nome da Receita *</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Nome da Receita <span className="required-marker">*</span></label>
                                 <input
                                     type="text"
                                     placeholder="P. ex: Sabonete de Lavanda Premium"
@@ -551,6 +588,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                     onChange={(e) => this.handleRecipeChange('name', e.target.value)}
                                     style={{ width: '100%' }}
                                 />
+                                <p className="required-note">Campo obrigatório para guardar a receita.</p>
                             </div>
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Notas & Observações</label>
@@ -596,10 +634,14 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                         onChange={(e) => this.handleRecipeChange('superfat', parseInt(e.target.value))}
                                         style={{ width: '100%', accentColor: 'var(--color-primary)' }}
                                     />
+                                    <div className="slider-bounds">
+                                        <span>Min: -10%</span>
+                                        <span>Max: 25%</span>
+                                    </div>
                                 </div>
                             </div>
-                                <div style={{ marginTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                <div style={{ marginTop: '1rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
                                         <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Concentração da Lixívia (% lixívia/água)</label>
                                         <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.waterConcentration}%</span>
                                     </div>
@@ -610,9 +652,13 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                         onChange={(e) => this.handleRecipeChange('waterConcentration', parseInt(e.target.value))}
                                         style={{ width: '100%', accentColor: 'var(--color-primary)' }}
                                     />
+                                    <div className="slider-bounds">
+                                        <span>Min: 10%</span>
+                                        <span>Max: 50%</span>
+                                    </div>
                                 </div>
-                                <div style={{ marginTop: '1.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                <div style={{ marginTop: '1rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
                                         <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Pureza do Álcali (%)</label>
                                         <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.alkaliPurity ?? 100}%</span>
                                     </div>
@@ -623,6 +669,10 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                         onChange={(e) => this.handleRecipeChange('alkaliPurity', parseInt(e.target.value))}
                                         style={{ width: '100%', accentColor: 'var(--color-primary)' }}
                                     />
+                                    <div className="slider-bounds">
+                                        <span>Min: 80%</span>
+                                        <span>Max: 100%</span>
+                                    </div>
                                 </div>
 
                                 {/* Calculated Alkali & Water Display */}
@@ -815,6 +865,10 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                             <div className="result-row">
                                 <span>Secagem Física</span>
                                 <span className="result-value">~ {physicalDays} dias ({physicalReadyDate.toLocaleDateString()})</span>
+                            </div>
+                            <div className="result-row">
+                                <span>Durabilidade (boas condições)</span>
+                                <span className="result-value">~ {goodConditionDays} dias ({(goodConditionDays / 30).toFixed(1)} meses, até {goodConditionEndDate.toLocaleDateString()})</span>
                             </div>
                             <div className="result-row">
                                 <span>Superfat final</span>

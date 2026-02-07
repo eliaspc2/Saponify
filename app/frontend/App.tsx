@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Layout } from './core/Layout';
+import { ToastViewport } from './components/Toast';
 import { BackupService } from '../backend/application/backup/BackupService';
 import { SettingsService } from '../backend/infrastructure/services/SettingsService';
 import { AppController } from '../orchestrator/services/AppController';
@@ -72,7 +73,6 @@ function App() {
             case 'settings':
                 return <SettingsPage title="Configurações" appController={controllerRef.current!} />;
             default:
-                // Fallback for pages not yet implemented
                 return (
                     <div className="card">
                         <h2>Em Desenvolvimento</h2>
@@ -83,13 +83,15 @@ function App() {
     };
 
     return (
-        <Layout activePage={activePage} onNavigate={handleNavigate}>
-            <Suspense fallback={<div className="card">A carregar...</div>}>
-                {renderPage()}
-            </Suspense>
-        </Layout>
+        <>
+            <Layout activePage={activePage} onNavigate={handleNavigate}>
+                <Suspense fallback={<div className="card">A carregar...</div>}>
+                    {renderPage()}
+                </Suspense>
+            </Layout>
+            <ToastViewport />
+        </>
     );
 }
 
 export default App;
-

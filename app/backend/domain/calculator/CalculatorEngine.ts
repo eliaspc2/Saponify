@@ -218,7 +218,8 @@ export class CalculatorEngine {
                 gadoleic: 0,
                 other: 0
             },
-            inciList: []
+            inciList: [],
+            goodConditionDays: 365
         };
         const baseOilData = getBaseOils();
         const traceOilData = getTraceOils();
@@ -314,6 +315,7 @@ export class CalculatorEngine {
         });
         results.totalWeight = weights.totalWeight;
         results.glycerin = computeGlycerin({ baseOilsWeight, superfat: recipe.superfat });
+        results.goodConditionDays = this.estimateGoodConditionDays(recipe, results, ingredients);
         return results;
     }
 
@@ -333,6 +335,9 @@ export class CalculatorEngine {
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
         const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
         const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
+        const goodConditionDays = Math.max(180, Math.round(results.goodConditionDays || 365));
+        const goodConditionEndDate = new Date(today.getTime());
+        goodConditionEndDate.setDate(goodConditionEndDate.getDate() + goodConditionDays);
         return {
             phase1Total,
             phase2Total,
@@ -341,8 +346,81 @@ export class CalculatorEngine {
             estimatedDryWeight,
             physicalDays,
             physicalReadyDate,
+            goodConditionDays,
+            goodConditionEndDate,
             nonWaterLiquids
         };
+    }
+
+
+    private static estimateGoodConditionDays(recipe: Recipe, results: CalculationResults, ingredients: Ingredient[]): number {
+        const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+        let days = 365;
+
+        const unstableFattyAcids = (results.fattyAcids.linoleic || 0) + (results.fattyAcids.linolenic || 0);
+        days -= clamp((unstableFattyAcids - 12) * 6, 0, 180);
+
+        days -= clamp((results.superfatFinal - 8) * 18, 0, 140);
+        days -= clamp((results.iodine - 70) * 1.8, 0, 110);
+        days -= clamp((35 - results.properties.hardness) * 3, 0, 120);
+
+        days += clamp((results.lyeConcentration - 28) * 8, 0, 45);
+        days += clamp((results.properties.hardness - 45) * 2, 0, 30);
+
+        days += this.estimateProtectionBonus(recipe, ingredients);
+
+        return Math.round(clamp(days, 180, 720));
+    }
+
+    private static estimateProtectionBonus(recipe: Recipe, ingredients: Ingredient[]): number {
+        let bonus = 0;
+        let hasCitric = false;
+        let hasVitE = false;
+        let hasVitD = false;
+        let hasRosemary = false;
+        let hasBeeswax = false;
+        let hasKaolin = false;
+
+        const items = [
+            ...(recipe.fats || []),
+            ...(recipe.lyeAdditives || []),
+            ...(recipe.traceAdditives || []),
+            ...(recipe.superfatOils || []),
+            ...(recipe.essentialOils || [])
+        ];
+
+        items.forEach((item) => {
+            const ingredient = this.findIngredient(item, ingredients);
+            const name = (ingredient?.name || item.name || '').toLowerCase();
+
+            if (!hasCitric && (ingredient?.flags?.citricAcid || name.includes('ácido cítrico') || name.includes('acido citrico'))) {
+                hasCitric = true;
+                bonus += 20;
+            }
+            if (!hasVitE && (name.includes('vitamina e') || name.includes('tocopherol'))) {
+                hasVitE = true;
+                bonus += 30;
+            }
+            if (!hasVitD && name.includes('vitamina d')) {
+                hasVitD = true;
+                bonus += 10;
+            }
+            if (!hasRosemary && name.includes('alecrim')) {
+                hasRosemary = true;
+                bonus += 12;
+            }
+            if (!hasBeeswax && name.includes('cera de abelha')) {
+                hasBeeswax = true;
+                bonus += 15;
+            }
+            if (!hasKaolin && name.includes('argila branca')) {
+                hasKaolin = true;
+                bonus += 6;
+            }
+        });
+
+        return Math.min(bonus, 80);
     }
 
     private static buildIngredientMeta(recipe: Recipe, ingredients: Ingredient[]): Record<string, IngredientRowMeta> {
@@ -434,7 +512,8 @@ export class CalculatorEngine {
         md += `- Total de Gorduras: ${results.totalFats.toFixed(1)} g\n`;
         md += `- Lixívia(${recipe.alkali}): ${results.alkaliAmount.toFixed(2)} g\n`;
         md += `- Água: ${results.waterAmount.toFixed(1)} g\n`;
-        md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n\n`;
+        md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n`;
+        md += `- Durabilidade em boas condições: ~${results.goodConditionDays} dias (~${(results.goodConditionDays / 30).toFixed(1)} meses)\n\n`;
 
         md += `## Qualidade Prevista\n`;
         md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)} \n`;
@@ -462,7 +541,8 @@ export class CalculatorEngine {
                 waterAmount: results.waterAmount,
                 iodine: results.iodine,
                 ins: results.ins,
-                glycerin: results.glycerin
+                glycerin: results.glycerin,
+                goodConditionDays: results.goodConditionDays
             }
         };
         const codePrefix = formatRecipeCodeForFile(recipe.code);

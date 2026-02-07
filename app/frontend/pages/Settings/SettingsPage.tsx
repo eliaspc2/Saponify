@@ -7,6 +7,7 @@ import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff, 
 import { BackupService } from '../../../backend/application/backup/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
 import type { AppController } from '../../../orchestrator/services/AppController';
+import { showToast } from '../../components/Toast';
 
 type SettingsPageProps = {
     appController: AppController;
@@ -145,7 +146,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             this.refreshLocalBackupStatus();
         }
 
-        alert('Configurações guardadas com sucesso!');
+        showToast('Configurações guardadas com sucesso!', 'success');
         const refreshedSettings = SettingsService.getInstance().getSettings();
         this.setState({
             settings: refreshedSettings,
@@ -171,10 +172,10 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             const text = await file.text();
             const success = await BackupService.getInstance().importAllData(text);
             if (success) {
-                alert('Dados importados com sucesso! A página será recarregada.');
-                location.reload();
+                showToast('Dados importados com sucesso! A página será recarregada.', 'success');
+                window.setTimeout(() => location.reload(), 500);
             } else {
-                alert('Erro ao importar backup. Verifique o ficheiro.');
+                showToast('Erro ao importar backup. Verifique o ficheiro.', 'error');
             }
         };
         input.click();
@@ -199,7 +200,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         await BackupService.getInstance().performAutoBackup();
         this.refreshLocalBackupStatus();
         this.setState({ settings: SettingsService.getInstance().getSettings() });
-        alert('Backup automático realizado com sucesso! Verifique a data/hora abaixo.');
+        showToast('Backup automático realizado com sucesso! Verifique a data/hora abaixo.', 'success');
     }
 
     private async handleDownloadAutoBackup() {
@@ -237,7 +238,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             settings: SettingsService.getInstance().getSettings()
         });
         if (!ok) {
-            alert('Não foi possível sincronizar agora. Confirme se há backup automático local e se está autenticado.');
+            showToast('Não foi possível sincronizar agora. Confirme se há backup automático local e se está autenticado.', 'warning');
         }
     }
 
@@ -258,7 +259,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         this.refreshLocalBackupStatus();
         this.setState({ lastSyncError: lastError });
         if (!applied) {
-            alert('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.');
+            showToast('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.', 'info');
         } else {
             const data = localStorage.getItem(AUTO_BACKUP_KEY);
             let ok = false;
@@ -273,7 +274,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             location.reload();
             return;
         }
-            alert('Dados remotos aplicados ao backup local, mas não foi possível restaurar. Verifique a password do backup local.');
+            showToast('Dados remotos aplicados ao backup local, mas não foi possível restaurar. Verifique a password do backup local.', 'warning');
         }
     }
 

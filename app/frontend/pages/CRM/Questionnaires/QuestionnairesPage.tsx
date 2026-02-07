@@ -7,6 +7,7 @@ import { ClientService } from '../../../../backend/infrastructure/services/Clien
 import { Client } from '../../../../shared/types/Client';
 import { Modal } from '../../../components/Modal';
 import { Plus, Trash2, Edit2, FileText, Upload, Download } from 'lucide-react';
+import { showToast } from '../../../components/Toast';
 
 interface QuestionnairesPageState extends BaseListPageState<Questionnaire> {
     isModalOpen: boolean;
@@ -67,7 +68,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
     private async handleSave() {
         const { editingQuestionnaire } = this.state;
         if (!editingQuestionnaire || !editingQuestionnaire.clientId) {
-            alert('Por favor, selecione um cliente.');
+            showToast('Por favor, selecione um cliente.', 'warning');
             return;
         }
 
@@ -130,7 +131,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
             }
             await this.loadData();
         } catch (error) {
-            alert('Erro ao importar questionario.');
+            showToast('Erro ao importar questionário.', 'error');
         } finally {
             event.target.value = '';
         }
@@ -272,20 +273,21 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                                 <td style={{ padding: '1rem 1.5rem', color: 'var(--color-text-secondary)' }}>{q.date}</td>
                                 <td style={{ padding: '1rem 1.5rem' }}>{q.ageGroup}</td>
                                 <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                                    <div className="table-row-actions">
                                     <button
-                                        className="btn btn-secondary"
-                                        style={{ padding: '0.4rem', minWidth: 'auto', marginRight: '0.5rem' }}
+                                        className="table-row-action-btn is-primary"
                                         onClick={() => this.handleExportQuestionnaire(q)}
                                         title="Exportar"
                                     >
                                         <Download size={16} />
                                     </button>
-                                    <button className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: 'auto', marginRight: '0.5rem' }} onClick={() => this.openModal(q)}>
+                                    <button className="table-row-action-btn" onClick={() => this.openModal(q)}>
                                         <Edit2 size={16} />
                                     </button>
-                                    <button className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: 'auto', color: '#DC2626' }} onClick={() => this.handleDelete(q.id)}>
+                                    <button className="table-row-action-btn is-danger" onClick={() => this.handleDelete(q.id)}>
                                         <Trash2 size={16} />
                                     </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -399,7 +401,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                             <>
                                 <div className="modal-grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
                                     <div className="form-group">
-                                        <label className="form-label" style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>Selecionar Cliente *</label>
+                                        <label className="form-label" style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>Selecionar Cliente <span className="required-marker">*</span></label>
                                         <select
                                             className="form-control"
                                             value={editingQuestionnaire.clientId || ''}
@@ -408,6 +410,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                                             <option value="">-- Escolha um cliente --</option>
                                             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
+                                        <p className="required-note">Campo obrigatório para guardar o questionário.</p>
                                     </div>
 
                                     <div className="form-group">

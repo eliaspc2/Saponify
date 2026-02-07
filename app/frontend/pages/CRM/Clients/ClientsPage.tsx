@@ -13,6 +13,7 @@ import { Questionnaire } from '../../../../shared/types/Questionnaire';
 import { ClientDetailsPage } from './ClientDetailsPage';
 import { formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 import type { AppController } from '../../../../orchestrator/services/AppController';
+import { showToast } from '../../../components/Toast';
 
 type ClientsPageProps = {
     onNavigate: (page: string, params?: any) => void;
@@ -225,7 +226,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
             const text = await this.readCsvFile(file);
             const rows = this.parseCsv(text);
             if (rows.length < 2) {
-                alert('CSV vazio ou invalido.');
+                showToast('CSV vazio ou inválido.', 'warning');
                 return;
             }
 
@@ -542,9 +543,9 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
             }
 
             await this.loadClients();
-            alert(`Importacao concluida. Clientes novos: ${createdClients}, clientes atualizados: ${updatedClients}, questionarios novos: ${createdQuestionnaires}, linhas ignoradas: ${skippedRows}.`);
+            showToast(`Importação concluída. Clientes novos: ${createdClients}, clientes atualizados: ${updatedClients}, questionários novos: ${createdQuestionnaires}, linhas ignoradas: ${skippedRows}.`, 'success', 4500);
         } catch (error) {
-            alert('Erro ao importar CSV.');
+            showToast('Erro ao importar CSV.', 'error');
         } finally {
             event.target.value = '';
         }
@@ -581,7 +582,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                 : (payloadClient && payloadClient.name ? [payloadClient] : []);
 
             if (clients.length === 0) {
-                alert('Ficheiro invalido para cliente.');
+                showToast('Ficheiro inválido para cliente.', 'warning');
                 return;
             }
 
@@ -644,9 +645,9 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
             }
 
             await this.loadClients();
-            alert('Importacao de cliente concluida.');
+            showToast('Importação de cliente concluída.', 'success');
         } catch (error) {
-            alert('Erro ao importar cliente.');
+            showToast('Erro ao importar cliente.', 'error');
         } finally {
             event.target.value = '';
         }
@@ -693,12 +694,12 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
         if (!editingClient) return;
 
         if (!editingClient.name || !editingClient.email || !editingClient.phone || !editingClient.address) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
+            showToast('Por favor, preencha todos os campos obrigatórios.', 'warning');
             return;
         }
 
         if (!editingClient.consentCureProcess || !editingClient.consentDataTruth || !editingClient.consentRGPD) {
-            alert('É necessário aceitar todas as confirmações obrigatórias.');
+            showToast('É necessário aceitar todas as confirmações obrigatórias.', 'warning');
             return;
         }
 
@@ -902,14 +903,14 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                                         </div>
                                     </td>
                                     <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                            <button className="btn btn-secondary" title="Ficha de Cliente" style={{ padding: '0.4rem', minWidth: 'auto', color: 'var(--color-primary)' }} onClick={() => this.setState({ selectedClientId: client.id, isDetailsOpen: true })}>
+                                        <div className="table-row-actions">
+                                            <button className="table-row-action-btn is-primary" title="Ficha de Cliente" onClick={() => this.setState({ selectedClientId: client.id, isDetailsOpen: true })}>
                                                 <User size={16} />
                                             </button>
-                                            <button className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: 'auto' }} onClick={() => this.openModal(client)}>
+                                            <button className="table-row-action-btn" onClick={() => this.openModal(client)}>
                                                 <Edit2 size={16} />
                                             </button>
-                                            <button className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: 'auto', color: '#EF4444' }} onClick={() => this.handleDelete(client.id)}>
+                                            <button className="table-row-action-btn is-danger" onClick={() => this.handleDelete(client.id)}>
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
@@ -941,8 +942,9 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                 }
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <p className="required-note">Campos com <span className="required-marker">*</span> são obrigatórios.</p>
                     <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Nome Completo *</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Nome Completo <span className="required-marker">*</span></label>
                         <input
                             type="text"
                             className="form-control"
@@ -954,7 +956,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
 
                     <div className="modal-grid-2" style={{ gap: '1rem' }}>
                         <div className="form-group">
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Email *</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Email <span className="required-marker">*</span></label>
                             <input
                                 type="email"
                                 className="form-control"
@@ -964,7 +966,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                             />
                         </div>
                         <div className="form-group">
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Telemóvel *</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Telemóvel <span className="required-marker">*</span></label>
                             <input
                                 type="tel"
                                 className="form-control"
@@ -976,7 +978,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                     </div>
 
                     <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Morada Completa (e CP) *</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Morada Completa (e CP) <span className="required-marker">*</span></label>
                         <textarea
                             className="form-control"
                             rows={3}

@@ -7,6 +7,7 @@ import { IngredientService } from '../../../backend/infrastructure/services/Ingr
 import { Upload, Download, Plus, Trash2, Edit } from 'lucide-react';
 import { IngredientFormModal } from '../../components/IngredientFormModal';
 import { INGREDIENT_CATEGORIES, formatCategoryLabel } from '../../../shared/constants/Categories';
+import { showToast } from '../../components/Toast';
 
 interface IngredientsPageState extends BaseListPageState<Ingredient> {
     editingItem: Ingredient | null;
@@ -147,7 +148,7 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
             const parsed = JSON.parse(text);
             const ingredient = parsed?.ingredient ?? parsed;
             if (!ingredient || !ingredient.name) {
-                alert('Ficheiro invalido para ingrediente.');
+                showToast('Ficheiro inválido para ingrediente.', 'warning');
                 return;
             }
             IngredientService.getInstance().upsertIngredient(ingredient);
@@ -155,7 +156,7 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                 data: IngredientService.getInstance().getAll()
             });
         } catch (error) {
-            alert('Erro ao importar ingrediente.');
+            showToast('Erro ao importar ingrediente.', 'error');
         } finally {
             event.target.value = '';
         }
@@ -359,26 +360,23 @@ export class IngredientsPage extends BaseListPage<Ingredient, IngredientsPageSta
                                         <td style={{ padding: '1rem 1.5rem' }}>{ing.sapNaOH}</td>
                                         <td style={{ padding: '1rem 1.5rem' }}>{ing.sapKOH}</td>
                                         <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                        <div className="table-row-actions">
                                             <button
-                                                className="btn btn-sm"
-                                                style={{ color: 'var(--color-primary)', padding: '0.5rem' }}
+                                                className="table-row-action-btn is-primary"
                                                 title="Exportar"
                                                 onClick={() => this.handleExportIngredient(ing)}
                                             >
                                                 <Download size={16} />
                                             </button>
                                             <button
-                                                className="btn btn-sm"
-                                                style={{ color: 'var(--color-primary)', padding: '0.5rem' }}
+                                                className="table-row-action-btn is-primary"
                                                 title="Editar"
                                                     onClick={() => this.handleEditClick(ing)}
                                                 >
                                                     <Edit size={16} />
                                                 </button>
                                                 <button
-                                                    className="btn btn-sm"
-                                                    style={{ color: 'var(--color-error)', padding: '0.5rem' }}
+                                                    className="table-row-action-btn is-danger"
                                                     title="Eliminar"
                                                     onClick={() => this.handleDelete(ing.id)}
                                                 >

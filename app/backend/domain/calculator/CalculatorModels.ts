@@ -40,6 +40,7 @@ export interface CalculationResults {
         other: number;
     };
     inciList: string[];
+    goodConditionDays: number;
 }
 
 export interface CalculatorInput {
@@ -56,6 +57,8 @@ export interface PhaseTotals {
     estimatedDryWeight: number;
     physicalDays: number;
     physicalReadyDate: Date;
+    goodConditionDays: number;
+    goodConditionEndDate: Date;
     nonWaterLiquids: RecipeIngredient[];
 }
 
