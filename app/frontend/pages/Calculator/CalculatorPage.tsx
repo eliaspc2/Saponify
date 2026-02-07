@@ -144,7 +144,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             clients: [],
             loading: true,
             collapsedSections: {
-                aiChat: false,
+                aiChat: true,
                 recipeInfo: false,
                 formulaSummary: false,
                 baseConfig: false,

@@ -1006,10 +1006,13 @@ tr:hover td {
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows 0.24s ease, opacity 0.2s ease;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .collapsible-card-content-inner {
   overflow: hidden;
+  min-height: 0;
 }
 
 .collapsible-card.is-collapsed {
@@ -1028,6 +1031,11 @@ tr:hover td {
 .collapsible-card.is-collapsed .collapsible-card-content {
   grid-template-rows: 0fr;
   opacity: 0;
+  min-height: 0;
+}
+
+.collapsible-card.is-collapsed .collapsible-card-content-inner {
+  padding: 0 !important;
 }
 
 .collapsible-card.is-collapsed .collapsible-card-icon-btn {
