@@ -67,6 +67,9 @@ export class AppController {
         console.info('Build time:', versionInfo.buildTime);
 
         this.backupService.setSyncProvider(this.syncProvider);
+        if (this.hasLocalChangesSinceAutoBackup()) {
+            await this.backupService.performAutoBackupNow();
+        }
         if (this.syncProvider) {
             await this.syncProvider.start();
         }
@@ -354,12 +357,15 @@ export class AppController {
     }
 
     private onStateChanged(): void {
-        if (!this.shouldSyncOnChange()) return;
         if (this.pendingBackupTimer) {
             window.clearTimeout(this.pendingBackupTimer);
         }
         this.pendingBackupTimer = window.setTimeout(async () => {
-            await this.backupService.performAutoBackupNow();
+            if (this.shouldForceBackupForSync()) {
+                await this.backupService.performAutoBackupNow();
+            } else {
+                await this.backupService.performAutoBackup();
+            }
             this.onBackupCompleted();
         }, AppConstants.APP_STATE_BACKUP_DEBOUNCE_MS);
     }
@@ -400,11 +406,25 @@ export class AppController {
         return false;
     }
 
-    private shouldSyncOnChange(): boolean {
+    private hasLocalChangesSinceAutoBackup(): boolean {
+        const dataVersionRaw = getDataVersion();
+        const dataVersionMs = Number(dataVersionRaw);
+        if (!Number.isFinite(dataVersionMs) || dataVersionMs <= 0) {
+            return false;
+        }
+        const autoBackupTimestamp = this.storage.getTimestamp();
+        if (!autoBackupTimestamp) {
+            return true;
+        }
+        const autoBackupMs = Date.parse(autoBackupTimestamp) || 0;
+        return dataVersionMs > autoBackupMs;
+    }
+
+    private shouldForceBackupForSync(): boolean {
         if (!this.syncProvider) return false;
-        const provider = this.syncProvider as { isReady?: () => boolean };
-        if (typeof provider.isReady === 'function') {
-            return provider.isReady();
+        const provider = this.syncProvider as { isSyncActive?: () => boolean };
+        if (typeof provider.isSyncActive === 'function') {
+            return provider.isSyncActive();
         }
         return true;
     }
@@ -581,4 +601,3 @@ export class AppController {
         return recipe;
     }
 }
-

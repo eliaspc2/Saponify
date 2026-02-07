@@ -44,6 +44,7 @@ export abstract class BaseRepository<T extends { id: string }> implements IRepos
     }
 
     delete(id: string): void {
+        this.onBeforeDelete(id);
         this.items = this.items.filter(item => item.id !== id);
         this.save();
     }
@@ -73,6 +74,10 @@ export abstract class BaseRepository<T extends { id: string }> implements IRepos
             return { ...(defaults as Record<string, unknown>) } as TValue;
         }
         return ((stored ?? defaults) as TValue);
+    }
+
+    protected onBeforeDelete(_id: string): void {
+        // Hook for repositories that need to persist metadata before deletion.
     }
 
     protected abstract loadItems(): T[];

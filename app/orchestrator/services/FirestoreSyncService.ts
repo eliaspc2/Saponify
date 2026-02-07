@@ -25,6 +25,7 @@ type RemoteBackupPayload = {
 const FIREBASE_CONFIG = AppConstants.FIREBASE_CONFIG;
 const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
 const AUTO_BACKUP_TS_KEY = StorageKeys.AUTO_BACKUP_TIMESTAMP;
+const DATA_VERSION_KEY = StorageKeys.DATA_VERSION;
 const DEVICE_ID_KEY = StorageKeys.DEVICE_ID;
 const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
 const SYNC_LAST_SUCCESS_KEY = StorageKeys.SYNC_LAST_SUCCESS;
@@ -252,6 +253,9 @@ export class FirestoreSyncService {
         const localData = this.safeGetItem(AUTO_BACKUP_KEY);
         const localUpdatedAt = this.safeGetItem(AUTO_BACKUP_TS_KEY);
         const localTime = localUpdatedAt ? Date.parse(localUpdatedAt) || 0 : 0;
+        const dataVersionRaw = this.safeGetItem(DATA_VERSION_KEY);
+        const dataVersionMs = dataVersionRaw ? Number(dataVersionRaw) : 0;
+        const localDirtySinceBackup = Number.isFinite(dataVersionMs) && dataVersionMs > localTime;
 
         let snap;
         try {
@@ -276,6 +280,9 @@ export class FirestoreSyncService {
         }
 
         if (remoteTime > localTime) {
+            if (localDirtySinceBackup) {
+                return;
+            }
             try {
                 const decrypted = await this.decryptFromSync(remote.data);
                 this.safeSetItem(AUTO_BACKUP_KEY, decrypted);

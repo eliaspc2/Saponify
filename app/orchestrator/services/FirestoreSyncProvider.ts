@@ -30,5 +30,8 @@ export class FirestoreSyncProvider implements ISyncProvider {
             && !!service.getCurrentUser()
             && service.hasCompletedInitialSync();
     }
-}
 
+    public isSyncActive(): boolean {
+        return FirestoreSyncService.getInstance().isSyncActive();
+    }
+}

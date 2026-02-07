@@ -1,6 +1,7 @@
 import { Questionnaire } from '../../../shared/types/Questionnaire';
 import { AbstractConfigService } from '../../shared/config/AbstractConfigService';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
+import { DeletionBackupStorage } from '../storage/DeletionBackupStorage';
 
 export type QuestionnaireState = Questionnaire[];
 
@@ -69,6 +70,9 @@ export class QuestionnaireService extends AbstractConfigService<QuestionnaireSta
     async deleteQuestionnaire(id: string): Promise<void> {
         const questionnaires = await this.getQuestionnaires();
         const filtered = questionnaires.filter(q => q.id !== id);
+        if (filtered.length < questionnaires.length) {
+            DeletionBackupStorage.captureSnapshot(`delete:${StorageKeys.QUESTIONNAIRES}:${id}`);
+        }
         this.setData(filtered);
     }
 
@@ -77,6 +81,3 @@ export class QuestionnaireService extends AbstractConfigService<QuestionnaireSta
         return questionnaires.find(q => q.id === id);
     }
 }
-
-
-

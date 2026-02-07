@@ -1,5 +1,6 @@
 import { BaseRepository } from './BaseRepository';
 import { touchDataVersion } from '../../shared/versioning/dataVersion';
+import { DeletionBackupStorage } from '../storage/DeletionBackupStorage';
 
 type LocalStorageRepositoryOptions<T> = {
     deserialize?: (raw: any) => T[];
@@ -41,7 +42,9 @@ export class LocalStorageRepository<T extends { id: string }> extends BaseReposi
         localStorage.setItem(this.key, JSON.stringify(payload));
         touchDataVersion();
     }
+
+    protected onBeforeDelete(id: string): void {
+        if (!id) return;
+        DeletionBackupStorage.captureSnapshot(`delete:${this.key}:${id}`);
+    }
 }
-
-
-

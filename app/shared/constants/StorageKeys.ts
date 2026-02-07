@@ -9,6 +9,7 @@ export const StorageKeys = {
     AUTO_BACKUP: 'saponify_auto_backup',
     AUTO_BACKUP_TIMESTAMP: 'saponify_auto_backup_timestamp',
     DATA_VERSION: 'saponify_data_version',
+    DELETION_BACKUPS: 'saponify_deletion_backups',
     DEVICE_ID: 'saponify_device_id',
     SYNC_ENABLED: 'saponify_sync_enabled',
     SYNC_LAST_SUCCESS: 'saponify_sync_last_success',
