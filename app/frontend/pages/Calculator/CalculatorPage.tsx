@@ -7,7 +7,7 @@ import { SettingsService } from '../../../backend/infrastructure/services/Settin
 import { AppController } from '../../../orchestrator/services/AppController';
 import { BackupService } from '../../../backend/application/backup/BackupService';
 import { Ingredient } from '../../../shared/types/Ingredient';
-import { Beaker, ShieldCheck, Plus, Trash2, Save, Download } from 'lucide-react';
+import { Beaker, ShieldCheck, Plus, Trash2, Save, Download, Bot, Sparkles, ChevronDown } from 'lucide-react';
 import { Client } from '../../../shared/types/Client';
 import { ClientService } from '../../../backend/infrastructure/services/ClientService';
 import { showToast } from '../../components/Toast';
@@ -22,7 +22,13 @@ interface CalculatorState extends BasePageState {
     availableIngredients: Ingredient[];
     clients: Client[];
     loading: boolean;
+    collapsedSections: Record<CalculatorSectionKey, boolean>;
+    aiMessageDraft: string;
+    isGeneratingAIRecipe: boolean;
+    aiError: string | null;
 }
+
+type CalculatorSectionKey = 'aiChat' | 'recipeInfo' | 'formulaSummary' | 'baseConfig' | 'phase1' | 'phase2' | 'phase3';
 
 const generateId = () => {
     try {
@@ -31,29 +37,56 @@ const generateId = () => {
     return Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(4);
 };
 
-const SectionHeader = ({
+const CollapsibleCard = ({
     title,
     color,
     titleColor,
-    actions
+    actions,
+    collapsed,
+    onToggle,
+    className,
+    bodyPadding,
+    children
 }: {
     title: string;
     color: string;
     titleColor?: string;
     actions?: React.ReactNode;
+    collapsed: boolean;
+    onToggle: () => void;
+    className?: string;
+    bodyPadding?: string;
+    children: React.ReactNode;
 }) => (
-    <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1.25rem 1.5rem',
-        backgroundColor: color,
-        borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
-        marginBottom: '1rem',
-        borderBottom: '1px solid rgba(0,0,0,0.05)'
-    }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: titleColor || 'var(--color-primary-dark)', letterSpacing: '0.025em' }}>{title}</h3>
-        {actions && <div style={{ display: 'flex', alignItems: 'center' }}>{actions}</div>}
+    <div
+        className={'card collapsible-card' + (collapsed ? ' is-collapsed' : '') + (className ? ' ' + className : '')}
+        style={{ padding: 0 }}
+    >
+        <div
+            className="collapsible-card-header"
+            style={{ backgroundColor: color, color: titleColor || 'var(--color-primary-dark)' }}
+        >
+            <button
+                type="button"
+                className="collapsible-card-title-btn"
+                onClick={onToggle}
+                aria-expanded={!collapsed}
+                aria-label={(collapsed ? 'Expandir: ' : 'Colapsar: ') + title}
+            >
+                <span>{title}</span>
+            </button>
+            <div className="collapsible-card-header-actions">
+                {!collapsed && actions}
+                <button type="button" className="collapsible-card-icon-btn" onClick={onToggle} aria-label={(collapsed ? 'Expandir: ' : 'Colapsar: ') + title}>
+                    <ChevronDown size={16} />
+                </button>
+            </div>
+        </div>
+        <div className="collapsible-card-content" aria-hidden={collapsed}>
+            <div className="collapsible-card-content-inner" style={{ padding: bodyPadding || '1.5rem' }}>
+                {children}
+            </div>
+        </div>
     </div>
 );
 
@@ -109,7 +142,19 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
             ...this.getInitialState() as CalculatorState,
             availableIngredients: [],
             clients: [],
-            loading: true
+            loading: true,
+            collapsedSections: {
+                aiChat: false,
+                recipeInfo: false,
+                formulaSummary: false,
+                baseConfig: false,
+                phase1: false,
+                phase2: false,
+                phase3: false
+            },
+            aiMessageDraft: '',
+            isGeneratingAIRecipe: false,
+            aiError: null
         };
     }
 
@@ -497,10 +542,61 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         );
     }
 
+    private toggleSection(section: CalculatorSectionKey) {
+        this.setState(prev => ({
+            collapsedSections: {
+                ...prev.collapsedSections,
+                [section]: !prev.collapsedSections[section]
+            }
+        }));
+    }
+
+    private async handleGenerateRecipeAIFromCalculator() {
+        const message = this.state.aiMessageDraft.trim();
+        if (!message) {
+            showToast('Escreve uma instrução para a IA antes de enviar.', 'warning');
+            return;
+        }
+
+        if (!this.props.appController.hasAIConfigured()) {
+            showToast('Configura a IA nas Definições para usar esta funcionalidade.', 'warning');
+            return;
+        }
+
+        this.setState({ isGeneratingAIRecipe: true, aiError: null });
+        try {
+            const generated = await this.props.appController.generateCalculatorRecipeFromAI({
+                message,
+                currentRecipe: this.state.recipe
+            });
+
+            const calc = this.props.appController.calculateRecipe({
+                recipe: generated,
+                ingredients: this.state.availableIngredients
+            });
+
+            this.setState({
+                recipe: calc.normalizedRecipe,
+                aiMessageDraft: '',
+                isGeneratingAIRecipe: false,
+                aiError: null
+            });
+            showToast('Fórmula atualizada pela IA.', 'success');
+        } catch (error) {
+            const err = error as { message?: string };
+            const message = err?.message || 'Erro ao gerar receita com IA.';
+            this.setState({
+                isGeneratingAIRecipe: false,
+                aiError: message
+            });
+            showToast(message, 'error');
+        }
+    }
+
     renderContent() {
         if (this.state.loading) return <div>Carregando calculadora...</div>;
 
-        const { availableIngredients } = this.state;
+        const { availableIngredients, collapsedSections } = this.state;
         const baseRecipe = this.state.recipe;
         const calc = this.props.appController.calculateRecipe({ recipe: baseRecipe, ingredients: availableIngredients });
         const { results, phaseTotals, fattyAcidLabels, ingredientMetaById, qualityProgress } = calc;
@@ -508,20 +604,21 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, physicalDays, physicalReadyDate, goodConditionDays, goodConditionEndDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
+        const aiConversation = recipe.aiConversation || [];
+        const aiConfigured = this.props.appController.hasAIConfigured();
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                {/* Main Layout */}
                 <div className="calculator-layout">
                     <div className="calculator-form">
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader
-                                title="Informações da Receita"
-                                color={phaseHeaderColor}
-                                titleColor={phaseHeaderText}
-                            />
-                            <div style={{ padding: '1.5rem' }}>
-                                <div className="recipe-meta-grid">
+                        <CollapsibleCard
+                            title="Informações da Receita"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.recipeInfo}
+                            onToggle={() => this.toggleSection('recipeInfo')}
+                        >
+                            <div className="recipe-meta-grid">
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}># Número</label>
                                     <div style={{
@@ -590,27 +687,26 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 />
                                 <p className="required-note">Campo obrigatório para guardar a receita.</p>
                             </div>
-                                <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Notas & Observações</label>
-                                    <textarea
-                                        rows={3}
-                                        placeholder="Detalhes sobre o processo..."
-                                        value={recipe.notes}
-                                        onChange={(e) => this.handleRecipeChange('notes', e.target.value)}
-                                        style={{ width: '100%', fontFamily: 'inherit' }}
-                                    />
-                                </div>
+                            <div className="form-group">
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>Notas & Observações</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Detalhes sobre o processo..."
+                                    value={recipe.notes}
+                                    onChange={(e) => this.handleRecipeChange('notes', e.target.value)}
+                                    style={{ width: '100%', fontFamily: 'inherit' }}
+                                />
                             </div>
-                        </div>
+                        </CollapsibleCard>
 
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader
-                                title="Configurações Base"
-                                color={phaseHeaderColor}
-                                titleColor={phaseHeaderText}
-                            />
-                            <div style={{ padding: '1.5rem' }}>
-                                <div className="modal-grid-2" style={{ gap: '2rem' }}>
+                        <CollapsibleCard
+                            title="Configurações Base"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.baseConfig}
+                            onToggle={() => this.toggleSection('baseConfig')}
+                        >
+                            <div className="modal-grid-2" style={{ gap: '2rem' }}>
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.8rem', fontSize: '0.85rem', fontWeight: 600 }}>Tipo de Álcali</label>
                                     <select
@@ -640,299 +736,359 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                     </div>
                                 </div>
                             </div>
-                                <div style={{ marginTop: '1rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Concentração da Lixívia (% lixívia/água)</label>
-                                        <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.waterConcentration}%</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="10" max="50"
-                                        value={recipe.waterConcentration}
-                                        onChange={(e) => this.handleRecipeChange('waterConcentration', parseInt(e.target.value))}
-                                        style={{ width: '100%', accentColor: 'var(--color-primary)' }}
-                                    />
-                                    <div className="slider-bounds">
-                                        <span>Min: 10%</span>
-                                        <span>Max: 50%</span>
-                                    </div>
+                            <div style={{ marginTop: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Concentração da Lixívia (% lixívia/água)</label>
+                                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.waterConcentration}%</span>
                                 </div>
-                                <div style={{ marginTop: '1rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
-                                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Pureza do Álcali (%)</label>
-                                        <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.alkaliPurity ?? 100}%</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="80" max="100"
-                                        value={recipe.alkaliPurity ?? 100}
-                                        onChange={(e) => this.handleRecipeChange('alkaliPurity', parseInt(e.target.value))}
-                                        style={{ width: '100%', accentColor: 'var(--color-primary)' }}
-                                    />
-                                    <div className="slider-bounds">
-                                        <span>Min: 80%</span>
-                                        <span>Max: 100%</span>
-                                    </div>
-                                </div>
-
-                                {/* Calculated Alkali & Water Display */}
-                                <div style={{
-                                    marginTop: '1.5rem',
-                                    padding: '1.25rem',
-                                    background: 'var(--color-primary-light)',
-                                    borderRadius: 'var(--radius-md)',
-                                    gap: '1.5rem',
-                                    border: '1px solid rgba(90, 125, 76, 0.1)'
-                                }} className="modal-grid-2">
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
-                                            {recipe.alkali === 'NaOH' ? 'SODA CÁUSTICA (NaOH)' : 'POTASSA (KOH)'}
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
-                                            {results.alkaliAmount.toFixed(2)}g
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
-                                            ÁGUA TOTAL
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
-                                            {results.waterAmount.toFixed(1)}g
-                                        </div>
-                                    </div>
+                                <input
+                                    type="range"
+                                    min="10" max="50"
+                                    value={recipe.waterConcentration}
+                                    onChange={(e) => this.handleRecipeChange('waterConcentration', parseInt(e.target.value))}
+                                    style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                                />
+                                <div className="slider-bounds">
+                                    <span>Min: 10%</span>
+                                    <span>Max: 50%</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader
-                                title="FASE 1: Gorduras & Óleos"
-                                color={phaseHeaderColor}
-                                titleColor={phaseHeaderText}
-                                actions={
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                                            Total: {phase1Total.toFixed(1)}g
-                                        </span>
-                                        <AddButton label="Adicionar" onClick={() => this.addItem('fats')} />
-                                    </div>
-                                }
-                            />
-                            <div style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos Base</h4>
+                            <div style={{ marginTop: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.55rem' }}>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Pureza do Álcali (%)</label>
+                                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{recipe.alkaliPurity ?? 100}%</span>
                                 </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ingredientMetaById, ['Óleos Base']))}
+                                <input
+                                    type="range"
+                                    min="80" max="100"
+                                    value={recipe.alkaliPurity ?? 100}
+                                    onChange={(e) => this.handleRecipeChange('alkaliPurity', parseInt(e.target.value))}
+                                    style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                                />
+                                <div className="slider-bounds">
+                                    <span>Min: 80%</span>
+                                    <span>Max: 100%</span>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader
-                                title="FASE 2: Lixívia & Aditivos"
-                                color={phaseHeaderColor}
-                                titleColor={phaseHeaderText}
-                                actions={
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                                            Total: {phase2Total.toFixed(1)}g
-                                        </span>
-                                        <PhaseAddMenu
-                                            options={[
-                                                { label: 'Líquidos', type: 'liquids' },
-                                                { label: 'Aditivos Funcionais', type: 'functionalAdditives' },
-                                                { label: 'Aditivos da Lixívia', type: 'lyeAdditives' }
-                                            ]}
-                                            onSelect={(type) => this.addItem(type)}
-                                        />
-                                    </div>
-                                }
-                            />
-                            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            <div style={{
+                                marginTop: '1.5rem',
+                                padding: '1.25rem',
+                                background: 'var(--color-primary-light)',
+                                borderRadius: 'var(--radius-md)',
+                                gap: '1.5rem',
+                                border: '1px solid rgba(90, 125, 76, 0.1)'
+                            }} className="modal-grid-2">
                                 <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
-                                </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {(recipe.liquids || []).map((l) => (
-                                        l.role === 'water'
-                                            ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
-                                            : this.renderIngredientRow(l, 'liquids', ingredientMetaById, ['Líquidos Lixívia'])
-                                    ))}
-                                </div>
-                            </div>
-                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
-                                </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ingredientMetaById, ['Aditivos Funcionais']))}
-                                </div>
-                            </div>
-                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
-                                </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {this.renderReadOnlyRow(
-                                        recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
-                                        results.alkaliAmount
-                                    )}
-                                    {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ingredientMetaById, ['Aditivos Lixívia']))}
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <SectionHeader
-                                title="FASE 3: No Traço (Trace)"
-                                color={phaseHeaderColor}
-                                titleColor={phaseHeaderText}
-                                actions={
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                                            Total: {phase3Total.toFixed(1)}g
-                                        </span>
-                                        <PhaseAddMenu
-                                            options={[
-                                                { label: 'Aditivos & Botânicos', type: 'traceAdditives' },
-                                                { label: 'Óleos de Superfat', type: 'superfatOils' },
-                                                { label: 'Aromas & O.E.', type: 'essentialOils' }
-                                            ]}
-                                            onSelect={(type) => this.addItem(type)}
-                                        />
+                                    <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
+                                        {recipe.alkali === 'NaOH' ? 'SODA CÁUSTICA (NaOH)' : 'POTASSA (KOH)'}
                                     </div>
-                                }
-                            />
-                            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
+                                        {results.alkaliAmount.toFixed(2)}g
+                                    </div>
+                                </div>
                                 <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos & Botânicos</h4>
-                                </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ingredientMetaById, ['Aditivos Traço']))}
+                                    <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--color-primary-dark)', marginBottom: '0.25rem', opacity: 0.8 }}>
+                                        ÁGUA TOTAL
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
+                                        {results.waterAmount.toFixed(1)}g
+                                    </div>
                                 </div>
                             </div>
+                        </CollapsibleCard>
 
-                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos de Superfat</h4>
+                        <CollapsibleCard
+                            title="FASE 1: Gorduras & Óleos"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.phase1}
+                            onToggle={() => this.toggleSection('phase1')}
+                            actions={
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                        Total: {phase1Total.toFixed(1)}g
+                                    </span>
+                                    <AddButton label="Adicionar" onClick={() => this.addItem('fats')} />
                                 </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ingredientMetaById, ['Superfat']))}
-                                </div>
+                            }
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos Base</h4>
                             </div>
+                            <div className="table-wrap">
+                                {this.renderTableHeader()}
+                                {(recipe.fats || []).map(f => this.renderIngredientRow(f, 'fats', ingredientMetaById, ['Óleos Base']))}
+                            </div>
+                        </CollapsibleCard>
 
-                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aromas & O.E.</h4>
+                        <CollapsibleCard
+                            title="FASE 2: Lixívia & Aditivos"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.phase2}
+                            onToggle={() => this.toggleSection('phase2')}
+                            actions={
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                        Total: {phase2Total.toFixed(1)}g
+                                    </span>
+                                    <PhaseAddMenu
+                                        options={[
+                                            { label: 'Líquidos', type: 'liquids' },
+                                            { label: 'Aditivos Funcionais', type: 'functionalAdditives' },
+                                            { label: 'Aditivos da Lixívia', type: 'lyeAdditives' }
+                                        ]}
+                                        onSelect={(type) => this.addItem(type)}
+                                    />
                                 </div>
-                                <div className="table-wrap">
-                                    {this.renderTableHeader()}
-                                    {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ingredientMetaById, ['Óleos Essenciais']))}
+                            }
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Líquidos</h4>
+                                    </div>
+                                    <div className="table-wrap">
+                                        {this.renderTableHeader()}
+                                        {(recipe.liquids || []).map((l) => (
+                                            l.role === 'water'
+                                                ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
+                                                : this.renderIngredientRow(l, 'liquids', ingredientMetaById, ['Líquidos Lixívia'])
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos Funcionais</h4>
+                                    </div>
+                                    <div className="table-wrap">
+                                        {this.renderTableHeader()}
+                                        {(recipe.functionalAdditives || []).map(a => this.renderIngredientRow(a, 'functionalAdditives', ingredientMetaById, ['Aditivos Funcionais']))}
+                                    </div>
+                                </div>
+                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos da Lixívia</h4>
+                                    </div>
+                                    <div className="table-wrap">
+                                        {this.renderTableHeader()}
+                                        {this.renderReadOnlyRow(
+                                            recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)',
+                                            results.alkaliAmount
+                                        )}
+                                        {(recipe.lyeAdditives || []).map(a => this.renderIngredientRow(a, 'lyeAdditives', ingredientMetaById, ['Aditivos Lixívia']))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        </div>
+                        </CollapsibleCard>
+
+                        <CollapsibleCard
+                            title="FASE 3: No Traço (Trace)"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.phase3}
+                            onToggle={() => this.toggleSection('phase3')}
+                            actions={
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                        Total: {phase3Total.toFixed(1)}g
+                                    </span>
+                                    <PhaseAddMenu
+                                        options={[
+                                            { label: 'Aditivos & Botânicos', type: 'traceAdditives' },
+                                            { label: 'Óleos de Superfat', type: 'superfatOils' },
+                                            { label: 'Aromas & O.E.', type: 'essentialOils' }
+                                        ]}
+                                        onSelect={(type) => this.addItem(type)}
+                                    />
+                                </div>
+                            }
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aditivos & Botânicos</h4>
+                                    </div>
+                                    <div className="table-wrap">
+                                        {this.renderTableHeader()}
+                                        {(recipe.traceAdditives || []).map(a => this.renderIngredientRow(a, 'traceAdditives', ingredientMetaById, ['Aditivos Traço']))}
+                                    </div>
+                                </div>
+
+                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Óleos de Superfat</h4>
+                                    </div>
+                                    <div className="table-wrap">
+                                        {this.renderTableHeader()}
+                                        {(recipe.superfatOils || []).map(o => this.renderIngredientRow(o, 'superfatOils', ingredientMetaById, ['Superfat']))}
+                                    </div>
+                                </div>
+
+                                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Aromas & O.E.</h4>
+                                    </div>
+                                    <div className="table-wrap">
+                                        {this.renderTableHeader()}
+                                        {(recipe.essentialOils || []).map(o => this.renderIngredientRow(o, 'essentialOils', ingredientMetaById, ['Óleos Essenciais']))}
+                                    </div>
+                                </div>
+                            </div>
+                        </CollapsibleCard>
                     </div>
 
-                    <aside className="results-panel">
-                        <header>
-                            <span>Resumo da Fórmula</span>
-                            <Beaker size={18} />
-                        </header>
-                        <div className="result-section">
-                            <h4>Dados Técnicos</h4>
-                            <div className="result-row"><span>FASE 1: Gorduras & Óleos</span><span className="result-value">Total: {phase1Total.toFixed(1)}g</span></div>
-                            <div className="result-row"><span>FASE 2: Lixívia & Aditivos</span><span className="result-value">Total: {phase2Total.toFixed(1)}g</span></div>
-                            <div className="result-row"><span>FASE 3: No Traço (Trace)</span><span className="result-value">Total: {phase3Total.toFixed(1)}g</span></div>
-                            <div className="result-row" style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed #eee' }}>
-                                <span style={{ fontWeight: 700 }}>Peso Final</span>
-                                <span className="result-value" style={{ fontSize: '1.1rem', color: 'var(--color-primary-dark)' }}>{results.totalWeight.toFixed(1)}g</span>
-                            </div>
-                            <div className="result-row" style={{ marginTop: '0.75rem' }}>
-                                <span>Peso Estável (seco)</span>
-                                <span className="result-value">{estimatedDryWeight.toFixed(1)}g</span>
-                            </div>
-                            <div className="result-row">
-                                <span>Secagem Física</span>
-                                <span className="result-value">~ {physicalDays} dias ({physicalReadyDate.toLocaleDateString()})</span>
-                            </div>
-                            <div className="result-row">
-                                <span>Durabilidade (boas condições)</span>
-                                <span className="result-value">~ {goodConditionDays} dias ({(goodConditionDays / 30).toFixed(1)} meses, até {goodConditionEndDate.toLocaleDateString()})</span>
-                            </div>
-                            <div className="result-row">
-                                <span>Superfat final</span>
-                                <span className="result-value">{results.superfatFinal.toFixed(1)}%</span>
-                            </div>
-                        </div>
-                        <div className="result-section">
-                            <h4>Qualidade</h4>
-                            {!results.fattyAcidProfileValid ? (
-                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                                    Perfil de ácidos graxos inválido. Verifique óleos base e tabelas.
-                                </div>
-                            ) : (
-                                <>
-                                    {this.renderProgressBar('Condicionamento', qualityProgress.conditioning)}
-                                    {this.renderProgressBar('Limpeza', qualityProgress.cleansing)}
-                                    {this.renderProgressBar('Bolhas', qualityProgress.bubbles)}
-                                    {this.renderProgressBar('Persistência', qualityProgress.persistence)}
-                                    {this.renderProgressBar('Dureza', qualityProgress.hardness)}
-                                    <div className="modal-grid-3" style={{ marginTop: '1.5rem' }}>
-                                        <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
-                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
-                                            <div style={{ fontWeight: 700 }}>{results.iodine.toFixed(0)}</div>
+                    <aside className="results-sidebar">
+                        <CollapsibleCard
+                            title="Assistente IA (sem questionário)"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.aiChat}
+                            onToggle={() => this.toggleSection('aiChat')}
+                            actions={<Bot size={16} />}
+                        >
+                            <div className="calculator-ai-chat-box">
+                                {aiConversation.length > 0 ? (
+                                    aiConversation.map((msg, index) => (
+                                        <div key={'ai-msg-' + index} className={'calculator-ai-message ' + (msg.role === 'assistant' ? 'is-assistant' : 'is-user')}>
+                                            <div className="calculator-ai-meta">
+                                                {msg.role === 'assistant' ? 'IA' : 'Tu'} · {new Date(msg.timestamp).toLocaleString()}
+                                            </div>
+                                            <div>{msg.message}</div>
                                         </div>
-                                        <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
-                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>INS</div>
-                                            <div style={{ fontWeight: 700 }}>{results.ins.toFixed(0)}</div>
-                                        </div>
-                                        <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
-                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>GLICERINA ≈</div>
-                                            <div style={{ fontWeight: 700 }}>{results.glycerin.toFixed(1)}g</div>
-                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="calculator-ai-empty">
+                                        Ainda sem conversa. Pede uma fórmula nova ou ajustes na fórmula atual.
                                     </div>
-                                </>
+                                )}
+                            </div>
+
+                            {this.state.aiError && (
+                                <div className="calculator-ai-error">{this.state.aiError}</div>
                             )}
-                        </div>
-                        <div className="result-section">
-                            <h4>Ácidos Graxos</h4>
-                            {!results.fattyAcidProfileValid ? (
-                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                                    Perfil indisponível para este conjunto de óleos.
+
+                            <textarea
+                                rows={4}
+                                placeholder="Ex.: cria um sabonete calmante para pele sensível, mantendo o foco em suavidade e espuma cremosa."
+                                value={this.state.aiMessageDraft}
+                                onChange={(e) => this.setState({ aiMessageDraft: e.target.value })}
+                                style={{ width: '100%', marginTop: '0.75rem', fontFamily: 'inherit' }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.65rem', flexWrap: 'wrap' }}>
+                                <button
+                                    className="btn btn-secondary"
+                                    disabled={!this.state.aiMessageDraft.trim() || this.state.isGeneratingAIRecipe || !aiConfigured}
+                                    onClick={() => this.handleGenerateRecipeAIFromCalculator()}
+                                >
+                                    <Sparkles size={14} /> {this.state.isGeneratingAIRecipe ? 'A gerar...' : 'Enviar para IA'}
+                                </button>
+                                {!aiConfigured && (
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                                        Configura a IA nas Definições para ativar este chat.
+                                    </span>
+                                )}
+                                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                                    Se já existirem ingredientes na fórmula, eles são enviados como contexto para a IA.
+                                </span>
+                            </div>
+                        </CollapsibleCard>
+
+                        <CollapsibleCard
+                            title="Resumo da Fórmula"
+                            color={phaseHeaderColor}
+                            titleColor={phaseHeaderText}
+                            collapsed={collapsedSections.formulaSummary}
+                            onToggle={() => this.toggleSection('formulaSummary')}
+                            actions={<Beaker size={18} />}
+                            className="results-panel"
+                            bodyPadding="0"
+                        >
+                            <div className="result-section">
+                                <h4>Dados Técnicos</h4>
+                                <div className="result-row"><span>FASE 1: Gorduras & Óleos</span><span className="result-value">Total: {phase1Total.toFixed(1)}g</span></div>
+                                <div className="result-row"><span>FASE 2: Lixívia & Aditivos</span><span className="result-value">Total: {phase2Total.toFixed(1)}g</span></div>
+                                <div className="result-row"><span>FASE 3: No Traço (Trace)</span><span className="result-value">Total: {phase3Total.toFixed(1)}g</span></div>
+                                <div className="result-row" style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed #eee' }}>
+                                    <span style={{ fontWeight: 700 }}>Peso Final</span>
+                                    <span className="result-value" style={{ fontSize: '1.1rem', color: 'var(--color-primary-dark)' }}>{results.totalWeight.toFixed(1)}g</span>
                                 </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-                                    {fattyAcidLabels.map(({ key, label }) => {
-                                        const value = results.fattyAcids[key as keyof typeof results.fattyAcids];
-                                        if (value <= 0) return null;
-                                        return (
-                                            <span key={key} className="fatty-acid-tag">
-                                                {label}: {value.toFixed(1)}%
-                                            </span>
-                                        );
-                                    })}
+                                <div className="result-row" style={{ marginTop: '0.75rem' }}>
+                                    <span>Peso Estável (seco)</span>
+                                    <span className="result-value">{estimatedDryWeight.toFixed(1)}g</span>
                                 </div>
-                            )}
-                        </div>
-                        <div className="result-section">
-                            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><ShieldCheck size={14} /> INCI</h4>
-                            <div className="inci-list">{results.inciList.join(', ')}</div>
-                        </div>
+                                <div className="result-row">
+                                    <span>Secagem Física</span>
+                                    <span className="result-value">~ {physicalDays} dias ({physicalReadyDate.toLocaleDateString()})</span>
+                                </div>
+                                <div className="result-row">
+                                    <span>Durabilidade (boas condições)</span>
+                                    <span className="result-value">~ {goodConditionDays} dias ({(goodConditionDays / 30).toFixed(1)} meses, até {goodConditionEndDate.toLocaleDateString()})</span>
+                                </div>
+                                <div className="result-row">
+                                    <span>Superfat final</span>
+                                    <span className="result-value">{results.superfatFinal.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div className="result-section">
+                                <h4>Qualidade</h4>
+                                {!results.fattyAcidProfileValid ? (
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                        Perfil de ácidos graxos inválido. Verifique óleos base e tabelas.
+                                    </div>
+                                ) : (
+                                    <>
+                                        {this.renderProgressBar('Condicionamento', qualityProgress.conditioning)}
+                                        {this.renderProgressBar('Limpeza', qualityProgress.cleansing)}
+                                        {this.renderProgressBar('Bolhas', qualityProgress.bubbles)}
+                                        {this.renderProgressBar('Persistência', qualityProgress.persistence)}
+                                        {this.renderProgressBar('Dureza', qualityProgress.hardness)}
+                                        <div className="modal-grid-3" style={{ marginTop: '1.5rem' }}>
+                                            <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                                <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>IODO</div>
+                                                <div style={{ fontWeight: 700 }}>{results.iodine.toFixed(0)}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                                <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>INS</div>
+                                                <div style={{ fontWeight: 700 }}>{results.ins.toFixed(0)}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center', padding: '0.5rem', background: '#f9fafb', borderRadius: '4px' }}>
+                                                <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>GLICERINA ≈</div>
+                                                <div style={{ fontWeight: 700 }}>{results.glycerin.toFixed(1)}g</div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            <div className="result-section">
+                                <h4>Ácidos Graxos</h4>
+                                {!results.fattyAcidProfileValid ? (
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                        Perfil indisponível para este conjunto de óleos.
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                                        {fattyAcidLabels.map(({ key, label }) => {
+                                            const value = results.fattyAcids[key as keyof typeof results.fattyAcids];
+                                            if (value <= 0) return null;
+                                            return (
+                                                <span key={key} className="fatty-acid-tag">
+                                                    {label}: {value.toFixed(1)}%
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="result-section">
+                                <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><ShieldCheck size={14} /> INCI</h4>
+                                <div className="inci-list">{results.inciList.join(', ')}</div>
+                            </div>
+                        </CollapsibleCard>
                     </aside>
                 </div>
             </div>
         );
     }
 }
-

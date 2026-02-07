@@ -950,3 +950,135 @@ tr:hover td {
 .table-row-action-btn.is-danger {
   color: #dc2626;
 }
+
+.results-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.collapsible-card {
+  transition: box-shadow 0.22s ease;
+}
+
+.collapsible-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.collapsible-card-title-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.collapsible-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.collapsible-card-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  color: var(--color-primary-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.24s ease, background-color 0.2s ease;
+}
+
+.collapsible-card-content {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.24s ease, opacity 0.2s ease;
+}
+
+.collapsible-card-content-inner {
+  overflow: hidden;
+}
+
+.collapsible-card.is-collapsed {
+  border-radius: 999px;
+  box-shadow: none;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.collapsible-card.is-collapsed .collapsible-card-header {
+  border-bottom: none;
+  border-radius: 999px;
+  padding: 0.5rem 0.85rem;
+  background: #eef4eb !important;
+}
+
+.collapsible-card.is-collapsed .collapsible-card-content {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.collapsible-card.is-collapsed .collapsible-card-icon-btn {
+  transform: rotate(-90deg);
+}
+
+.calculator-ai-chat-box {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  padding: 0.65rem;
+  background: #f9fafb;
+}
+
+.calculator-ai-message {
+  margin-bottom: 0.65rem;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.55rem;
+  border-radius: 10px;
+}
+
+.calculator-ai-message.is-user {
+  background: #eef2ff;
+}
+
+.calculator-ai-message.is-assistant {
+  background: #ecfdf5;
+}
+
+.calculator-ai-meta {
+  font-size: 0.72rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.calculator-ai-empty {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  padding: 0.25rem;
+}
+
+.calculator-ai-error {
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .results-sidebar {
+    gap: 0.8rem;
+  }
+}

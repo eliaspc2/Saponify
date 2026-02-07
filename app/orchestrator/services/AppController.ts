@@ -186,6 +186,77 @@ export class AppController {
         return recipe;
     }
 
+    // Contract: generate a recipe draft via AI for calculator flow (without client form/questionnaire).
+    public async generateCalculatorRecipeFromAI(params: { message: string; currentRecipe?: Recipe | null; }): Promise<Recipe> {
+        const message = (params.message || '').trim();
+        const currentRecipe = params.currentRecipe || null;
+
+        if (!message) {
+            throw new Error('Mensagem inválida para a IA.');
+        }
+        if (!this.openAIProvider.isConfigured()) {
+            throw new Error('IA não configurada.');
+        }
+
+        const ingredients = IngredientService.getInstance().getAll();
+        if (!ingredients.length) {
+            throw new Error('Ingredientes indisponíveis.');
+        }
+
+        const settings = this.settingsService.getSettings();
+        const targetLyeConcentration = typeof settings.defaultWaterConcentration === 'number'
+            ? settings.defaultWaterConcentration
+            : 0;
+
+        const hasCurrentIngredients = this.hasRecipeIngredients(currentRecipe);
+        const feedbackCombined = this.combineFeedback(currentRecipe?.aiFeedback, message);
+        const examplePairs = await this.buildExamplePairs(ingredients);
+        const currentRecipeContext = (() => {
+            if (!currentRecipe || !hasCurrentIngredients) return undefined;
+            const calc = this.calculateRecipe({ recipe: currentRecipe, ingredients });
+            return this.mapRecipeToGeneratedExample(
+                currentRecipe,
+                ingredients,
+                calc.results.waterAmount,
+                calc.results.alkaliAmount
+            );
+        })();
+
+        const prompt = new RecipePromptBuilder().buildRecipePrompt({
+            clientForm: this.buildCalculatorChatContext(currentRecipe, ingredients),
+            availableIngredients: ingredients,
+            examplePairs,
+            userFeedback: feedbackCombined,
+            targetLyeConcentration,
+            currentRecipe: currentRecipeContext,
+            conversationHistory: currentRecipe?.aiConversation || []
+        });
+
+        const { validated, response } = await this.openAIProvider.generateAndValidateRecipe(prompt);
+        const recipe = this.mapValidatedRecipeToRecipe(
+            validated,
+            currentRecipe?.clientId || null,
+            ingredients,
+            feedbackCombined,
+            targetLyeConcentration,
+            currentRecipe,
+            message
+        );
+        recipe.aiLastPrompt = prompt;
+        recipe.aiLastResponse = response;
+        recipe.aiLastResponseAt = new Date().toISOString();
+
+        if (currentRecipe) {
+            recipe.id = currentRecipe.id;
+            recipe.code = currentRecipe.code;
+            recipe.date = currentRecipe.date;
+            recipe.clientId = currentRecipe.clientId;
+            recipe.notes = currentRecipe.notes;
+        }
+
+        return recipe;
+    }
+
     private combineFeedback(existing: string | undefined, next: string | undefined): string {
         const cleanedExisting = (existing || '').trim();
         const cleanedNext = (next || '').trim();
@@ -193,6 +264,66 @@ export class AppController {
         if (!cleanedExisting) return cleanedNext;
         if (!cleanedNext) return cleanedExisting;
         return `${cleanedExisting}\n---\n${cleanedNext}`;
+    }
+
+    private hasRecipeIngredients(recipe?: Recipe | null): boolean {
+        if (!recipe) return false;
+        const groups = [
+            recipe.fats,
+            recipe.liquids,
+            recipe.functionalAdditives,
+            recipe.lyeAdditives,
+            recipe.traceAdditives,
+            recipe.superfatOils,
+            recipe.essentialOils
+        ];
+
+        return groups.some(group => (group || []).some(item =>
+            !!item.ingredientId && Number(item.amount || 0) > 0
+        ));
+    }
+
+    private buildCalculatorChatContext(currentRecipe: Recipe | null, ingredients: Ingredient[]): object {
+        const ingredientById = new Map(ingredients.map(item => [item.id, item]));
+        const selected: Array<{
+            ingredientId: string;
+            name: string;
+            phase: string;
+            amount: number;
+            percentage: number;
+        }> = [];
+
+        const addItems = (items: RecipeIngredient[] | undefined, phase: string) => {
+            (items || []).forEach((item) => {
+                if (!item.ingredientId || Number(item.amount || 0) <= 0) return;
+                const known = ingredientById.get(item.ingredientId);
+                selected.push({
+                    ingredientId: item.ingredientId,
+                    name: known?.name || item.name || 'Ingrediente',
+                    phase,
+                    amount: item.amount,
+                    percentage: item.percentage || 0
+                });
+            });
+        };
+
+        if (currentRecipe) {
+            addItems(currentRecipe.fats, 'phase1_base_fatty');
+            addItems(currentRecipe.liquids, 'phase2_liquids');
+            addItems(currentRecipe.functionalAdditives, 'phase2_functional_additives');
+            addItems(currentRecipe.lyeAdditives, 'phase2_lye_additives');
+            addItems(currentRecipe.traceAdditives, 'phase3_trace_additives');
+            addItems(currentRecipe.superfatOils, 'phase3_superfat_oils');
+            addItems(currentRecipe.essentialOils, 'phase3_essential_oils');
+        }
+
+        return {
+            mode: 'calculator_chat',
+            client_sheet_provided: false,
+            questionnaire_provided: false,
+            current_formula_ingredients: selected,
+            guidance: 'Gerar receita seguindo as mesmas normas internas, sem depender de ficha de cliente ou questionário.'
+        };
     }
 
     private async buildExamplePairs(ingredients: Ingredient[]): Promise<Array<{ questionnaire: object; recipe: object }>> {
@@ -431,7 +562,7 @@ export class AppController {
 
     private mapValidatedRecipeToRecipe(
         validated: ValidatedRecipe,
-        clientId: string,
+        clientId: string | null,
         ingredients: Ingredient[],
         feedback?: string,
         targetLyeConcentration?: number,
@@ -574,7 +705,7 @@ export class AppController {
             id: IdService.create(),
             code: RecipeService.getInstance().getNextCode(),
             date,
-            clientId,
+            clientId: clientId || null,
             name: validated.metadata?.recipeName || 'Receita IA',
             notes: '',
             alkali: validated.phases.phase2_lye.lye_type === 'KOH' ? 'KOH' : 'NaOH',
