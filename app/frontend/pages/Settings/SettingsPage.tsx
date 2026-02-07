@@ -4,7 +4,7 @@ import type { AppSettings } from '../../../shared/settings/AppSettings';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 import { Save, RefreshCw, Upload, Download, Database, Lock, Cloud, Eye, EyeOff, Sparkles } from 'lucide-react';
-import { BackupService } from '../../../backend/application/backup/BackupService';
+import { BackupService, type AutoBackupInfo } from '../../../backend/application/backup/BackupService';
 import { FirestoreSyncService } from '../../../orchestrator/services/FirestoreSyncService';
 import type { AppController } from '../../../orchestrator/services/AppController';
 import { showToast } from '../../components/Toast';
@@ -28,6 +28,10 @@ interface SettingsState extends BasePageState {
     remoteDeviceId: string;
     localBackupUpdatedAt: string;
     localBackupSize: string;
+    localBackupCount: number;
+    localBackups: AutoBackupInfo[];
+    isRestoringBackup: boolean;
+    restoringBackupTimestamp: string | null;
     openaiApiKeyDraft: string;
     openaiApiKeyTouched: boolean;
     hasStoredOpenaiKey: boolean;
@@ -42,7 +46,6 @@ const DEVICE_ID_KEY = StorageKeys.DEVICE_ID;
 const SYNC_LAST_SUCCESS_KEY = StorageKeys.SYNC_LAST_SUCCESS;
 const SYNC_LAST_ERROR_KEY = StorageKeys.SYNC_LAST_ERROR;
 const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
-const AUTO_BACKUP_TS_KEY = StorageKeys.AUTO_BACKUP_TIMESTAMP;
 const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
 
 export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
@@ -53,8 +56,8 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         const storedDeviceId = localStorage.getItem(DEVICE_ID_KEY) || '';
         const storedLastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
         const storedLastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
-        const storedLocalTs = localStorage.getItem(AUTO_BACKUP_TS_KEY) || '';
-        const storedLocalData = localStorage.getItem(AUTO_BACKUP_KEY) || '';
+        const initialBackups = BackupService.getInstance().listAutoBackups();
+        const latestInitialBackup = initialBackups[0];
         const storedSyncPassword = localStorage.getItem(SYNC_PASSWORD_KEY) || '';
         const hasStoredOpenaiKey = !!storedSettings.openaiApiKey;
         const normalizedOpenaiModel = storedSettings.openaiModel || 'gpt-4.1-mini';
@@ -72,8 +75,12 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             lastSyncError: storedLastError,
             remoteUpdatedAt: '',
             remoteDeviceId: '',
-            localBackupUpdatedAt: storedLocalTs,
-            localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes',
+            localBackupUpdatedAt: latestInitialBackup?.timestamp || '',
+            localBackupSize: latestInitialBackup ? `${latestInitialBackup.sizeBytes} bytes` : '0 bytes',
+            localBackupCount: initialBackups.length,
+            localBackups: initialBackups,
+            isRestoringBackup: false,
+            restoringBackupTimestamp: null,
             openaiApiKeyDraft: '',
             openaiApiKeyTouched: false,
             hasStoredOpenaiKey,
@@ -207,6 +214,37 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         BackupService.getInstance().downloadAutoBackup();
     }
 
+    private async handleRestoreLatestAutoBackup() {
+        const latest = this.state.localBackups[0];
+        if (!latest) {
+            showToast('Não existem backups para restaurar.', 'warning');
+            return;
+        }
+        await this.handleRestoreAutoBackupByTimestamp(latest.timestamp);
+    }
+
+    private async handleRestoreAutoBackupByTimestamp(timestamp: string) {
+        this.setState({ isRestoringBackup: true, restoringBackupTimestamp: timestamp });
+        try {
+            const password = this.state.settings.autoBackupPassword?.trim() || undefined;
+            const restored = await BackupService.getInstance().restoreAutoBackupAt(timestamp, password);
+            if (restored) {
+                showToast('Backup restaurado com sucesso. A aplicação será recarregada.', 'success');
+                window.setTimeout(() => location.reload(), 450);
+                return;
+            }
+            showToast('Não foi possível restaurar este backup. Verifique a password.', 'error');
+        } finally {
+            this.setState({ isRestoringBackup: false, restoringBackupTimestamp: null });
+        }
+    }
+
+    private formatBackupSize(sizeBytes: number): string {
+        if (sizeBytes < 1024) return `${sizeBytes} B`;
+        if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+        return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
     private async handleSignIn() {
         await FirestoreSyncService.getInstance().signIn();
         const user = FirestoreSyncService.getInstance().getCurrentUser();
@@ -279,11 +317,13 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
     }
 
     private refreshLocalBackupStatus() {
-        const storedLocalTs = localStorage.getItem(AUTO_BACKUP_TS_KEY) || '';
-        const storedLocalData = localStorage.getItem(AUTO_BACKUP_KEY) || '';
+        const backups = BackupService.getInstance().listAutoBackups();
+        const latestBackup = backups[0];
         this.setState({
-            localBackupUpdatedAt: storedLocalTs,
-            localBackupSize: storedLocalData ? `${storedLocalData.length} bytes` : '0 bytes'
+            localBackupUpdatedAt: latestBackup?.timestamp || '',
+            localBackupSize: latestBackup ? `${latestBackup.sizeBytes} bytes` : '0 bytes',
+            localBackupCount: backups.length,
+            localBackups: backups
         });
     }
 
@@ -313,7 +353,11 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             remoteUpdatedAt,
             remoteDeviceId,
             localBackupUpdatedAt,
-            localBackupSize
+            localBackupSize,
+            localBackupCount,
+            localBackups,
+            isRestoringBackup,
+            restoringBackupTimestamp
         } = this.state;
         const { openaiModels, openaiModelsLoading, openaiModelsError } = this.state;
         const aiConfigured = this.props.appController.hasAIConfigured();
@@ -538,6 +582,9 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 <p style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.75rem' }}>
                                     Os backups são guardados automaticamente no armazenamento do navegador.
                                 </p>
+                                <p style={{ fontSize: '0.75rem', color: '#15803D', marginBottom: '0.75rem', fontWeight: 600 }}>
+                                    Backups guardados: {localBackupCount}/${AppConstants.MAX_AUTO_BACKUPS}
+                                </p>
                                 <button
                                     className="btn btn-secondary"
                                     onClick={() => this.handleTestAutoBackup()}
@@ -554,6 +601,38 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 >
                                     <Download size={16} /> Descarregar Último Backup
                                 </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => this.handleRestoreLatestAutoBackup()}
+                                    disabled={localBackupCount === 0 || isRestoringBackup}
+                                    style={{ width: '100%', marginTop: '0.5rem' }}
+                                >
+                                    <RefreshCw size={16} /> {isRestoringBackup ? 'A restaurar...' : 'Restaurar Último Backup'}
+                                </button>
+                                {localBackups.length > 0 && (
+                                    <div style={{ marginTop: '0.75rem', border: '1px solid #E5E7EB', borderRadius: 'var(--radius-sm)', padding: '0.5rem', background: '#F9FAFB' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '0.45rem' }}>
+                                            Histórico de Backups
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            {localBackups.map((backup) => (
+                                                <div key={backup.timestamp} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', background: '#fff', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '0.45rem 0.55rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#4B5563' }}>
+                                                        {new Date(backup.timestamp).toLocaleString('pt-PT')} · {this.formatBackupSize(backup.sizeBytes)}{backup.encrypted ? ' · encriptado' : ''}
+                                                    </div>
+                                                    <button
+                                                        className="btn btn-secondary"
+                                                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                                                        disabled={isRestoringBackup}
+                                                        onClick={() => this.handleRestoreAutoBackupByTimestamp(backup.timestamp)}
+                                                    >
+                                                        {restoringBackupTimestamp === backup.timestamp ? 'A restaurar...' : 'Restaurar'}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div style={{ marginBottom: '1.5rem' }}>

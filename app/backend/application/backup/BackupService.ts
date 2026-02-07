@@ -8,6 +8,13 @@ import type { IEncryptionProvider } from '../../infrastructure/crypto/IEncryptio
 import { WebCryptoEncryptionProvider } from '../../infrastructure/crypto/WebCryptoEncryptionProvider';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 
+export type AutoBackupInfo = {
+    timestamp: string;
+    sizeBytes: number;
+    encrypted: boolean;
+    isLatest: boolean;
+};
+
 export class BackupService {
     private static instance: BackupService;
     private composer: BackupComposer | null = null;
@@ -31,6 +38,20 @@ export class BackupService {
 
     public async importAllData(jsonString: string, options?: ImportAllDataOptions): Promise<boolean> {
         return this.getComposer().importAllData(jsonString, options);
+    }
+
+    public listAutoBackups(): AutoBackupInfo[] {
+        const backups = this.getStorage().getAllBackups();
+        return backups.map((item, index) => ({
+            timestamp: item.timestamp,
+            sizeBytes: item.data.length,
+            encrypted: item.data.startsWith(AppConstants.ENCRYPTED_PREFIX),
+            isLatest: index === 0
+        }));
+    }
+
+    public getAutoBackupCount(): number {
+        return this.listAutoBackups().length;
     }
 
     // Helper to download the file
@@ -73,7 +94,7 @@ export class BackupService {
 
             const timestamp = new Date().toISOString();
 
-            // Guardar em LocalStorage
+            // Guardar em LocalStorage (mantém histórico rotativo)
             this.getStorage().setData(finalData, timestamp);
 
             // Atualizar timestamp nas configurações
@@ -102,28 +123,81 @@ export class BackupService {
     }
 
     /**
-     * Restaura backup automático do LocalStorage
+     * Restaura backup automático do LocalStorage.
+     * Tenta os backups do mais recente para o mais antigo (até 5) para maior resiliência.
      */
     public async restoreAutoBackup(password?: string, options?: ImportAllDataOptions): Promise<boolean> {
+        const backups = this.getStorage().getAllBackups();
+        if (!backups.length) {
+            console.warn('Nenhum backup automático encontrado');
+            return false;
+        }
+
         try {
-            const data = this.getStorage().getData();
-            if (!data) {
-                console.warn('Nenhum backup automático encontrado');
-                return false;
+            for (const backup of backups) {
+                const ok = await this.restoreBackupPayload(backup.data, password, options);
+                if (ok) return true;
             }
-
-            const settings = SettingsService.getInstance().getSettings();
-
-            // Desencriptar se necessário
-            const jsonData = settings.autoBackupEncrypted && password
-                ? await this.getEncryptionProvider(password).decrypt(data)
-                : data;
-
-            return await this.importAllData(jsonData, options);
+            return false;
         } catch (error) {
             console.error('Erro ao restaurar backup automático:', error);
             return false;
         }
+    }
+
+    /**
+     * Restaura um backup automático específico por timestamp.
+     */
+    public async restoreAutoBackupAt(timestamp: string, password?: string, options?: ImportAllDataOptions): Promise<boolean> {
+        const backups = this.getStorage().getAllBackups();
+        const target = backups.find(item => item.timestamp === timestamp);
+        if (!target) {
+            return false;
+        }
+
+        try {
+            return await this.restoreBackupPayload(target.data, password, options);
+        } catch (error) {
+            console.error('Erro ao restaurar backup automático específico:', error);
+            return false;
+        }
+    }
+
+    private async restoreBackupPayload(payload: string, password?: string, options?: ImportAllDataOptions): Promise<boolean> {
+        const isEncryptedPayload = payload.startsWith(AppConstants.ENCRYPTED_PREFIX);
+        if (!isEncryptedPayload) {
+            return await this.importAllData(payload, options);
+        }
+
+        const candidates = this.getPasswordCandidates(password);
+        if (!candidates.length) {
+            console.error('Backup encriptado, mas sem palavra-passe disponível para restauro.');
+            return false;
+        }
+
+        let lastError: unknown = null;
+        for (const candidate of candidates) {
+            try {
+                const jsonData = await this.getEncryptionProvider(candidate).decrypt(payload);
+                const ok = await this.importAllData(jsonData, options);
+                if (ok) {
+                    return true;
+                }
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        console.error('Erro ao restaurar payload de backup:', lastError);
+        return false;
+    }
+
+    private getPasswordCandidates(password?: string): string[] {
+        const settings = SettingsService.getInstance().getSettings();
+        return Array.from(new Set([
+            (password || '').trim(),
+            (settings.autoBackupPassword || '').trim()
+        ].filter(Boolean)));
     }
 
     /**
@@ -177,4 +251,3 @@ export class BackupService {
         return this.syncProvider;
     }
 }
-
