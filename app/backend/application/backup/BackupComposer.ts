@@ -9,6 +9,12 @@ import { AppConstants } from '../../../shared/constants/AppConstants';
 import { getVersionInfo } from '../../shared/versioning/VersionService';
 import { getDataSchemaVersion } from '../../shared/versioning/DataSchemaVersion';
 import { runMigrations } from '../../shared/migrations';
+import type { AppSettings } from '../../../shared/settings/AppSettings';
+import { DEFAULT_SETTINGS } from '../../../shared/settings/AppSettingsDefaults';
+
+export type ImportAllDataOptions = {
+    preserveCurrentSettings?: boolean;
+};
 
 export class BackupComposer {
     public async exportAllData(): Promise<string> {
@@ -45,7 +51,7 @@ export class BackupComposer {
         return JSON.stringify(data, null, 2);
     }
 
-    public async importAllData(jsonString: string): Promise<boolean> {
+    public async importAllData(jsonString: string, options?: ImportAllDataOptions): Promise<boolean> {
         try {
             let data = JSON.parse(jsonString);
 
@@ -63,7 +69,9 @@ export class BackupComposer {
             }
 
             // 1. Settings
-            SettingsService.getInstance().replaceSettings(data.settings);
+            const importedSettings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) } as AppSettings;
+            const resolvedSettings = this.resolveImportedSettings(importedSettings, options);
+            SettingsService.getInstance().replaceSettings(resolvedSettings);
 
             // 2. Ingredients (replace all)
             IngredientService.getInstance().replaceAll(Array.isArray(data.ingredients) ? data.ingredients : [], true);
@@ -84,5 +92,58 @@ export class BackupComposer {
             return false;
         }
     }
-}
 
+    private resolveImportedSettings(imported: AppSettings, options?: ImportAllDataOptions): AppSettings {
+        if (!options?.preserveCurrentSettings) {
+            return imported;
+        }
+
+        const current = SettingsService.getInstance().getSettings();
+        const currentBackupTs = Date.parse(current.lastAutoBackup || '') || 0;
+        const importedBackupTs = Date.parse(imported.lastAutoBackup || '') || 0;
+        const currentHasCustomizations = !this.matchesDefaults(current);
+        const importedLooksLikeDefaults = this.matchesDefaults(imported);
+
+        const protectLocal = (currentBackupTs > 0 && importedBackupTs > 0 && currentBackupTs > importedBackupTs)
+            || (currentHasCustomizations && importedLooksLikeDefaults);
+
+        if (protectLocal) {
+            return {
+                ...imported,
+                ...current,
+                lastAutoBackup: current.lastAutoBackup || imported.lastAutoBackup
+            };
+        }
+
+        return {
+            ...imported,
+            openaiApiKey: imported.openaiApiKey?.trim() ? imported.openaiApiKey : current.openaiApiKey,
+            openaiModel: imported.openaiModel || current.openaiModel,
+            openaiModels: Array.isArray(imported.openaiModels) && imported.openaiModels.length > 0
+                ? imported.openaiModels
+                : current.openaiModels
+        };
+    }
+
+    private matchesDefaults(settings: AppSettings): boolean {
+        const keys: Array<keyof AppSettings> = [
+            'defaultSuperfat',
+            'defaultWaterConcentration',
+            'defaultAlkali',
+            'defaultAlkaliPurity',
+            'language',
+            'measurementSystem',
+            'recipePrefix',
+            'autoSave',
+            'theme',
+            'autoBackupEnabled',
+            'autoBackupEncrypted',
+            'autoBackupPassword',
+            'openaiApiKey',
+            'openaiModel'
+        ];
+
+        return keys.every((key) => settings[key] === DEFAULT_SETTINGS[key])
+            && JSON.stringify(settings.openaiModels || []) === JSON.stringify(DEFAULT_SETTINGS.openaiModels || []);
+    }
+}

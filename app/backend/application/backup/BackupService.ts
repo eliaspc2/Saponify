@@ -1,5 +1,6 @@
 import { SettingsService } from '../../infrastructure/services/SettingsService';
 import { BackupComposer } from './BackupComposer';
+import type { ImportAllDataOptions } from './BackupComposer';
 import { AutoBackupStorage } from '../../infrastructure/storage/AutoBackupStorage';
 import { BackupFileTransfer } from '../../infrastructure/storage/BackupFileTransfer';
 import type { ISyncProvider } from '../../infrastructure/sync/ISyncProvider';
@@ -28,8 +29,8 @@ export class BackupService {
         return this.getComposer().exportAllData();
     }
 
-    public async importAllData(jsonString: string): Promise<boolean> {
-        return this.getComposer().importAllData(jsonString);
+    public async importAllData(jsonString: string, options?: ImportAllDataOptions): Promise<boolean> {
+        return this.getComposer().importAllData(jsonString, options);
     }
 
     // Helper to download the file
@@ -103,7 +104,7 @@ export class BackupService {
     /**
      * Restaura backup automático do LocalStorage
      */
-    public async restoreAutoBackup(password?: string): Promise<boolean> {
+    public async restoreAutoBackup(password?: string, options?: ImportAllDataOptions): Promise<boolean> {
         try {
             const data = this.getStorage().getData();
             if (!data) {
@@ -118,7 +119,7 @@ export class BackupService {
                 ? await this.getEncryptionProvider(password).decrypt(data)
                 : data;
 
-            return await this.importAllData(jsonData);
+            return await this.importAllData(jsonData, options);
         } catch (error) {
             console.error('Erro ao restaurar backup automático:', error);
             return false;

@@ -265,15 +265,15 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             let ok = false;
             if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
                 const settings = SettingsService.getInstance().getSettings();
-                ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword);
+                ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword, { preserveCurrentSettings: true });
             } else if (data) {
-                ok = await BackupService.getInstance().importAllData(data);
+                ok = await BackupService.getInstance().importAllData(data, { preserveCurrentSettings: true });
             }
             if (ok) {
-            localStorage.removeItem(StorageKeys.SYNC_PENDING_IMPORT);
-            location.reload();
-            return;
-        }
+                localStorage.removeItem(StorageKeys.SYNC_PENDING_IMPORT);
+                location.reload();
+                return;
+            }
             showToast('Dados remotos aplicados ao backup local, mas não foi possível restaurar. Verifique a password do backup local.', 'warning');
         }
     }

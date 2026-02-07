@@ -524,9 +524,9 @@ export class AppController {
         let ok = false;
         if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
             const settings = this.settingsService.getSettings();
-            ok = await this.backupService.restoreAutoBackup(settings.autoBackupPassword);
+            ok = await this.backupService.restoreAutoBackup(settings.autoBackupPassword, { preserveCurrentSettings: true });
         } else if (data) {
-            ok = await this.backupService.importAllData(data);
+            ok = await this.backupService.importAllData(data, { preserveCurrentSettings: true });
         }
 
         if (ok) {
