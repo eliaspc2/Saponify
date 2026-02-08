@@ -18,5 +18,6 @@ export const StorageKeys = {
     SYNC_PASSWORD: 'saponify_sync_password',
     SYNC_PENDING_IMPORT: 'saponify_sync_pending_import',
     AUTH_REDIRECT_FLAG: 'saponify_auth_redirect_in_progress',
-    AUTH_LAST_ATTEMPT: 'saponify_auth_last_attempt'
+    AUTH_LAST_ATTEMPT: 'saponify_auth_last_attempt',
+    CALCULATOR_DRAFT: 'saponify_calculator_draft'
 } as const;

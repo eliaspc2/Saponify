@@ -11,6 +11,7 @@ import { Beaker, ShieldCheck, Plus, Trash2, Save, Download, Bot, Sparkles, Chevr
 import { Client } from '../../../shared/types/Client';
 import { ClientService } from '../../../backend/infrastructure/services/ClientService';
 import { showToast } from '../../components/Toast';
+import { StorageKeys } from '../../../shared/constants/StorageKeys';
 
 interface CalculatorPageProps extends BasePageProps {
     recipeId?: string;
@@ -36,6 +37,14 @@ const generateId = () => {
     } catch (e) { }
     return Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(4);
 };
+
+type CalculatorDraftPayload = {
+    recipe: Recipe;
+    sourceRecipeId: string | null;
+    updatedAt: string;
+};
+
+const CALCULATOR_DRAFT_STORAGE_KEY = StorageKeys.CALCULATOR_DRAFT;
 
 const CollapsibleCard = ({
     title,
@@ -192,13 +201,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const ingredients = service.getAll();
         const clients = ClientService.getInstance().getAll();
 
-        let recipe = this.state.recipe;
-        if (this.props.recipeId) {
-            const saved = RecipeService.getInstance().getById(this.props.recipeId);
-            if (saved) {
-                recipe = { ...this.getInitialState().recipe!, ...saved };
-            }
-        }
+        const recipe = this.buildRecipeForContext(this.props.recipeId);
 
         const calc = this.props.appController.calculateRecipe({
             recipe,
@@ -211,32 +214,23 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         if (this.autoSaveTimer) {
             window.clearTimeout(this.autoSaveTimer);
         }
+        this.persistDraft(this.state.recipe);
+        this.savePersistedRecipeImmediately(this.state.recipe);
     }
 
     componentDidUpdate(prevProps: { recipeId?: string }, prevState: CalculatorState) {
         if (this.props.recipeId !== prevProps.recipeId) {
-            if (this.props.recipeId) {
-                const saved = RecipeService.getInstance().getById(this.props.recipeId);
-                if (saved) {
-                    const merged = { ...this.getInitialState().recipe!, ...saved };
-                    const calc = this.props.appController.calculateRecipe({
-                        recipe: merged,
-                        ingredients: this.state.availableIngredients
-                    });
-                    this.setState({ recipe: calc.normalizedRecipe });
-                }
-            } else {
-                // Reset to new recipe
-                const nextRecipe = this.getInitialState().recipe!;
-                const calc = this.props.appController.calculateRecipe({
-                    recipe: nextRecipe,
-                    ingredients: this.state.availableIngredients
-                });
-                this.setState({ recipe: calc.normalizedRecipe });
-            }
+            const nextRecipe = this.buildRecipeForContext(this.props.recipeId);
+            const calc = this.props.appController.calculateRecipe({
+                recipe: nextRecipe,
+                ingredients: this.state.availableIngredients
+            });
+            this.setState({ recipe: calc.normalizedRecipe });
+            return;
         }
 
         if (!this.state.loading && prevState.recipe !== this.state.recipe) {
+            this.persistDraft(this.state.recipe);
             const persisted = !!RecipeService.getInstance().getById(this.state.recipe.id);
             if (persisted) {
                 if (this.autoSaveTimer) {
@@ -246,6 +240,80 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                     RecipeDomainService.getInstance().save(this.state.recipe);
                 }, 600);
             }
+        }
+    }
+
+    private readDraftPayload(): CalculatorDraftPayload | null {
+        try {
+            const raw = localStorage.getItem(CALCULATOR_DRAFT_STORAGE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw) as Partial<CalculatorDraftPayload> | null;
+            if (!parsed || typeof parsed !== 'object' || !parsed.recipe || typeof parsed.recipe !== 'object') {
+                return null;
+            }
+            return {
+                recipe: parsed.recipe as Recipe,
+                sourceRecipeId: typeof parsed.sourceRecipeId === 'string' ? parsed.sourceRecipeId : null,
+                updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : ''
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    private buildRecipeForContext(recipeId?: string): Recipe {
+        const baseRecipe = this.getInitialState().recipe!;
+        const draft = this.readDraftPayload();
+
+        if (recipeId) {
+            const saved = RecipeService.getInstance().getById(recipeId);
+            if (!saved) {
+                return baseRecipe;
+            }
+
+            const shouldApplyDraft = !!draft && (draft.sourceRecipeId === recipeId || draft.recipe.id === saved.id);
+            if (shouldApplyDraft) {
+                return {
+                    ...baseRecipe,
+                    ...saved,
+                    ...draft.recipe,
+                    id: saved.id,
+                    code: saved.code
+                };
+            }
+
+            return { ...baseRecipe, ...saved };
+        }
+
+        if (draft?.recipe) {
+            return { ...baseRecipe, ...draft.recipe };
+        }
+
+        return baseRecipe;
+    }
+
+    private persistDraft(recipe: Recipe) {
+        const payload: CalculatorDraftPayload = {
+            recipe,
+            sourceRecipeId: this.props.recipeId || null,
+            updatedAt: new Date().toISOString()
+        };
+
+        try {
+            localStorage.setItem(CALCULATOR_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+        } catch (error) {
+            console.warn('Não foi possível guardar rascunho da calculadora:', error);
+        }
+    }
+
+    private savePersistedRecipeImmediately(recipe: Recipe) {
+        const persisted = !!RecipeService.getInstance().getById(recipe.id);
+        if (!persisted) return;
+
+        try {
+            RecipeDomainService.getInstance().save(recipe);
+        } catch (error) {
+            console.warn('Não foi possível guardar receita no unmount:', error);
         }
     }
 
@@ -330,6 +398,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
 
         try {
             RecipeDomainService.getInstance().save(recipe);
+            this.persistDraft(recipe);
             showToast('Receita guardada com sucesso!', 'success');
         } catch (e) {
             showToast('Erro ao guardar receita.', 'error');

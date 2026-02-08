@@ -6,6 +6,8 @@ import { SettingsService } from '../backend/infrastructure/services/SettingsServ
 import { AppController } from '../orchestrator/services/AppController';
 import { FirestoreSyncProvider } from '../orchestrator/services/FirestoreSyncProvider';
 import { createCalculatorUseCase } from '../orchestrator/services/CalculatorUseCaseFactory';
+import { StorageKeys } from '../shared/constants/StorageKeys';
+import type { Recipe, RecipeIngredient } from '../shared/types/Recipe';
 
 const HomePage = lazy(() => import('./pages/Home/HomePage').then((m) => ({ default: m.HomePage })));
 const CalculatorPage = lazy(() => import('./pages/Calculator/CalculatorPage').then((m) => ({ default: m.CalculatorPage })));
@@ -14,6 +16,61 @@ const ClientsPage = lazy(() => import('./pages/CRM/Clients/ClientsPage').then((m
 const QuestionnairesPage = lazy(() => import('./pages/CRM/Questionnaires/QuestionnairesPage').then((m) => ({ default: m.QuestionnairesPage })));
 const SavedRecipesPage = lazy(() => import('./pages/CRM/Recipes/SavedRecipesPage').then((m) => ({ default: m.SavedRecipesPage })));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+
+type CalculatorDraftPayload = {
+    recipe: Recipe;
+    sourceRecipeId: string | null;
+    updatedAt: string;
+};
+
+const CALCULATOR_DRAFT_STORAGE_KEY = StorageKeys.CALCULATOR_DRAFT;
+
+const hasIngredientProgress = (items: RecipeIngredient[] | undefined): boolean => {
+    if (!Array.isArray(items)) return false;
+
+    return items.some((item) => {
+        const hasSelectedIngredient = typeof item.ingredientId === 'string' && item.ingredientId.trim().length > 0;
+        const amount = Number(item.amount) || 0;
+        return hasSelectedIngredient || amount > 0;
+    });
+};
+
+const hasRecipeProgress = (recipe: Recipe | null | undefined): boolean => {
+    if (!recipe) return false;
+
+    const hasText = (recipe.name || '').trim().length > 0 || (recipe.notes || '').trim().length > 0;
+    const hasClient = !!recipe.clientId;
+    const hasAiConversation = Array.isArray(recipe.aiConversation) && recipe.aiConversation.length > 0;
+    const hasAnyIngredient = hasIngredientProgress(recipe.fats)
+        || hasIngredientProgress(recipe.liquids)
+        || hasIngredientProgress(recipe.functionalAdditives)
+        || hasIngredientProgress(recipe.lyeAdditives)
+        || hasIngredientProgress(recipe.traceAdditives)
+        || hasIngredientProgress(recipe.superfatOils)
+        || hasIngredientProgress(recipe.essentialOils);
+
+    return hasText || hasClient || hasAiConversation || hasAnyIngredient;
+};
+
+const readCalculatorDraft = (): CalculatorDraftPayload | null => {
+    try {
+        const raw = localStorage.getItem(CALCULATOR_DRAFT_STORAGE_KEY);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw) as Partial<CalculatorDraftPayload> | null;
+        if (!parsed || typeof parsed !== 'object' || !parsed.recipe || typeof parsed.recipe !== 'object') {
+            return null;
+        }
+
+        return {
+            recipe: parsed.recipe as Recipe,
+            sourceRecipeId: typeof parsed.sourceRecipeId === 'string' ? parsed.sourceRecipeId : null,
+            updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : ''
+        };
+    } catch {
+        return null;
+    }
+};
 
 function App() {
     const [activePage, setActivePage] = useState('home');
@@ -44,6 +101,24 @@ function App() {
     }, []);
 
     const handleNavigate = (page: string, params: any = null) => {
+        if (page === 'calculator' && params?.recipeId) {
+            const targetRecipeId = String(params.recipeId);
+            const draft = readCalculatorDraft();
+
+            if (draft?.recipe) {
+                const isSameRecipe = draft.sourceRecipeId === targetRecipeId || draft.recipe.id === targetRecipeId;
+                const hasProgress = hasRecipeProgress(draft.recipe);
+
+                if (!isSameRecipe && hasProgress) {
+                    const confirmed = window.confirm('Tem uma receita em curso na calculadora. Abrir outra receita vai substituir o rascunho atual. Pretende continuar?');
+                    if (!confirmed) {
+                        return;
+                    }
+                    localStorage.removeItem(CALCULATOR_DRAFT_STORAGE_KEY);
+                }
+            }
+        }
+
         setActivePage(page);
         setPageParams(params);
     };
