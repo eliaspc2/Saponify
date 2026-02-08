@@ -9,6 +9,7 @@ import { ClientService } from '../../../../backend/infrastructure/services/Clien
 import { Client } from '../../../../shared/types/Client';
 import { Trash2, Calculator, Edit2, ExternalLink, Save, Plus, FileText, Upload } from 'lucide-react';
 import { Modal } from '../../../components/Modal';
+import { AutocompleteSelect } from '../../../components/AutocompleteSelect';
 import { IngredientService } from '../../../../backend/infrastructure/services/IngredientService';
 import { formatRecipeCodeForFile, formatRecipeReference, formatRecipeReferenceOrFallback } from '../../../../shared/utils/recipeFormat';
 import { AppController } from '../../../../orchestrator/services/AppController';
@@ -291,6 +292,8 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             r.name.toLowerCase().includes(term) || r.code.includes(term)
         );
 
+        const pagination = this.getPaginatedData(filteredData);
+
         if (filteredData.length === 0) {
             return (
                 <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
@@ -315,7 +318,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredData.map(recipe => (
+                        {pagination.pageItems.map(recipe => (
                             <tr key={recipe.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                 <td
                                     style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)', cursor: 'pointer' }}
@@ -360,6 +363,7 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                     </tbody>
                     </table>
                 </div>
+                {this.renderPaginationControls(pagination, 'receitas')}
             </div>
         );
     }
@@ -405,6 +409,11 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
             this.setState({ editingRecipe: { ...editingRecipe, [field]: value } });
         };
 
+        const clientOptions = [
+            { value: '', label: 'Sem cliente associado' },
+            ...this.state.clients.map(client => ({ value: client.id, label: client.name }))
+        ];
+
         return (
             <Modal
                 isOpen={this.state.isModalOpen}
@@ -438,16 +447,14 @@ export class SavedRecipesPage extends BaseListPage<Recipe, SavedRecipesState, Sa
                         </div>
                         <div className="form-group">
                             <label className="form-label" style={{ fontWeight: 700 }}>Cliente</label>
-                            <select
-                                className="form-control"
+                            <AutocompleteSelect
+                                inputClassName="form-control"
+                                options={clientOptions}
                                 value={editingRecipe.clientId || ''}
-                                onChange={(e) => updateField('clientId', e.target.value)}
-                            >
-                                <option value="">Sem cliente associado</option>
-                                {this.state.clients.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
+                                onChange={(nextClientId) => updateField('clientId', nextClientId)}
+                                placeholder="Pesquisar cliente..."
+                                emptyText="Nenhum cliente encontrado"
+                            />
                         </div>
                         <div className="form-group">
                             <label className="form-label" style={{ fontWeight: 700 }}>Data</label>

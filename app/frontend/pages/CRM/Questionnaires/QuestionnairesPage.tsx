@@ -6,6 +6,7 @@ import { QuestionnaireService } from '../../../../backend/infrastructure/service
 import { ClientService } from '../../../../backend/infrastructure/services/ClientService';
 import { Client } from '../../../../shared/types/Client';
 import { Modal } from '../../../components/Modal';
+import { AutocompleteSelect } from '../../../components/AutocompleteSelect';
 import { Plus, Trash2, Edit2, FileText, Upload, Download } from 'lucide-react';
 import { showToast } from '../../../components/Toast';
 
@@ -238,6 +239,8 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
             q.clientName.toLowerCase().includes(term)
         );
 
+        const pagination = this.getPaginatedData(filteredData);
+
         if (filteredData.length === 0) {
             return (
                 <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
@@ -260,7 +263,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredData.map((q: Questionnaire) => (
+                        {pagination.pageItems.map((q: Questionnaire) => (
                             <tr key={q.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                 <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }}>
                                     <span
@@ -294,6 +297,7 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                     </tbody>
                     </table>
                 </div>
+                {this.renderPaginationControls(pagination, 'questionários')}
             </div>
         );
     }
@@ -379,6 +383,11 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
             "Cuidados & Alergias"
         ];
 
+        const clientOptions = [
+            { value: '', label: '-- Escolha um cliente --' },
+            ...clients.map(client => ({ value: client.id, label: client.name }))
+        ];
+
         return (
             <Modal
                 isOpen={this.state.isModalOpen}
@@ -402,14 +411,14 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                                 <div className="modal-grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
                                     <div className="form-group">
                                         <label className="form-label" style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>Selecionar Cliente <span className="required-marker">*</span></label>
-                                        <select
-                                            className="form-control"
+                                        <AutocompleteSelect
+                                            inputClassName="form-control"
+                                            options={clientOptions}
                                             value={editingQuestionnaire.clientId || ''}
-                                            onChange={(e) => updateField('clientId', e.target.value)}
-                                        >
-                                            <option value="">-- Escolha um cliente --</option>
-                                            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
+                                            onChange={(nextClientId) => updateField('clientId', nextClientId)}
+                                            placeholder="Pesquisar cliente..."
+                                            emptyText="Nenhum cliente encontrado"
+                                        />
                                         <p className="required-note">Campo obrigatório para guardar o questionário.</p>
                                     </div>
 

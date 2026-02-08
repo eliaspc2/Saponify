@@ -951,6 +951,91 @@ tr:hover td {
   color: #dc2626;
 }
 
+.table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid #f3f4f6;
+  background: #fbfcfb;
+}
+
+.table-pagination-summary {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.table-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.table-pagination-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.table-pagination-size select {
+  width: auto;
+  min-width: 68px;
+  min-height: 34px;
+  padding: 0.35rem 0.5rem;
+}
+
+.table-pagination-page {
+  min-width: 96px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-main);
+  font-weight: 600;
+}
+
+.autocomplete-select {
+  position: relative;
+}
+
+.autocomplete-select-menu {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 25;
+}
+
+.autocomplete-select-option {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-main);
+  cursor: pointer;
+}
+
+.autocomplete-select-option:hover,
+.autocomplete-select-option.is-active {
+  background: #eef4eb;
+}
+
+.autocomplete-select-empty {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
 .results-sidebar {
   display: flex;
   flex-direction: column;

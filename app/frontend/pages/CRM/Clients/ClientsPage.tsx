@@ -858,6 +858,8 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
             c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term)
         );
 
+        const pagination = this.getPaginatedData(filteredData);
+
         return (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div className="table-wrap">
@@ -871,7 +873,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredData.map(client => {
+                        {pagination.pageItems.map(client => {
                             const hasRecipe = allRecipes.some(r => r.clientId === client.id);
                             const hasQuestionnaire = allQuestionnaires.some(q => q.clientId === client.id);
 
@@ -921,6 +923,7 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                     </tbody>
                     </table>
                 </div>
+                {this.renderPaginationControls(pagination, 'clientes')}
             </div>
         );
     }

@@ -1,13 +1,13 @@
 # Avaliação das Modificações UX/UI
 
-Data: 2026-02-07
-Escopo: avaliação estratégica e pontos pendentes após extração do backlog executável.
+Data: 2026-02-08
+Escopo: decisões pendentes após mover para backlog o que está aprovado para implementação.
 
 ## Nota de consolidação
-As alterações consideradas inquestionavelmente úteis foram removidas deste documento e migradas para:
+Os itens com boa relação valor/risco foram movidos para:
 - `UI_TAREFAS_IMPLEMENTACAO.md`
 
-Este ficheiro fica agora focado apenas em decisões, restrições e itens que exigem validação adicional.
+Este ficheiro mantém apenas o que tem menor consenso técnico para implementação imediata.
 
 ## Decisões de guardrail (mantidas)
 - Em mobile, não concentrar todas as ações globais numa top bar rígida; usar overflow (`Mais`) para evitar saturação.
@@ -16,30 +16,16 @@ Este ficheiro fica agora focado apenas em decisões, restrições e itens que ex
 - Não ativar envio automático de questionários por defeito; exigir modelo opt-in com critério e controlo.
 - Não migrar cegamente toda configuração crítica para environment; separar segredos de preferências operacionais runtime.
 
-## Itens pendentes de decisão/escopo
-
-### Prioridade 3
-- Paginação em listas grandes (Clientes, Questionários, Receitas):
-  - Recomendado, mas depende de validação de UX (tamanho de página, navegação, impacto no fluxo atual).
-
-### Prioridade 4
-- Validação inline por campo com bloqueio de gravação:
-  - Recomendado, mas precisa padrão transversal para evitar comportamento inconsistente entre formulários.
-- Substituição de tooltips nativos (`title`) por componente próprio:
-  - Recomendado, mas requer componente reutilizável e regra de acessibilidade.
+## Itens com menor concordância para avançar já
 
 ### Prioridade 6
-- Autocomplete para dropdowns longos:
-  - Recomendado, mas depende de escolher componente base comum para CRM/Questionários.
 - Envio seletivo de questionários por idade da última submissão:
-  - Funcionalmente útil, mas precisa regras de consentimento e histórico de envio.
+  - Útil, mas com risco de consentimento/compliance e necessidade de histórico de envios robusto.
 
 ### Prioridade 7
-- Remoção de segredos críticos da UI:
-  - Recomendado, mas precisa plano técnico por tipo de segredo (build-time vs runtime).
 - Avaliação de tabs em páginas densas:
-  - Só avançar após medição de densidade real e teste de usabilidade.
+  - Só avançar após medição de densidade real e teste de usabilidade; risco de adicionar complexidade sem ganho claro.
 
 ## Regra de manutenção deste documento
-- Se um item entrar no backlog executável com subtarefas e ordem de execução, deve ser removido daqui.
-- Este ficheiro deve conter apenas o que ainda está em validação, design decision ou dependência técnica.
+- Se um item passar a backlog executável com subtarefas e ordem de execução, deve sair daqui.
+- Este ficheiro deve conter apenas decisões, riscos e dependências por validar.
