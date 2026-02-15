@@ -85,3 +85,30 @@ export const removeDuplicateIngredients = (ingredients: Ingredient[]) => {
 
     return { items: deduped, changed };
 };
+
+export const ensureUniqueIngredientIds = (ingredients: Ingredient[]) => {
+    const seen = new Map<string, number>();
+    let changed = false;
+
+    const withUniqueIds = ingredients.map((ingredient, index) => {
+        const originalId = (ingredient.id || '').trim();
+        const baseId = originalId || `ingredient_${index + 1}`;
+        const seenCount = seen.get(baseId) || 0;
+
+        if (seenCount === 0) {
+            seen.set(baseId, 1);
+            if (baseId !== originalId) {
+                changed = true;
+                return { ...ingredient, id: baseId };
+            }
+            return ingredient;
+        }
+
+        seen.set(baseId, seenCount + 1);
+        changed = true;
+        const nextId = `${baseId}__dup${seenCount + 1}`;
+        return { ...ingredient, id: nextId };
+    });
+
+    return { items: withUniqueIds, changed };
+};

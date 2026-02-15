@@ -574,16 +574,71 @@ export class AppController {
         existingRecipe?: Recipe | null,
         userMessage?: string
     ): Recipe {
-        const ingredientById = new Map(ingredients.map(item => [item.id, item]));
+        const normalizeText = (value: string) =>
+            (value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const ingredientById = new Map<string, Ingredient[]>();
+        ingredients.forEach((item) => {
+            const id = (item.id || '').trim();
+            if (!id) return;
+            const existing = ingredientById.get(id) || [];
+            existing.push(item);
+            ingredientById.set(id, existing);
+        });
+
+        const mapMenuKeyFromFunction = (fn?: string): keyof Pick<Recipe, 'liquids' | 'functionalAdditives' | 'lyeAdditives' | 'traceAdditives' | 'superfatOils' | 'essentialOils'> | null => {
+            const token = normalizeText(fn || '');
+            if (!token) return null;
+            if (token.includes('essential')) return 'essentialOils';
+            if (token.includes('superfat')) return 'superfatOils';
+            if (token.includes('trace')) return 'traceAdditives';
+            if (token.includes('functional')) return 'functionalAdditives';
+            if (token.includes('lye') || token.includes('lixivia')) return 'lyeAdditives';
+            if (token.includes('liquid') || token.includes('water') || token.includes('agua')) return 'liquids';
+            return null;
+        };
+
+        const resolveIngredient = (item: GeneratedRecipeIngredient): Ingredient | undefined => {
+            const byId = ingredientById.get((item.ingredientId || '').trim()) || [];
+            if (byId.length === 1) {
+                return byId[0];
+            }
+
+            const normalizedName = normalizeText(item.name || '');
+            const fromName = normalizedName
+                ? ingredients.find((candidate) =>
+                    normalizeText(candidate.name || '') === normalizedName
+                    || normalizeText(candidate.inci || '') === normalizedName
+                )
+                : undefined;
+
+            if (fromName) return fromName;
+
+            if (byId.length > 1) {
+                const mappedByFunction = mapMenuKeyFromFunction(item.function);
+                if (mappedByFunction) {
+                    const byFunction = byId.find((candidate) => (candidate.menuKey || '') === mappedByFunction);
+                    if (byFunction) return byFunction;
+                }
+                return byId[0];
+            }
+
+            return undefined;
+        };
         const now = new Date().toISOString();
 
         const mapIngredient = (item: GeneratedRecipeIngredient, role?: RecipeIngredientRole): RecipeIngredient => {
-            const ingredient = ingredientById.get(item.ingredientId);
+            const ingredient = resolveIngredient(item);
             const resolvedRole = role ?? (ingredient?.kind === 'water' ? 'water' : 'other');
             return {
                 id: IdService.create(),
-                ingredientId: item.ingredientId,
-                name: item.name,
+                ingredientId: ingredient?.id || item.ingredientId,
+                name: ingredient?.name || item.name,
                 amount: item.weight,
                 percentage: item.percentage,
                 role: resolvedRole
@@ -601,8 +656,9 @@ export class AppController {
         const essentialOils: RecipeIngredient[] = [];
 
         if (liquid) {
-            const ingredient = ingredientById.get(liquid.ingredientId);
+            const ingredient = resolveIngredient(liquid);
             const menuKey = ingredient?.menuKey || '';
+            const functionMenuKey = mapMenuKeyFromFunction(liquid.function);
             const kind = ingredient?.kind || '';
             const mapped = mapIngredient(liquid);
             const loweredName = (ingredient?.name || liquid.name || '').toLowerCase();
@@ -611,24 +667,25 @@ export class AppController {
                 || loweredName.includes('soda')
                 || loweredName.includes('potassa');
 
-            if (kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
+            if (functionMenuKey === 'liquids' || kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
                 liquids.push(mapped);
-            } else if (menuKey === 'functionalAdditives') {
+            } else if (functionMenuKey === 'functionalAdditives' || menuKey === 'functionalAdditives') {
                 functionalAdditives.push(mapped);
-            } else if (menuKey === 'lyeAdditives' && !isAlkaliName) {
+            } else if ((functionMenuKey === 'lyeAdditives' || menuKey === 'lyeAdditives') && !isAlkaliName) {
                 lyeAdditives.push(mapped);
-            } else if (menuKey === 'traceAdditives') {
+            } else if (functionMenuKey === 'traceAdditives' || menuKey === 'traceAdditives') {
                 traceAdditives.push(mapped);
-            } else if (menuKey === 'essentialOils') {
+            } else if (functionMenuKey === 'essentialOils' || menuKey === 'essentialOils') {
                 essentialOils.push(mapped);
-            } else if (menuKey === 'superfatOils' || kind === 'oil') {
+            } else if (functionMenuKey === 'superfatOils' || menuKey === 'superfatOils' || kind === 'oil') {
                 superfatOils.push(mapped);
             }
         }
 
         const pushByMenuKey = (item: GeneratedRecipeIngredient) => {
-            const ingredient = ingredientById.get(item.ingredientId);
+            const ingredient = resolveIngredient(item);
             const menuKey = ingredient?.menuKey || '';
+            const functionMenuKey = mapMenuKeyFromFunction(item.function);
             const mapped = mapIngredient(item);
             const loweredName = (ingredient?.name || item.name || '').toLowerCase();
             const isAlkaliName = loweredName.includes('naoh')
@@ -636,11 +693,33 @@ export class AppController {
                 || loweredName.includes('soda')
                 || loweredName.includes('potassa');
 
-            if (ingredient?.kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
+            if (functionMenuKey === 'liquids' || ingredient?.kind === 'water' || menuKey === 'liquids' || menuKey === 'lyeLiquids') {
                 return;
             }
             if (menuKey === 'lyeAdditives' && isAlkaliName) {
                 return;
+            }
+
+            if (functionMenuKey) {
+                switch (functionMenuKey) {
+                    case 'essentialOils':
+                        essentialOils.push(mapped);
+                        return;
+                    case 'superfatOils':
+                        superfatOils.push(mapped);
+                        return;
+                    case 'traceAdditives':
+                        traceAdditives.push(mapped);
+                        return;
+                    case 'functionalAdditives':
+                        functionalAdditives.push(mapped);
+                        return;
+                    case 'lyeAdditives':
+                        if (!isAlkaliName) lyeAdditives.push(mapped);
+                        return;
+                    default:
+                        break;
+                }
             }
 
             switch (menuKey) {

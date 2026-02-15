@@ -3,7 +3,7 @@ import { Ingredient } from '../../../shared/types/Ingredient';
 import { LocalStorageRepository } from '../repositories/LocalStorageRepository';
 import { IdService } from '../../shared/ids/IdService';
 import { normalizeIngredient } from '../../domain/ingredients/IngredientNormalizer';
-import { migrateMissingKind, removeDeprecatedIngredients, removeDuplicateIngredients } from '../../domain/ingredients/IngredientMigration';
+import { ensureUniqueIngredientIds, migrateMissingKind, removeDeprecatedIngredients, removeDuplicateIngredients } from '../../domain/ingredients/IngredientMigration';
 import { parseIngredientCSV } from '../../domain/ingredients/IngredientCsvParser';
 import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
@@ -100,8 +100,9 @@ export class IngredientService extends BaseService<Ingredient> {
         const items = this.storageRepository.getAll();
         const removal = removeDeprecatedIngredients(items);
         const deduped = removeDuplicateIngredients(removal.items);
-        const migration = migrateMissingKind(deduped.items);
-        if (removal.changed || deduped.changed || migration.changed) {
+        const uniqueIds = ensureUniqueIngredientIds(deduped.items);
+        const migration = migrateMissingKind(uniqueIds.items);
+        if (removal.changed || deduped.changed || uniqueIds.changed || migration.changed) {
             this.storageRepository.replaceAll(migration.items);
         }
     }
@@ -185,6 +186,5 @@ export class IngredientService extends BaseService<Ingredient> {
     }
 
 }
-
 
 
