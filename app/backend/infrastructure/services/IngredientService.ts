@@ -46,12 +46,25 @@ export class IngredientService extends BaseService<Ingredient> {
             }
             this.initialized = true;
             const storedIngredients = [...this.storageRepository.getAll()];
-            if (storedIngredients.length === 0) {
+            const fetchCatalogIngredients = async (): Promise<Ingredient[]> => {
                 this.log('Fetching ingredients csv...');
                 const response = await fetch(`${import.meta.env.BASE_URL}${AppConstants.DEFAULT_INGREDIENTS_CSV_PATH}`);
                 const csvText = await response.text();
-                const csvIngredients = parseIngredientCSV(csvText).map(ingredient => normalizeIngredient(ingredient));
+                return parseIngredientCSV(csvText).map(ingredient => normalizeIngredient(ingredient));
+            };
+            if (storedIngredients.length === 0) {
+                const csvIngredients = await fetchCatalogIngredients();
                 this.storageRepository.replaceAll(csvIngredients);
+            } else {
+                try {
+                    const csvIngredients = await fetchCatalogIngredients();
+                    const merged = this.mergeMissingCatalogIngredients(storedIngredients, csvIngredients);
+                    if (merged.changed) {
+                        this.storageRepository.replaceAll(merged.items);
+                    }
+                } catch (error) {
+                    this.log(`Catalog sync skipped: ${(error as Error).message || 'unknown error'}`);
+                }
             }
             this.persistKindMigration();
             this.log(`Loaded ${this.storageRepository.getAll().length} ingredients.`);
@@ -105,6 +118,43 @@ export class IngredientService extends BaseService<Ingredient> {
         if (removal.changed || deduped.changed || uniqueIds.changed || migration.changed) {
             this.storageRepository.replaceAll(migration.items);
         }
+    }
+
+    private mergeMissingCatalogIngredients(existing: Ingredient[], catalog: Ingredient[]): { items: Ingredient[]; changed: boolean } {
+        const normalizeText = (value?: string) =>
+            (value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const buildSemanticKey = (ingredient: Ingredient) =>
+            [
+                normalizeText(ingredient.name),
+                normalizeText(ingredient.inci),
+                normalizeText(ingredient.menuKey)
+            ].join('|');
+
+        const merged = [...existing];
+        const ids = new Set(existing.map(item => (item.id || '').trim()).filter(Boolean));
+        const semanticKeys = new Set(existing.map(buildSemanticKey));
+        let changed = false;
+
+        catalog.forEach((item) => {
+            const id = (item.id || '').trim();
+            const key = buildSemanticKey(item);
+            if ((id && ids.has(id)) || semanticKeys.has(key)) {
+                return;
+            }
+
+            merged.push(item);
+            if (id) ids.add(id);
+            semanticKeys.add(key);
+            changed = true;
+        });
+
+        return { items: merged, changed };
     }
 
     exportToCSV(): string {
@@ -186,5 +236,4 @@ export class IngredientService extends BaseService<Ingredient> {
     }
 
 }
-
 
