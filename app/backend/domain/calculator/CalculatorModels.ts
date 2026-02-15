@@ -49,6 +49,13 @@ export interface CalculatorInput {
     now?: Date;
 }
 
+export interface ScaleRecipeByPhase1TotalInput {
+    recipe: Recipe;
+    targetPhase1Total: number;
+    amountPrecision?: number;
+    percentagePrecision?: number;
+}
+
 export interface PhaseTotals {
     phase1Total: number;
     phase2Total: number;
@@ -105,4 +112,3 @@ export interface CalculatorResult {
     exports: CalculatorExports;
     issues: string[];
 }
-

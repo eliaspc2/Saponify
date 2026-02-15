@@ -4,7 +4,7 @@ import { SettingsService } from '../../backend/infrastructure/services/SettingsS
 import { AutoBackupStorage } from '../../backend/infrastructure/storage/AutoBackupStorage';
 import { getDataVersion } from '../../backend/shared/versioning/dataVersion';
 import type { CalculatorUseCase } from '../../backend/application/calculator/CalculatorUseCase';
-import type { CalculatorInput, CalculatorResult } from '../../backend/domain/calculator/CalculatorModels';
+import type { CalculatorInput, CalculatorResult, ScaleRecipeByPhase1TotalInput } from '../../backend/domain/calculator/CalculatorModels';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
 import { OpenAIProvider } from '../../backend/ai/OpenAIProvider';
@@ -84,6 +84,11 @@ export class AppController {
     // Contract: calculate recipe using backend use-case (no UI logic).
     public calculateRecipe(input: CalculatorInput): CalculatorResult {
         return this.calculatorUseCase.calculate(input);
+    }
+
+    // Contract: rescale complete recipe from a new Phase 1 total (delegates to backend use-case).
+    public scaleRecipeByPhase1Total(input: ScaleRecipeByPhase1TotalInput): Recipe {
+        return this.calculatorUseCase.scaleRecipeByPhase1Total(input);
     }
 
     // Contract: high-level status for external integrations (no IO, no side-effects).

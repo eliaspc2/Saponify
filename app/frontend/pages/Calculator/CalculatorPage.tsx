@@ -328,6 +328,45 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         });
     }
 
+    private handlePhase1TotalCommit(input: HTMLInputElement) {
+        const currentPhase1Total = this.state.recipe.fats.reduce((sum, item) => sum + (item.amount || 0), 0);
+        const resetInputValue = () => {
+            input.value = currentPhase1Total.toFixed(1);
+        };
+        const rawValue = input.value.trim().replace(',', '.');
+        const targetPhase1Total = Number(rawValue);
+        if (!Number.isFinite(targetPhase1Total) || targetPhase1Total < 0) {
+            showToast('Insere um total válido para as gorduras (>= 0).', 'warning');
+            resetInputValue();
+            return;
+        }
+
+        if (currentPhase1Total <= 0) {
+            showToast('Adiciona pelo menos um óleo com peso para escalar a receita.', 'warning');
+            resetInputValue();
+            return;
+        }
+
+        if (Math.abs(targetPhase1Total - currentPhase1Total) < 0.01) {
+            resetInputValue();
+            return;
+        }
+
+        this.setState(prev => {
+            const scaledRecipe = this.props.appController.scaleRecipeByPhase1Total({
+                recipe: prev.recipe,
+                targetPhase1Total
+            });
+
+            const calc = this.props.appController.calculateRecipe({
+                recipe: scaledRecipe,
+                ingredients: prev.availableIngredients
+            });
+
+            return { recipe: calc.normalizedRecipe };
+        });
+    }
+
     private addItem(type: keyof Recipe) {
         const newItem: RecipeIngredient = {
             id: generateId(),
@@ -875,9 +914,36 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                             onToggle={() => this.toggleSection('phase1')}
                             actions={
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                                        Total: {phase1Total.toFixed(1)}g
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                                            Total:
+                                        </span>
+                                        <div style={{ position: 'relative', width: '6.5rem' }}>
+                                            <input
+                                                key={`phase1-total-${recipe.id}-${phase1Total.toFixed(1)}`}
+                                                type="number"
+                                                min="0"
+                                                step="0.1"
+                                                defaultValue={phase1Total.toFixed(1)}
+                                                onBlur={(event) => this.handlePhase1TotalCommit(event.currentTarget)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter') {
+                                                        (event.currentTarget as HTMLInputElement).blur();
+                                                    }
+                                                }}
+                                                aria-label="Total da fase 1 em gramas"
+                                                style={{
+                                                    width: '100%',
+                                                    textAlign: 'right',
+                                                    paddingRight: '1.45rem',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: 700,
+                                                    color: 'var(--color-primary-dark)'
+                                                }}
+                                            />
+                                            <span style={{ position: 'absolute', right: '0.55rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#6B7280' }}>g</span>
+                                        </div>
+                                    </div>
                                     <AddButton label="Adicionar" onClick={() => this.addItem('fats')} />
                                 </div>
                             }

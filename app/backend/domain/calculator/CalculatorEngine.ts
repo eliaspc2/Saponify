@@ -3,7 +3,7 @@ import { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../../shared/
 import { DEFAULT_HERB_WEIGHT, INFUSION_RATIO_FATS_PER_TS } from '../../../shared/constants/RecipeConstants';
 import { formatRecipeCodeForFile, formatRecipeReference } from '../../../shared/utils/recipeFormat';
 import { FATTY_ACID_LABELS, QUALITY_RANGES } from './CalculatorRules';
-import type { CalculatorInput, CalculatorResult, IngredientRowMeta, CalculatorExports, CalculationResults } from './CalculatorModels';
+import type { CalculatorInput, CalculatorResult, IngredientRowMeta, CalculatorExports, CalculationResults, ScaleRecipeByPhase1TotalInput } from './CalculatorModels';
 import { computeFattyAcidProfile, type OilPortion } from './fattyAcidProfile';
 import { computeQualityMetrics, computeIodine, computeINS } from './qualityMetrics';
 import { computeAlkaliAndWater } from './alkaliAndWater';
@@ -11,6 +11,10 @@ import { computePhaseWeights, computeGlycerin } from './phaseWeights';
 export class CalculatorEngine {
     public calculate(input: CalculatorInput): CalculatorResult {
         return CalculatorEngine.calculate(input);
+    }
+
+    public scaleRecipeByPhase1Total(input: ScaleRecipeByPhase1TotalInput): Recipe {
+        return CalculatorEngine.scaleRecipeByPhase1Total(input);
     }
 
     static calculate(input: CalculatorInput): CalculatorResult {
@@ -32,6 +36,47 @@ export class CalculatorEngine {
             qualityProgress,
             exports,
             issues
+        };
+    }
+
+    static scaleRecipeByPhase1Total(input: ScaleRecipeByPhase1TotalInput): Recipe {
+        const { recipe } = input;
+        if (!Number.isFinite(input.targetPhase1Total) || input.targetPhase1Total < 0) {
+            return recipe;
+        }
+
+        const currentPhase1Total = this.sumAmounts(recipe.fats);
+        if (currentPhase1Total <= 0) {
+            return recipe;
+        }
+
+        const factor = input.targetPhase1Total / currentPhase1Total;
+        const amountPrecision = this.resolvePrecision(input.amountPrecision, 2);
+        const percentagePrecision = this.resolvePrecision(input.percentagePrecision, 2);
+        const scaleItems = (items: RecipeIngredient[] = []): RecipeIngredient[] =>
+            items.map(item => ({
+                ...item,
+                amount: this.roundTo((item.amount || 0) * factor, amountPrecision)
+            }));
+
+        const scaledFats = scaleItems(recipe.fats || []);
+        const scaledFatsTotal = this.sumAmounts(scaledFats);
+        const normalizedFats = scaledFats.map(item => ({
+            ...item,
+            percentage: scaledFatsTotal > 0
+                ? this.roundTo(((item.amount || 0) / scaledFatsTotal) * 100, percentagePrecision)
+                : item.percentage
+        }));
+
+        return {
+            ...recipe,
+            fats: normalizedFats,
+            liquids: scaleItems(recipe.liquids || []),
+            functionalAdditives: scaleItems(recipe.functionalAdditives || []),
+            lyeAdditives: scaleItems(recipe.lyeAdditives || []),
+            traceAdditives: scaleItems(recipe.traceAdditives || []),
+            superfatOils: scaleItems(recipe.superfatOils || []),
+            essentialOils: scaleItems(recipe.essentialOils || [])
         };
     }
 
@@ -581,6 +626,22 @@ export class CalculatorEngine {
         return Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(4);
     }
 
+    private static sumAmounts(items?: RecipeIngredient[]): number {
+        return (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+    }
+
+    private static resolvePrecision(value: number | undefined, fallback: number): number {
+        if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+            return value;
+        }
+        return fallback;
+    }
+
+    private static roundTo(value: number, precision: number): number {
+        const pow = Math.pow(10, precision);
+        return Math.round(value * pow) / pow;
+    }
+
     private static getDayOfYear(date: Date): number {
         const start = new Date(date.getFullYear(), 0, 0);
         const diff = date.getTime() - start.getTime();
@@ -596,4 +657,3 @@ export class CalculatorEngine {
         return Math.round(minDays + (maxDays - minDays) * seasonalFactor);
     }
 }
-
