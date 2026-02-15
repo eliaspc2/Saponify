@@ -739,7 +739,7 @@ tr:hover td {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 720px) {
   .layout {
     width: 100%;
   }
@@ -891,7 +891,7 @@ tr:hover td {
   padding: 0.15rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 720px) {
   .toast-viewport {
     left: 0.75rem;
     right: 0.75rem;
@@ -1170,7 +1170,7 @@ tr:hover td {
   color: #b91c1c;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 720px) {
   .results-sidebar {
     gap: 0.8rem;
   }
