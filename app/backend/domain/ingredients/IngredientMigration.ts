@@ -6,7 +6,28 @@ const normalizeText = (value: string) =>
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
+        .replace(/\s+/g, ' ')
         .trim();
+
+const buildDuplicateKey = (ingredient: Ingredient): string => {
+    const inci = normalizeText(ingredient.inci || '');
+    if (inci) return `inci:${inci}`;
+
+    const name = normalizeText(ingredient.name || '');
+    if (name) return `name:${name}`;
+
+    return '';
+};
+
+const scoreIngredientCompleteness = (ingredient: Ingredient): number => {
+    let score = 0;
+    if (normalizeText(ingredient.inci || '').length > 0) score += 3;
+    if (normalizeText(ingredient.menuKey || '').length > 0) score += 1;
+    if (normalizeText(ingredient.category || '').length > 0) score += 1;
+    if ((ingredient.sapNaOH || 0) > 0 || (ingredient.sapKOH || 0) > 0) score += 2;
+    if ((ingredient.notes || '').trim().length > 0) score += 1;
+    return score;
+};
 
 export const migrateMissingKind = (ingredients: Ingredient[]) => {
     let changed = false;
@@ -37,21 +58,30 @@ export const removeDeprecatedIngredients = (ingredients: Ingredient[]) => {
 };
 
 export const removeDuplicateIngredients = (ingredients: Ingredient[]) => {
-    const seen = new Set<string>();
+    const deduped: Ingredient[] = [];
+    const keyToIndex = new Map<string, number>();
     let changed = false;
-    const filtered = ingredients.filter((ingredient) => {
-        const key = [
-            normalizeText(ingredient.name || ''),
-            normalizeText(ingredient.inci || ''),
-            normalizeText(ingredient.menuKey || '')
-        ].join('|');
-        if (seen.has(key)) {
-            changed = true;
-            return false;
-        }
-        seen.add(key);
-        return true;
-    });
-    return { items: filtered, changed };
-};
 
+    ingredients.forEach((ingredient) => {
+        const key = buildDuplicateKey(ingredient);
+        if (!key) {
+            deduped.push(ingredient);
+            return;
+        }
+
+        const existingIndex = keyToIndex.get(key);
+        if (existingIndex === undefined) {
+            keyToIndex.set(key, deduped.length);
+            deduped.push(ingredient);
+            return;
+        }
+
+        changed = true;
+        const current = deduped[existingIndex];
+        if (scoreIngredientCompleteness(ingredient) > scoreIngredientCompleteness(current)) {
+            deduped[existingIndex] = ingredient;
+        }
+    });
+
+    return { items: deduped, changed };
+};

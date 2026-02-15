@@ -181,10 +181,10 @@ export class IngredientService extends BaseService<Ingredient> {
             merged.set(id, { ...ingredient, id });
         });
         this.storageRepository.replaceAll(Array.from(merged.values()));
+        this.persistKindMigration();
     }
 
 }
-
 
 
 
