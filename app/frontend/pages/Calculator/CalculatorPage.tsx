@@ -485,6 +485,29 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         BackupService.getInstance().downloadBackup(json);
     }
 
+    private handleCreateNewRecipe() {
+        const confirmed = confirm('Criar nova receita e limpar todos os campos atuais?');
+        if (!confirmed) return;
+
+        if (this.autoSaveTimer) {
+            window.clearTimeout(this.autoSaveTimer);
+            this.autoSaveTimer = null;
+        }
+
+        const freshRecipe = this.getInitialState().recipe!;
+        const calc = this.props.appController.calculateRecipe({
+            recipe: freshRecipe,
+            ingredients: this.state.availableIngredients
+        });
+
+        this.setState({
+            recipe: calc.normalizedRecipe,
+            aiMessageDraft: '',
+            isGeneratingAIRecipe: false,
+            aiError: null
+        });
+    }
+
     private renderIngredientRow(
         item: RecipeIngredient,
         type: keyof Recipe,
@@ -602,6 +625,9 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
     protected renderActions(): React.ReactNode {
         return (
             <div className="calculator-header-actions">
+                <button className="btn btn-secondary" onClick={() => this.handleCreateNewRecipe()}>
+                    <Plus size={16} /> Nova Receita
+                </button>
                 <details className="phase-add-menu page-action-menu">
                     <summary className="btn btn-secondary">
                         <Download size={16} />
