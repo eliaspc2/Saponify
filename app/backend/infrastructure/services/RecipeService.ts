@@ -54,7 +54,9 @@ export class RecipeService extends BaseService<Recipe> {
         const recipes = this.storageRepository.getAll();
         if (recipes.length === 0) return AppConstants.DEFAULT_RECIPE_CODE;
 
-        const codes = recipes.map(r => parseInt(r.code)).filter(c => !isNaN(c));
+        const codes = recipes
+            .map(r => this.parseRecipeCodeNumber(r.code))
+            .filter((code): code is number => code !== null);
         if (codes.length === 0) return AppConstants.DEFAULT_RECIPE_CODE;
 
         const maxCode = Math.max(...codes);
@@ -86,6 +88,18 @@ export class RecipeService extends BaseService<Recipe> {
         return normalizeEntity(normalized, { ensureId: true });
     }
 
+    private parseRecipeCodeNumber(code: string | undefined): number | null {
+        const normalized = (code || '').trim();
+        if (!normalized) return null;
+
+        const numericGroups = normalized.match(/\d+/g);
+        const numericPart = numericGroups?.[numericGroups.length - 1];
+        if (!numericPart) return null;
+
+        const parsed = Number.parseInt(numericPart, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
     private applyVersionInfoIfAi(recipe: Recipe): Recipe {
         const source = (recipe as Recipe & { source?: string }).source;
         if (source !== 'ai') {
@@ -104,7 +118,5 @@ export class RecipeService extends BaseService<Recipe> {
     }
 
 }
-
-
 
 

@@ -48,6 +48,11 @@ const SYNC_LAST_ERROR_KEY = StorageKeys.SYNC_LAST_ERROR;
 const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
 const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
 
+const parseFiniteNumber = (value: string, fallback: number): number => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
 
     protected getInitialState(): Partial<SettingsState> {
@@ -133,6 +138,15 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
     private handleUpdate(field: keyof AppSettings, value: any) {
         this.setState(prev => ({
             settings: { ...prev.settings, [field]: value }
+        }));
+    }
+
+    private handleNumericUpdate(field: keyof AppSettings, value: string) {
+        this.setState(prev => ({
+            settings: {
+                ...prev.settings,
+                [field]: parseFiniteNumber(value, Number(prev.settings[field]) || 0)
+            }
         }));
     }
 
@@ -403,7 +417,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 <input
                                     type="number"
                                     value={settings.defaultSuperfat}
-                                    onChange={(e) => this.handleUpdate('defaultSuperfat', parseFloat(e.target.value))}
+                                    onChange={(e) => this.handleNumericUpdate('defaultSuperfat', e.target.value)}
                                     style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
                                 />
                             </div>
@@ -412,7 +426,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 <input
                                     type="number"
                                     value={settings.defaultWaterConcentration}
-                                    onChange={(e) => this.handleUpdate('defaultWaterConcentration', parseFloat(e.target.value))}
+                                    onChange={(e) => this.handleNumericUpdate('defaultWaterConcentration', e.target.value)}
                                     style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
                                 />
                             </div>
@@ -421,7 +435,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 <input
                                     type="number"
                                     value={settings.defaultAlkaliPurity}
-                                    onChange={(e) => this.handleUpdate('defaultAlkaliPurity', parseFloat(e.target.value))}
+                                    onChange={(e) => this.handleNumericUpdate('defaultAlkaliPurity', e.target.value)}
                                     style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
                                 />
                             </div>
@@ -863,4 +877,3 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         );
     }
 }
-

@@ -46,6 +46,11 @@ type CalculatorDraftPayload = {
 
 const CALCULATOR_DRAFT_STORAGE_KEY = StorageKeys.CALCULATOR_DRAFT;
 
+const parseAmountInput = (value: string): number => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const CollapsibleCard = ({
     title,
     color,
@@ -538,7 +543,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                     <input
                         type="number"
                         value={item.amount || ''}
-                        onChange={(e) => this.updateItem(type, item.id, { amount: parseFloat(e.target.value) })}
+                        onChange={(e) => this.updateItem(type, item.id, { amount: parseAmountInput(e.target.value) })}
                         style={{ width: '100%', textAlign: 'right', paddingRight: '1.75rem' }}
                     />
                     <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#9CA3AF' }}>g</span>
