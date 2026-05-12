@@ -632,9 +632,30 @@ tr:hover td {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 3000;
+  z-index: 3500;
   backdrop-filter: blur(10px);
   animation: fadeIn 0.2s ease-out;
+}
+
+.questionnaire-modal-layout {
+  display: flex;
+  gap: 2rem;
+  min-height: 500px;
+}
+
+.questionnaire-section-tabs {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-right: 1px solid #eee;
+  padding-right: 1rem;
+  flex-shrink: 0;
+}
+
+.questionnaire-section-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .modal-container {
@@ -849,6 +870,48 @@ tr:hover td {
     width: 95% !important;
     max-width: 95% !important;
     max-height: calc(var(--vh) - 2rem) !important;
+  }
+
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .modal-body {
+    padding: 1.25rem;
+  }
+
+  .modal-footer {
+    padding: 1rem 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .questionnaire-modal-layout {
+    flex-direction: column;
+    gap: 1rem;
+    min-height: auto;
+  }
+
+  .questionnaire-section-tabs {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+    padding-right: 0;
+    padding-bottom: 0.75rem;
+  }
+
+  .questionnaire-section-tabs > button {
+    flex: 1 1 calc(50% - 0.25rem);
+    max-width: none;
+    white-space: normal;
+    text-align: center !important;
   }
 }
 

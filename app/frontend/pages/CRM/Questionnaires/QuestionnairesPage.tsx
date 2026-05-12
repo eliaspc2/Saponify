@@ -400,12 +400,12 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
                     </>
                 }
             >
-                <div style={{ display: 'flex', gap: '2rem', minHeight: '500px' }}>
-                    <div style={{ width: '200px', display: 'flex', flexDirection: 'column', gap: '0.25rem', borderRight: '1px solid #eee', paddingRight: '1rem' }}>
+                <div className="questionnaire-modal-layout">
+                    <div className="questionnaire-section-tabs">
                         {sections.map((label, i) => this.renderSectionTab(i, label))}
                     </div>
 
-                    <div style={{ flex: 1 }}>
+                    <div className="questionnaire-section-content">
                         {activeSection === 0 && (
                             <>
                                 <div className="modal-grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
@@ -626,4 +626,3 @@ export class QuestionnairesPage extends BaseListPage<Questionnaire, Questionnair
         );
     }
 }
-
