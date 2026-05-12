@@ -596,9 +596,9 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         );
     }
 
-    private renderReadOnlyRow(label: string, amount: number) {
+    private renderReadOnlyRow(label: string, amount: number, key?: string) {
         return (
-            <div className="ingredient-grid ingredient-grid-row">
+            <div key={key} className="ingredient-grid ingredient-grid-row">
                 <select
                     style={{ width: '100%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}
                     value={label}
@@ -1014,7 +1014,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                         {this.renderTableHeader()}
                                         {(recipe.liquids || []).map((l) => (
                                             l.role === 'water'
-                                                ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount)
+                                                ? this.renderReadOnlyRow(l.name || 'Água', results.waterAmount, l.id)
                                                 : this.renderIngredientRow(l, 'liquids', ingredientMetaById, ['Líquidos Lixívia'])
                                         ))}
                                     </div>

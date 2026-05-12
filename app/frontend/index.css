@@ -775,9 +775,14 @@ tr:hover td {
   .page-header {
     flex-wrap: wrap;
     gap: 0.75rem;
-    padding: 1.5rem 1rem 1rem 1rem;
+    padding: 1.5rem 1rem 1rem 4.75rem;
     margin-left: -1rem;
     margin-right: -1rem;
+  }
+
+  .page-header h1 {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .page-header-actions,
@@ -791,6 +796,32 @@ tr:hover td {
     flex-wrap: wrap;
     padding: 0.75rem 1rem !important;
     gap: 0.75rem;
+    border-radius: 24px !important;
+    overflow: visible;
+  }
+
+  .list-controls.card > * {
+    min-width: 0;
+  }
+
+  .list-controls.card > div:not(.search-bar) {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.75rem !important;
+  }
+
+  .list-controls.card > div:not(.search-bar) > div {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .list-controls.card .btn {
+    flex: 1 1 145px;
+    max-width: 100%;
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+    white-space: normal;
+    text-align: center;
   }
 
   .search-bar {
