@@ -23,7 +23,7 @@ ref,order,menuKey,name,inci,descriptionFragment,notes,catalogStatus,category,ori
 23,2,lyeAdditives,Açúcar branco,Sugar,Açúcar branco refinado para aumentar traço,,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 24,3,lyeAdditives,Sal rosa dos Himalaias,Himalayan Pink Salt,Sal rosa dos Himalaias para dureza e traço,,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 25,4,lyeAdditives,Sal grosso não iodado,Non-iodized Coarse Salt,Sal grosso não iodado para dureza e traço,,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-26,5,lyeAdditives,Ácido cítrico (Citrato de sódio após saponificação),Citric Acid,Ácido cítrico para ajuste de pH e citrato de sódio,TRUE,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,TRUE,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
+26,5,lyeAdditives,Ácido cítrico (Citrato de sódio após saponificação),Citric Acid,Ácido cítrico para ajuste de pH e citrato de sódio,,cataloged,Aditivos Lixívia,system,0,0,0,0,TRUE,0,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 27,1,traceAdditives,Argila branca (Kaolin),Kaolin Clay,Argila branca para adicionar ao traço,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 28,2,traceAdditives,Aveia em pó,Oat Powder,Aveia em pó para propriedades hidratantes,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 29,3,traceAdditives,Zeólite,Zeolite,Zeólite para propriedades purificadoras,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -45,7 +45,8 @@ ref,order,menuKey,name,inci,descriptionFragment,notes,catalogStatus,category,ori
 45,19,traceAdditives,Carqueja (Seca),Dried Oak,Carqueja seca para propriedades adstringentes,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
 46,20,traceAdditives,Flor de sabugueiro (Seca),Dried Elderflower,Flor de sabugueiro seca para aroma floral,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
 47,21,traceAdditives,Vitamina D,Cholecalciferol,Vitamina D para nutrição cutânea,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
-47,1,essentialOils,Lavanda,Lavender Essential Oil,Óleo essencial de lavanda para aroma relaxante,,cataloged,Óleos Essenciais,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
+69,22,traceAdditives,Cúrcuma (Pó),Curcuma Longa Root Powder,Cúrcuma em pó para cor natural e propriedades antioxidantes,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
+68,1,essentialOils,Lavanda,Lavender Essential Oil,Óleo essencial de lavanda para aroma relaxante,,cataloged,Óleos Essenciais,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
 48,2,essentialOils,Camomila,Chamomile Essential Oil,Óleo essencial de camomila para aroma calmante,,cataloged,Óleos Essenciais,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
 49,3,essentialOils,Rosa,Rose Essential Oil,Óleo essencial de rosa para aroma floral,,cataloged,Óleos Essenciais,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
 50,4,essentialOils,Jasmim,Jasmine Essential Oil,Óleo essencial de jasmim para aroma floral exótico,,cataloged,Óleos Essenciais,system,0,0,0,0,0,,0,,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0

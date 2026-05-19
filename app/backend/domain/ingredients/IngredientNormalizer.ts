@@ -51,6 +51,18 @@ const inferTags = (ingredient: Ingredient): string[] => {
     return tags;
 };
 
+const inferFlags = (ingredient: Ingredient): Ingredient['flags'] => {
+    const name = normalizeText(ingredient.name);
+    const inci = normalizeText(ingredient.inci);
+    const existingFlags = ingredient.flags || {};
+    const inferredCitricAcid = name.includes('acido citrico') || inci === 'citric acid';
+
+    return {
+        ...existingFlags,
+        citricAcid: Boolean(existingFlags.citricAcid) || inferredCitricAcid
+    };
+};
+
 const inferMeasurement = (ingredient: Ingredient): { teaspoonWeight?: number; isHerb?: boolean } => {
     const name = normalizeText(ingredient.name);
     let teaspoonWeight: number | undefined;
@@ -72,10 +84,10 @@ export const normalizeIngredient = (ingredient: Ingredient): Ingredient => {
         ...ingredient,
         kind,
         tags: tags.length > 0 ? tags : ingredient.tags,
+        flags: inferFlags(ingredient),
         teaspoonWeight: ingredient.teaspoonWeight ?? measurement.teaspoonWeight,
         isHerb: ingredient.isHerb ?? measurement.isHerb,
         properties: { ...defaultProperties, ...ingredient.properties },
         fattyAcids: { ...defaultFattyAcids, ...ingredient.fattyAcids }
     };
 };
-

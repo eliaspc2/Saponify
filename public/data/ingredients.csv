@@ -23,7 +23,7 @@ ref,order,menuKey,name,inci,descriptionFragment,notes,catalogStatus,category,ori
 23,2,lyeAdditives,Açúcar branco,Sugar,Açúcar branco refinado para aumentar traço,,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 24,3,lyeAdditives,Sal rosa dos Himalaias,Himalayan Pink Salt,Sal rosa dos Himalaias para dureza e traço,,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 25,4,lyeAdditives,Sal grosso não iodado,Non-iodized Coarse Salt,Sal grosso não iodado para dureza e traço,,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-26,5,lyeAdditives,Ácido cítrico (Citrato de sódio após saponificação),Citric Acid,Ácido cítrico para ajuste de pH e citrato de sódio,TRUE,cataloged,Aditivos Lixívia,system,0,0,0,0,0,,TRUE,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0
+26,5,lyeAdditives,Ácido cítrico (Citrato de sódio após saponificação),Citric Acid,Ácido cítrico para ajuste de pH e citrato de sódio,,cataloged,Aditivos Lixívia,system,0,0,0,0,TRUE,0,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 27,1,traceAdditives,Argila branca (Kaolin),Kaolin Clay,Argila branca para adicionar ao traço,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 28,2,traceAdditives,Aveia em pó,Oat Powder,Aveia em pó para propriedades hidratantes,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 29,3,traceAdditives,Zeólite,Zeolite,Zeólite para propriedades purificadoras,,cataloged,Aditivos Traço,system,0,0,0,0,0,,0,,,,,,,0,0,0,0,0,0,0,0,0,0,0,0,0,0
