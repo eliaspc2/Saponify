@@ -7,6 +7,10 @@ import { StorageKeys } from '../../../shared/constants/StorageKeys';
 import { AppConstants } from '../../../shared/constants/AppConstants';
 import { getVersionInfo } from '../../shared/versioning/VersionService';
 
+type NormalizeRecipeOptions = {
+    touchUpdatedAt?: boolean;
+};
+
 export class RecipeService extends BaseService<Recipe> {
     private static instance: RecipeService;
     private storageRepository: LocalStorageRepository<Recipe>;
@@ -42,7 +46,7 @@ export class RecipeService extends BaseService<Recipe> {
     }
 
     save(recipe: Recipe) {
-        const normalized = this.normalizeRecipe(this.applyVersionInfoIfAi(recipe));
+        const normalized = this.normalizeRecipe(this.applyVersionInfoIfAi(recipe), { touchUpdatedAt: true });
         this.storageRepository.upsert(normalized);
     }
 
@@ -68,7 +72,7 @@ export class RecipeService extends BaseService<Recipe> {
         this.replaceAllItems(normalized);
     }
 
-    private normalizeRecipe(recipe: Recipe): Recipe {
+    private normalizeRecipe(recipe: Recipe, options: NormalizeRecipeOptions = {}): Recipe {
         const settings = SettingsService.getInstance().getSettings();
         const normalized = {
             ...recipe,
@@ -85,7 +89,12 @@ export class RecipeService extends BaseService<Recipe> {
             essentialOils: recipe.essentialOils || [],
             notes: recipe.notes || ''
         };
-        return normalizeEntity(normalized, { ensureId: true });
+        return normalizeEntity(normalized, {
+            ensureId: true,
+            createdAtKey: 'createdAt',
+            updatedAtKey: 'updatedAt',
+            touchUpdatedAt: options.touchUpdatedAt === true
+        });
     }
 
     private parseRecipeCodeNumber(code: string | undefined): number | null {
@@ -118,5 +127,4 @@ export class RecipeService extends BaseService<Recipe> {
     }
 
 }
-
 

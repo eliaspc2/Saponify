@@ -21,6 +21,8 @@ export interface Recipe {
     id: string;
     code: string; // e.g., "RE0008"
     date: string;
+    createdAt?: string;
+    updatedAt?: string;
     clientId: string | null;
     name: string;
     notes: string;
