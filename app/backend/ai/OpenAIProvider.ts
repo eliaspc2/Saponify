@@ -25,8 +25,9 @@ export class OpenAIProvider {
         if (!model) {
             throw new Error('OpenAI model não configurado.');
         }
+        const baseUrl = settings.openaiBaseUrl?.trim();
 
-        const client = new OpenAIClient({ apiKey, model });
+        const client = new OpenAIClient({ apiKey, model, baseUrl });
         return client.generateJson(prompt);
     }
 
@@ -72,7 +73,8 @@ export class OpenAIProvider {
             throw new Error('OpenAI API key não configurada.');
         }
         const model = settings.openaiModel?.trim() || 'gpt-4.1-mini';
-        const client = new OpenAIClient({ apiKey, model });
+        const baseUrl = settings.openaiBaseUrl?.trim();
+        const client = new OpenAIClient({ apiKey, model, baseUrl });
         return client.listModels();
     }
 

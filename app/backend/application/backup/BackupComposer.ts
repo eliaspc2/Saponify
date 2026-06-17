@@ -118,6 +118,7 @@ export class BackupComposer {
         return {
             ...imported,
             openaiApiKey: imported.openaiApiKey?.trim() ? imported.openaiApiKey : current.openaiApiKey,
+            openaiBaseUrl: imported.openaiBaseUrl || current.openaiBaseUrl,
             openaiModel: imported.openaiModel || current.openaiModel,
             openaiModels: Array.isArray(imported.openaiModels) && imported.openaiModels.length > 0
                 ? imported.openaiModels
@@ -140,6 +141,7 @@ export class BackupComposer {
             'autoBackupEncrypted',
             'autoBackupPassword',
             'openaiApiKey',
+            'openaiBaseUrl',
             'openaiModel'
         ];
 

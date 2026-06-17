@@ -47,6 +47,8 @@ const SYNC_LAST_SUCCESS_KEY = StorageKeys.SYNC_LAST_SUCCESS;
 const SYNC_LAST_ERROR_KEY = StorageKeys.SYNC_LAST_ERROR;
 const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
 const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+const CODEX_ROUTER_BASE_URL = 'http://127.0.0.1:18430/api/openai/v1';
 
 const parseFiniteNumber = (value: string, fallback: number): number => {
     const parsed = Number.parseFloat(value);
@@ -66,9 +68,15 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         const storedSyncPassword = localStorage.getItem(SYNC_PASSWORD_KEY) || '';
         const hasStoredOpenaiKey = !!storedSettings.openaiApiKey;
         const normalizedOpenaiModel = storedSettings.openaiModel || 'gpt-4.1-mini';
+        const normalizedOpenaiBaseUrl = storedSettings.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL;
         const storedOpenaiModels = Array.isArray(storedSettings.openaiModels) ? storedSettings.openaiModels : [];
         return {
-            settings: { ...storedSettings, openaiModel: normalizedOpenaiModel, openaiModels: storedOpenaiModels },
+            settings: {
+                ...storedSettings,
+                openaiBaseUrl: normalizedOpenaiBaseUrl,
+                openaiModel: normalizedOpenaiModel,
+                openaiModels: storedOpenaiModels
+            },
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
             deviceId: storedDeviceId,
             authEmail: '',
@@ -157,6 +165,9 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         }
         if (!nextSettings.openaiModel) {
             nextSettings.openaiModel = 'gpt-4.1-mini';
+        }
+        if (!nextSettings.openaiBaseUrl) {
+            nextSettings.openaiBaseUrl = DEFAULT_OPENAI_BASE_URL;
         }
         SettingsService.getInstance().updateSettings(nextSettings);
         this.persistSyncSettings();
@@ -350,6 +361,16 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         }
     }
 
+    private handleUseCodexRouterLocal() {
+        this.setState(prev => ({
+            settings: {
+                ...prev.settings,
+                openaiBaseUrl: CODEX_ROUTER_BASE_URL,
+                openaiModel: 'gpt-5.3-codex'
+            }
+        }));
+    }
+
     protected renderActions() {
         return null;
     }
@@ -378,7 +399,10 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         const apiKeyPlaceholder = this.state.hasStoredOpenaiKey && !this.state.openaiApiKeyTouched
             ? '********'
             : 'Introduza a API key';
-        const fallbackModels = ['gpt-4.1-mini', 'gpt-4.1'];
+        const isUsingLocalCodexRouter = (settings.openaiBaseUrl || '').trim().replace(/\/+$/, '') === CODEX_ROUTER_BASE_URL;
+        const fallbackModels = isUsingLocalCodexRouter
+            ? ['gpt-5.3-codex', 'gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'codex-auto-review']
+            : ['gpt-4.1-mini', 'gpt-4.1'];
         const persistedModels = settings.openaiModels && settings.openaiModels.length > 0 ? settings.openaiModels : [];
         const modelsToShow = openaiModels.length > 0 ? openaiModels : (persistedModels.length > 0 ? persistedModels : fallbackModels);
 
@@ -503,6 +527,28 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                     {aiConfigured ? '✅ IA configurada' : '⚠️ IA não configurada'}
                                 </div>
                                 <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>URL Base</label>
+                                    <input
+                                        type="url"
+                                        value={settings.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL}
+                                        onChange={(e) => this.handleUpdate('openaiBaseUrl', e.target.value)}
+                                        placeholder={DEFAULT_OPENAI_BASE_URL}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                                        <button
+                                            className="btn btn-secondary btn-sm"
+                                            type="button"
+                                            onClick={() => this.handleUseCodexRouterLocal()}
+                                        >
+                                            Usar Codex Router local
+                                        </button>
+                                        {isUsingLocalCodexRouter && (
+                                            <span style={{ fontSize: '0.75rem', color: '#15803D', fontWeight: 600 }}>Codex Router local selecionado</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>API Key</label>
                                     <div style={{ position: 'relative' }}>
                                         <input
@@ -525,7 +571,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                         </button>
                                     </div>
                                     <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
-                                        A API key nunca é mostrada nem validada nesta página.
+                                        Para Codex Router, use o código da API local como Bearer token.
                                     </p>
                                 </div>
                                 <div>

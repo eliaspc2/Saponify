@@ -4,6 +4,19 @@ type OpenAIClientOptions = {
     baseUrl?: string;
 };
 
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
+const normalizeBaseUrl = (value?: string): string => {
+    const trimmed = (value || DEFAULT_OPENAI_BASE_URL).trim().replace(/\/+$/, '');
+    if (trimmed.endsWith('/chat/completions')) {
+        return trimmed.slice(0, -'/chat/completions'.length);
+    }
+    if (trimmed.endsWith('/models')) {
+        return trimmed.slice(0, -'/models'.length);
+    }
+    return trimmed || DEFAULT_OPENAI_BASE_URL;
+};
+
 export class OpenAIClient {
     private apiKey: string;
     private model: string;
@@ -12,7 +25,7 @@ export class OpenAIClient {
     constructor(options: OpenAIClientOptions) {
         this.apiKey = options.apiKey;
         this.model = options.model;
-        this.baseUrl = options.baseUrl || 'https://api.openai.com/v1/chat/completions';
+        this.baseUrl = normalizeBaseUrl(options.baseUrl);
     }
 
     async generateJson(prompt: object): Promise<object> {
@@ -20,7 +33,7 @@ export class OpenAIClient {
             throw new Error('Prompt inválido: esperado object.');
         }
 
-        const response = await fetch(this.baseUrl, {
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -64,7 +77,7 @@ export class OpenAIClient {
     }
 
     async listModels(): Promise<string[]> {
-        const response = await fetch('https://api.openai.com/v1/models', {
+        const response = await fetch(`${this.baseUrl}/models`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${this.apiKey}`
