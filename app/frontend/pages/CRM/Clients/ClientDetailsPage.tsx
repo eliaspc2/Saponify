@@ -335,61 +335,13 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             await ingredientService.loadInitialData();
         }
         const ingredients = ingredientService.getAll();
-        const results = this.props.appController.calculateRecipe({ recipe, ingredients }).results;
+        const exportData = this.props.appController.calculateRecipe({ recipe, ingredients }).exports.markdown;
 
-        let md = `# Receita: ${recipe.name || 'Sem Nome'}\n`;
-        const recipeRef = formatRecipeReferenceOrFallback(recipe.code, '');
-        if (recipeRef) {
-            md += `Codigo: ${recipeRef} | Data: ${recipe.date}\n\n`;
-        } else {
-            md += `Data: ${recipe.date}\n\n`;
-        }
-        md += `## Configurações\n`;
-        md += `- Álcali: ${recipe.alkali}\n`;
-        md += `- Superfat: ${recipe.superfat}%\n`;
-        md += `- Concentração de Água: ${recipe.waterConcentration}%\n`;
-        md += `- Pureza do Álcali: ${recipe.alkaliPurity ?? 100}%\n\n`;
-
-        md += `## Composição\n`;
-        md += `### Fase 1: Gorduras\n`;
-        recipe.fats.forEach(f => {
-            const pct = results.totalFats > 0 ? ((f.amount / results.totalFats) * 100).toFixed(1) : '0.0';
-            md += `- ${f.name}: ${f.amount} g (${pct}%)\n`;
-        });
-
-        md += `\n### Fase 2: Lixívia & Aditivos\n`;
-        recipe.liquids.forEach(l => md += `- ${l.name}: ${l.amount} g\n`);
-        recipe.functionalAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
-        md += `- ${recipe.alkali === 'NaOH' ? 'Soda Cáustica (NaOH)' : 'Potassa (KOH)'}: ${results.alkaliAmount.toFixed(2)} g\n`;
-        recipe.lyeAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
-
-        md += `\n### Fase 3: No Traço\n`;
-        recipe.traceAdditives.forEach(a => md += `- ${a.name}: ${a.amount} g\n`);
-        recipe.superfatOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
-        recipe.essentialOils.forEach(o => md += `- ${o.name}: ${o.amount} g\n`);
-
-        md += `\n## Resultados Técnicos\n`;
-        md += `- Total de Gorduras: ${results.totalFats.toFixed(1)} g\n`;
-        md += `- Lixívia (${recipe.alkali}): ${results.alkaliAmount.toFixed(2)} g\n`;
-        md += `- Água: ${results.waterAmount.toFixed(1)} g\n`;
-        md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n\n`;
-
-        md += `## Qualidade (valores crus)\n`;
-        md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)}\n`;
-        md += `- Limpeza: ${results.properties.cleansing.toFixed(0)}\n`;
-        md += `- Bolhas: ${results.properties.bubbles.toFixed(0)}\n`;
-        md += `- Persistência: ${results.properties.persistence.toFixed(0)}\n`;
-        md += `- Dureza: ${results.properties.hardness.toFixed(0)}\n\n`;
-
-        md += `## INCI\n`;
-        md += `${results.inciList.join(', ')}\n`;
-
-        const blob = new Blob([md], { type: 'text/markdown' });
+        const blob = new Blob([exportData.content], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const codePrefix = recipe.code || 'sem_referencia';
-        a.download = `${codePrefix}_${recipe.name.replace(/\s+/g, '_')}.md`;
+        a.download = exportData.filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1312,4 +1264,3 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
         return super.render();
     }
 }
-
