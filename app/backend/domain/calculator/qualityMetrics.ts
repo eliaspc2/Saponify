@@ -3,8 +3,8 @@ import type { CalculationResults } from './CalculatorModels';
 export const computeQualityMetrics = (profile: CalculationResults['fattyAcids']) => ({
     hardness: profile.lauric + profile.myristic + profile.palmitic + profile.stearic,
     cleansing: profile.lauric + profile.myristic,
-    bubbles: profile.lauric + profile.myristic,
-    persistence: profile.palmitic + profile.stearic,
+    bubbles: profile.lauric + profile.myristic + profile.ricinoleic,
+    persistence: profile.palmitic + profile.stearic + profile.ricinoleic,
     conditioning: profile.oleic + profile.linoleic + profile.linolenic + profile.ricinoleic + profile.gadoleic
 });
 
