@@ -37,10 +37,10 @@ export class AbstractConfigService<T> extends BaseService<T> {
         return this.data;
     }
 
-    protected setData(next: T, persist = true): void {
+    protected setData(next: T, persist = true, options?: { touchDataVersion?: boolean }): void {
         this.data = next;
         if (persist) {
-            this.saveToStorage();
+            this.saveToStorage(options?.touchDataVersion ?? true);
         }
     }
 
@@ -61,12 +61,14 @@ export class AbstractConfigService<T> extends BaseService<T> {
         }
     }
 
-    protected saveToStorage(): void {
+    protected saveToStorage(touchVersion = true): void {
         localStorage.setItem(this.storageKey, JSON.stringify(this.data));
         if (typeof this.version === 'number') {
             localStorage.setItem(this.versionKey, JSON.stringify(this.version));
         }
-        touchDataVersion();
+        if (touchVersion) {
+            touchDataVersion();
+        }
     }
 
     private cloneDefaults(): T {

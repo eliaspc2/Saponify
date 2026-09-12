@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test": "node scripts/tests/run.cjs",
+    "test:browser": "node scripts/tests/browser-sync.mjs",
     "dev": "vite",
     "prebuild": "node app/backend/shared/versioning/generateDomainFingerprint.cjs",
     "build": "tsc && vite build",

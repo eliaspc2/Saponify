@@ -1,9 +1,21 @@
 import { SettingsService } from '../infrastructure/services/SettingsService';
-import { OpenAIClient } from './OpenAIClient';
+import { LLMClient, type LLMProviderType } from './LLMClient';
 import { GeneratedRecipeValidator } from './validators/GeneratedRecipeValidator';
 import type { ValidatedRecipe } from './schemas/GeneratedRecipeSchema';
+import {
+    isLocalLLMBaseUrl,
+    resolveLLMConfiguration,
+    type AppSettings
+} from '../../shared/types/Settings';
 
-export class OpenAIProvider {
+type ResolvedLLMSettings = {
+    provider: LLMProviderType;
+    apiKey: string;
+    baseUrl: string;
+    model: string;
+};
+
+export class LLMProvider {
     private settingsService: SettingsService;
 
     constructor(settingsService?: SettingsService) {
@@ -11,23 +23,24 @@ export class OpenAIProvider {
     }
 
     isConfigured(): boolean {
-        const settings = this.settingsService.getSettings();
-        return !!settings.openaiApiKey?.trim();
+        const settings = this.resolveSettings();
+        if (!settings.model) return false;
+        if (settings.provider === 'ollama') return !!settings.baseUrl;
+        return !!settings.apiKey || (settings.provider === 'openai-compatible' && isLocalLLMBaseUrl(settings.baseUrl));
     }
 
     async generateJson(prompt: object): Promise<object> {
-        const settings = this.settingsService.getSettings();
-        const apiKey = settings.openaiApiKey?.trim();
-        if (!apiKey) {
-            throw new Error('OpenAI API key não configurada.');
+        const settings = this.resolveSettings();
+        if (!settings.model) {
+            throw new Error('Modelo LLM não configurado.');
         }
-        const model = settings.openaiModel?.trim();
-        if (!model) {
-            throw new Error('OpenAI model não configurado.');
+        if (settings.provider !== 'ollama'
+            && !(settings.provider === 'openai-compatible' && isLocalLLMBaseUrl(settings.baseUrl))
+            && !settings.apiKey) {
+            throw new Error('API key do LLM não configurada.');
         }
-        const baseUrl = settings.openaiBaseUrl?.trim();
 
-        const client = new OpenAIClient({ apiKey, model, baseUrl });
+        const client = new LLMClient(settings);
         return client.generateJson(prompt);
     }
 
@@ -66,16 +79,19 @@ export class OpenAIProvider {
         }
     }
 
-    async listModels(): Promise<string[]> {
-        const settings = this.settingsService.getSettings();
-        const apiKey = settings.openaiApiKey?.trim();
-        if (!apiKey) {
-            throw new Error('OpenAI API key não configurada.');
+    async listModels(overrides?: AppSettings): Promise<string[]> {
+        const settings = this.resolveSettings(overrides);
+        if (settings.provider !== 'ollama'
+            && !(settings.provider === 'openai-compatible' && isLocalLLMBaseUrl(settings.baseUrl))
+            && !settings.apiKey) {
+            throw new Error('API key do LLM não configurada.');
         }
-        const model = settings.openaiModel?.trim() || 'gpt-4.1-mini';
-        const baseUrl = settings.openaiBaseUrl?.trim();
-        const client = new OpenAIClient({ apiKey, model, baseUrl });
+        const client = new LLMClient(settings);
         return client.listModels();
     }
 
+    private resolveSettings(overrides?: AppSettings): ResolvedLLMSettings {
+        const settings = overrides || this.settingsService.getSettings() as AppSettings;
+        return resolveLLMConfiguration(settings);
+    }
 }

@@ -7,7 +7,7 @@ import type { CalculatorUseCase } from '../../backend/application/calculator/Cal
 import type { CalculatorInput, CalculatorResult, ScaleRecipeByPhase1TotalInput } from '../../backend/domain/calculator/CalculatorModels';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
-import { OpenAIProvider } from '../../backend/ai/OpenAIProvider';
+import { LLMProvider } from '../../backend/ai/LLMProvider';
 import { RecipePromptBuilder } from '../../backend/ai/RecipePromptBuilder';
 import type { ValidatedRecipe, GeneratedRecipeIngredient } from '../../backend/ai/schemas/GeneratedRecipeSchema';
 import { IngredientService } from '../../backend/infrastructure/services/IngredientService';
@@ -23,12 +23,15 @@ import type { ClientConsumptionAlertResult } from '../../backend/domain/analytic
 import type { Ingredient } from '../../shared/types/Ingredient';
 import type { Recipe, RecipeIngredient, RecipeIngredientRole } from '../../shared/types/Recipe';
 import type { Questionnaire } from '../../shared/types/Questionnaire';
+import type { AppSettings } from '../../shared/settings/AppSettings';
 
 type AppControllerDeps = {
     backupService: BackupService;
     syncProvider?: ISyncProvider | null;
     settingsService: SettingsService;
     calculatorUseCase: CalculatorUseCase;
+    onRemoteDataApplied?: (confirmed: boolean) => void;
+    canApplyRemote?: () => boolean;
 };
 
 const SYNC_PENDING_IMPORT_KEY = StorageKeys.SYNC_PENDING_IMPORT;
@@ -42,23 +45,41 @@ export class AppController {
     private dataVersionTimer: number | null = null;
     private pendingBackupTimer: number | null = null;
     private calculatorUseCase: CalculatorUseCase;
-    private openAIProvider: OpenAIProvider;
+    private llmProvider: LLMProvider;
     private lastExamplePairKeys: string[] = [];
     private analyticsUseCase: AnalyticsUseCase;
+    private applyingRemote = false;
+    private disposed = false;
+    private initPromise: Promise<boolean> | null = null;
+    private onRemoteDataApplied?: (confirmed: boolean) => void;
+    private canApplyRemote: () => boolean;
 
-    constructor({ backupService, syncProvider, settingsService, calculatorUseCase }: AppControllerDeps) {
+    constructor({ backupService, syncProvider, settingsService, calculatorUseCase, onRemoteDataApplied, canApplyRemote }: AppControllerDeps) {
         this.backupService = backupService;
         this.syncProvider = syncProvider ?? null;
         this.settingsService = settingsService;
         this.storage = new AutoBackupStorage();
         this.lastDataVersion = getDataVersion();
         this.calculatorUseCase = calculatorUseCase;
-        this.openAIProvider = new OpenAIProvider(this.settingsService);
+        this.llmProvider = new LLMProvider(this.settingsService);
         this.analyticsUseCase = AnalyticsUseCase.getInstance();
+        this.onRemoteDataApplied = onRemoteDataApplied;
+        this.canApplyRemote = canApplyRemote || (() => true);
     }
 
     // Contract: initialize orchestration (sync bootstrap + pending import handling).
     public async init(): Promise<boolean> {
+        this.disposed = false;
+        if (this.initPromise) {
+            const applied = await this.initPromise;
+            this.startWatchingState();
+            return applied;
+        }
+        this.initPromise = this.initialize();
+        return this.initPromise;
+    }
+
+    private async initialize(): Promise<boolean> {
         const versionInfo = getVersionInfo();
         console.info('[Noviessence] App Version Info');
         console.info('App version:', versionInfo.appVersion);
@@ -67,18 +88,33 @@ export class AppController {
         console.info('Build time:', versionInfo.buildTime);
 
         this.backupService.setSyncProvider(this.syncProvider);
-        if (this.hasLocalChangesSinceAutoBackup()) {
-            await this.backupService.performAutoBackupNow();
-        }
-        if (this.syncProvider) {
-            await this.syncProvider.start();
-        }
-
-        const shouldReload = await this.handlePendingImport();
-        if (!shouldReload) {
+        try {
+            if (localStorage.getItem(SYNC_PENDING_IMPORT_KEY) !== 'true' && this.hasLocalChangesSinceAutoBackup()) {
+                await this.backupService.performAutoBackupNow({ sync: false });
+            }
+            if (this.syncProvider) {
+                await this.syncProvider.start();
+            }
+            return await this.handlePendingImport();
+        } finally {
             this.startWatchingState();
         }
-        return shouldReload;
+    }
+
+    public dispose(): void {
+        this.disposed = true;
+        if (this.dataVersionTimer !== null) window.clearInterval(this.dataVersionTimer);
+        if (this.pendingBackupTimer !== null) window.clearTimeout(this.pendingBackupTimer);
+        this.dataVersionTimer = null;
+        this.pendingBackupTimer = null;
+    }
+
+    public getSyncNotice(): string {
+        const error = localStorage.getItem(StorageKeys.SYNC_LAST_ERROR);
+        if (error) return error;
+        return localStorage.getItem(SYNC_PENDING_IMPORT_KEY) === 'true'
+            ? 'Atualização remota pendente. Termine a edição ou reveja a sincronização nas Configurações.'
+            : '';
     }
 
     // Contract: calculate recipe using backend use-case (no UI logic).
@@ -93,7 +129,7 @@ export class AppController {
 
     // Contract: high-level status for external integrations (no IO, no side-effects).
     public hasAIConfigured(): boolean {
-        return this.openAIProvider.isConfigured();
+        return this.llmProvider.isConfigured();
     }
 
     // Contract: production analytics (delegates to backend application use case).
@@ -111,9 +147,9 @@ export class AppController {
         return this.analyticsUseCase.getClientConsumptionAlert(clientId);
     }
 
-    // Contract: fetch available OpenAI models via backend provider.
-    public async getAvailableOpenAIModels(): Promise<string[]> {
-        return this.openAIProvider.listModels();
+    // Contract: fetch available LLM models via backend provider.
+    public async getAvailableLLMModels(settings?: AppSettings): Promise<string[]> {
+        return this.llmProvider.listModels(settings);
     }
 
     // Contract: generate a recipe via AI and persist it, without exposing IA to UI.
@@ -122,7 +158,7 @@ export class AppController {
         if (!clientId || typeof clientId !== 'string') {
             throw new Error('Cliente inválido.');
         }
-        if (!this.openAIProvider.isConfigured()) {
+        if (!this.llmProvider.isConfigured()) {
             throw new Error('IA não configurada.');
         }
 
@@ -167,7 +203,7 @@ export class AppController {
             conversationHistory: existingRecipe?.aiConversation || []
         });
 
-        const { validated, response } = await this.openAIProvider.generateAndValidateRecipe(prompt);
+        const { validated, response } = await this.llmProvider.generateAndValidateRecipe(prompt);
         const recipe = this.mapValidatedRecipeToRecipe(
             validated,
             clientId,
@@ -199,7 +235,7 @@ export class AppController {
         if (!message) {
             throw new Error('Mensagem inválida para a IA.');
         }
-        if (!this.openAIProvider.isConfigured()) {
+        if (!this.llmProvider.isConfigured()) {
             throw new Error('IA não configurada.');
         }
 
@@ -237,7 +273,7 @@ export class AppController {
             conversationHistory: currentRecipe?.aiConversation || []
         });
 
-        const { validated, response } = await this.openAIProvider.generateAndValidateRecipe(prompt);
+        const { validated, response } = await this.llmProvider.generateAndValidateRecipe(prompt);
         const recipe = this.mapValidatedRecipeToRecipe(
             validated,
             currentRecipe?.clientId || null,
@@ -493,16 +529,23 @@ export class AppController {
     }
 
     private onStateChanged(): void {
+        if (this.disposed || this.applyingRemote || localStorage.getItem(SYNC_PENDING_IMPORT_KEY) === 'true') return;
         if (this.pendingBackupTimer) {
             window.clearTimeout(this.pendingBackupTimer);
         }
         this.pendingBackupTimer = window.setTimeout(async () => {
-            if (this.shouldForceBackupForSync()) {
-                await this.backupService.performAutoBackupNow();
-            } else {
-                await this.backupService.performAutoBackup();
+            this.pendingBackupTimer = null;
+            if (this.disposed || this.applyingRemote || localStorage.getItem(SYNC_PENDING_IMPORT_KEY) === 'true') return;
+            try {
+                if (this.shouldForceBackupForSync()) {
+                    await this.backupService.performAutoBackupNow();
+                } else {
+                    await this.backupService.performAutoBackup();
+                }
+                this.onBackupCompleted();
+            } catch (error) {
+                console.warn('Automatic backup failed:', error);
             }
-            this.onBackupCompleted();
         }, AppConstants.APP_STATE_BACKUP_DEBOUNCE_MS);
     }
 
@@ -511,8 +554,13 @@ export class AppController {
     }
 
     private startWatchingState(): void {
-        if (this.dataVersionTimer) return;
+        if (this.disposed || this.dataVersionTimer !== null) return;
         this.dataVersionTimer = window.setInterval(() => {
+            if (this.applyingRemote) return;
+            if (localStorage.getItem(SYNC_PENDING_IMPORT_KEY) === 'true') {
+                void this.handlePendingImport().catch(error => console.warn('Remote import failed:', error));
+                return;
+            }
             const currentVersion = getDataVersion();
             if (currentVersion && currentVersion !== this.lastDataVersion) {
                 this.lastDataVersion = currentVersion;
@@ -521,29 +569,62 @@ export class AppController {
         }, AppConstants.APP_STATE_POLL_INTERVAL_MS);
     }
 
-    private async handlePendingImport(): Promise<boolean> {
+    public async applyPendingRemote(): Promise<boolean> {
+        return this.handlePendingImport(true);
+    }
+
+    private async handlePendingImport(manual = false): Promise<boolean> {
         const pending = localStorage.getItem(SYNC_PENDING_IMPORT_KEY);
-        if (pending !== 'true') return false;
-
-        const data = this.storage.getData();
-        let ok = false;
-        if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
-            const settings = this.settingsService.getSettings();
-            ok = await this.backupService.restoreAutoBackup(settings.autoBackupPassword, { preserveCurrentSettings: true });
-        } else if (data) {
-            ok = await this.backupService.importAllData(data, { preserveCurrentSettings: true });
+        if (pending !== 'true' || this.applyingRemote || this.disposed || (!manual && !this.canApplyRemote())) return false;
+        const stagedVersion = localStorage.getItem('saponify_sync_pending_data_version');
+        if (stagedVersion !== null && stagedVersion !== getDataVersion()) {
+            localStorage.setItem(StorageKeys.SYNC_LAST_ERROR, 'Existem alterações locais após a receção remota. Exporte os dados locais antes de importar o remoto.');
+            return false;
         }
 
-        if (ok) {
-            localStorage.removeItem(SYNC_PENDING_IMPORT_KEY);
-            return true;
-        }
+        this.applyingRemote = true;
+        if (this.pendingBackupTimer !== null) window.clearTimeout(this.pendingBackupTimer);
+        this.pendingBackupTimer = null;
+        const previousVersion = getDataVersion();
+        try {
+            const data = this.syncProvider?.getPendingRemoteData
+                ? this.syncProvider.getPendingRemoteData()
+                : localStorage.getItem('saponify_sync_pending_payload') || this.storage.getData();
+            if (!data) return false;
+            let ok = false;
+            if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
+                const settings = this.settingsService.getSettings();
+                ok = await this.backupService.restoreAutoBackup(settings.autoBackupPassword, { preserveCurrentSettings: true, expectedDataVersion: previousVersion });
+            } else if (data) {
+                ok = await this.backupService.importAllData(data, { preserveCurrentSettings: true, expectedDataVersion: previousVersion });
+            }
 
-        return false;
+            if (ok) {
+                localStorage.setItem(StorageKeys.DATA_VERSION, previousVersion);
+                this.lastDataVersion = previousVersion;
+                if (this.syncProvider?.confirmRemoteImport && !this.syncProvider.confirmRemoteImport()) {
+                    localStorage.setItem(StorageKeys.SYNC_LAST_ERROR, 'Não foi possível confirmar a importação remota.');
+                    this.onRemoteDataApplied?.(false);
+                    return false;
+                }
+                localStorage.removeItem(SYNC_PENDING_IMPORT_KEY);
+                localStorage.removeItem('saponify_sync_pending_data_version');
+                localStorage.removeItem('saponify_sync_pending_payload');
+                this.onRemoteDataApplied?.(true);
+                return true;
+            }
+
+            localStorage.setItem(StorageKeys.SYNC_LAST_ERROR, 'Não foi possível aplicar o backup remoto. Os dados continuam pendentes.');
+            return false;
+        } finally {
+            this.applyingRemote = false;
+        }
     }
 
     private hasLocalChangesSinceAutoBackup(): boolean {
         const dataVersionRaw = getDataVersion();
+        const snapshotVersion = this.storage.getSnapshotDataVersion();
+        if (snapshotVersion !== null) return dataVersionRaw !== snapshotVersion;
         const dataVersionMs = Number(dataVersionRaw);
         if (!Number.isFinite(dataVersionMs) || dataVersionMs <= 0) {
             return false;

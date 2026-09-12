@@ -11,6 +11,7 @@ import { showToast } from '../../components/Toast';
 
 type SettingsPageProps = {
     appController: AppController;
+    onEditingChange?: (editing: boolean) => void;
 };
 
 interface SettingsState extends BasePageState {
@@ -32,22 +33,24 @@ interface SettingsState extends BasePageState {
     localBackups: AutoBackupInfo[];
     isRestoringBackup: boolean;
     restoringBackupTimestamp: string | null;
-    openaiApiKeyDraft: string;
-    openaiApiKeyTouched: boolean;
-    hasStoredOpenaiKey: boolean;
-    showOpenaiApiKey: boolean;
-    openaiModels: string[];
-    openaiModelsLoading: boolean;
-    openaiModelsError: string;
+    llmApiKeyDraft: string;
+    llmApiKeyTouched: boolean;
+    hasStoredLlmKey: boolean;
+    showLlmApiKey: boolean;
+    llmModels: string[];
+    llmModelsLoading: boolean;
+    llmModelsError: string;
+    syncBusy: boolean;
 }
 
 const SYNC_ENABLED_KEY = StorageKeys.SYNC_ENABLED;
 const DEVICE_ID_KEY = StorageKeys.DEVICE_ID;
 const SYNC_LAST_SUCCESS_KEY = StorageKeys.SYNC_LAST_SUCCESS;
 const SYNC_LAST_ERROR_KEY = StorageKeys.SYNC_LAST_ERROR;
-const AUTO_BACKUP_KEY = StorageKeys.AUTO_BACKUP;
 const SYNC_PASSWORD_KEY = StorageKeys.SYNC_PASSWORD;
-const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+const DEFAULT_LLM_BASE_URL = 'https://api.openai.com/v1';
+const ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1';
+const OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
 const CODEX_ROUTER_BASE_URL = 'http://127.0.0.1:18430/api/openai/v1';
 
 const parseFiniteNumber = (value: string, fallback: number): number => {
@@ -56,6 +59,8 @@ const parseFiniteNumber = (value: string, fallback: number): number => {
 };
 
 export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
+    private statusTimer: number | null = null;
+    private unmounted = false;
 
     protected getInitialState(): Partial<SettingsState> {
         const storedSettings = SettingsService.getInstance().getSettings();
@@ -66,16 +71,23 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         const initialBackups = BackupService.getInstance().listAutoBackups();
         const latestInitialBackup = initialBackups[0];
         const storedSyncPassword = localStorage.getItem(SYNC_PASSWORD_KEY) || '';
-        const hasStoredOpenaiKey = !!storedSettings.openaiApiKey;
-        const normalizedOpenaiModel = storedSettings.openaiModel || 'gpt-4.1-mini';
-        const normalizedOpenaiBaseUrl = storedSettings.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL;
-        const storedOpenaiModels = Array.isArray(storedSettings.openaiModels) ? storedSettings.openaiModels : [];
+        const hasStoredLlmKey = !!(storedSettings.llmApiKey || storedSettings.openaiApiKey);
+        const normalizedLlmProvider = storedSettings.llmProvider || 'openai-compatible';
+        const normalizedLlmModel = storedSettings.llmModel || storedSettings.openaiModel || 'gpt-4o-mini';
+        const normalizedLlmBaseUrl = storedSettings.llmBaseUrl || storedSettings.openaiBaseUrl || DEFAULT_LLM_BASE_URL;
+        const storedLlmModels = Array.isArray(storedSettings.llmModels) && storedSettings.llmModels.length > 0
+            ? storedSettings.llmModels
+            : (Array.isArray(storedSettings.openaiModels) ? storedSettings.openaiModels : []);
         return {
             settings: {
                 ...storedSettings,
-                openaiBaseUrl: normalizedOpenaiBaseUrl,
-                openaiModel: normalizedOpenaiModel,
-                openaiModels: storedOpenaiModels
+                llmProvider: normalizedLlmProvider,
+                llmBaseUrl: normalizedLlmBaseUrl,
+                llmModel: normalizedLlmModel,
+                llmModels: storedLlmModels,
+                openaiBaseUrl: normalizedLlmBaseUrl,
+                openaiModel: normalizedLlmModel,
+                openaiModels: storedLlmModels
             },
             syncEnabled: storedEnabled === null ? true : storedEnabled === 'true',
             deviceId: storedDeviceId,
@@ -94,18 +106,29 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             localBackups: initialBackups,
             isRestoringBackup: false,
             restoringBackupTimestamp: null,
-            openaiApiKeyDraft: '',
-            openaiApiKeyTouched: false,
-            hasStoredOpenaiKey,
-            showOpenaiApiKey: false,
-            openaiModels: storedOpenaiModels,
-            openaiModelsLoading: false,
-            openaiModelsError: ''
+            llmApiKeyDraft: '',
+            llmApiKeyTouched: false,
+            hasStoredLlmKey,
+            showLlmApiKey: false,
+            llmModels: storedLlmModels,
+            llmModelsLoading: false,
+            llmModelsError: '',
+            syncBusy: false
         };
     }
 
     async componentDidMount() {
+        this.unmounted = false;
+        this.statusTimer = window.setInterval(() => {
+            this.setState({
+                lastSyncSuccess: localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '',
+                lastSyncError: localStorage.getItem(SYNC_LAST_ERROR_KEY) || ''
+            });
+            this.refreshLocalBackupStatus();
+        }, 2000);
+        try {
         const user = await FirestoreSyncService.getInstance().getCurrentUserAsync();
+        if (this.unmounted) return;
         if (user) {
             this.setState({
                 authEmail: user.email || '',
@@ -113,32 +136,53 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             });
         }
         this.refreshLocalBackupStatus();
+        } catch (error) {
+            if (!this.unmounted) this.setState({ lastSyncError: String(error) });
+        }
+    }
+
+    componentWillUnmount() {
+        this.unmounted = true;
+        if (this.statusTimer !== null) window.clearInterval(this.statusTimer);
+        this.props.onEditingChange?.(false);
+    }
+
+    componentDidUpdate() {
+        const current = SettingsService.getInstance().getSettings();
+        const settingsChanged = JSON.stringify({ ...this.state.settings, lastAutoBackup: '' })
+            !== JSON.stringify({ ...current, lastAutoBackup: '' });
+        this.props.onEditingChange?.(this.state.syncBusy || this.state.isRestoringBackup || settingsChanged
+            || this.state.llmApiKeyTouched
+            || this.state.syncPassword !== (localStorage.getItem(SYNC_PASSWORD_KEY) || '')
+            || this.state.syncEnabled !== (localStorage.getItem(SYNC_ENABLED_KEY) !== 'false'));
     }
 
     private async handleRefreshModels() {
-        if (!this.props.appController.hasAIConfigured()) {
-            this.setState({ openaiModels: [], openaiModelsError: 'Configura a API key primeiro.' });
-            return;
-        }
-        this.setState({ openaiModelsLoading: true, openaiModelsError: '' });
+        this.setState({ llmModelsLoading: true, llmModelsError: '' });
         try {
-            const models = await this.props.appController.getAvailableOpenAIModels();
-            const currentModel = this.state.settings.openaiModel || 'gpt-4.1-mini';
+            const draft = { ...this.state.settings };
+            if (this.state.llmApiKeyTouched) {
+                draft.llmApiKey = this.state.llmApiKeyDraft.trim();
+                draft.openaiApiKey = draft.llmApiKey;
+            }
+            const models = await this.props.appController.getAvailableLLMModels(draft);
+            if (this.unmounted) return;
+            const currentModel = this.state.settings.llmModel || this.state.settings.openaiModel || 'gpt-4o-mini';
             const unique = Array.from(new Set(models));
             if (currentModel && !unique.includes(currentModel)) {
                 unique.unshift(currentModel);
             }
-            SettingsService.getInstance().updateSettings({ openaiModels: unique });
             this.setState(prev => ({
-                openaiModels: unique,
-                openaiModelsLoading: false,
-                settings: { ...prev.settings, openaiModels: unique }
+                llmModels: unique,
+                llmModelsLoading: false,
+                settings: { ...prev.settings, llmModels: unique, openaiModels: unique }
             }));
         } catch (error) {
+            if (this.unmounted) return;
             this.setState({
-                openaiModels: [],
-                openaiModelsLoading: false,
-                openaiModelsError: 'Não foi possível obter modelos.'
+                llmModels: [],
+                llmModelsLoading: false,
+                llmModelsError: error instanceof Error ? error.message : 'Não foi possível obter modelos.'
             });
         }
     }
@@ -159,18 +203,27 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
     }
 
     private async handleSave() {
+        await this.runSyncAction(async () => {
         const nextSettings = { ...this.state.settings };
-        if (this.state.openaiApiKeyTouched) {
-            nextSettings.openaiApiKey = this.state.openaiApiKeyDraft.trim();
+        if (this.state.llmApiKeyTouched) {
+            nextSettings.llmApiKey = this.state.llmApiKeyDraft.trim();
+            nextSettings.openaiApiKey = nextSettings.llmApiKey;
         }
-        if (!nextSettings.openaiModel) {
-            nextSettings.openaiModel = 'gpt-4.1-mini';
+        if (!nextSettings.llmProvider) {
+            nextSettings.llmProvider = 'openai-compatible';
         }
-        if (!nextSettings.openaiBaseUrl) {
-            nextSettings.openaiBaseUrl = DEFAULT_OPENAI_BASE_URL;
+        if (!nextSettings.llmModel) {
+            nextSettings.llmModel = 'gpt-4o-mini';
         }
+        if (!nextSettings.llmBaseUrl) {
+            nextSettings.llmBaseUrl = DEFAULT_LLM_BASE_URL;
+        }
+        nextSettings.openaiBaseUrl = nextSettings.llmBaseUrl;
+        nextSettings.openaiModel = nextSettings.llmModel;
+        nextSettings.openaiModels = nextSettings.llmModels || [];
         SettingsService.getInstance().updateSettings(nextSettings);
         this.persistSyncSettings();
+        await FirestoreSyncService.getInstance().start();
 
         // Realizar backup automático se ativo
         if (nextSettings.autoBackupEnabled) {
@@ -183,9 +236,10 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         this.setState({
             settings: refreshedSettings,
             deviceId: localStorage.getItem(DEVICE_ID_KEY) || this.state.deviceId,
-            openaiApiKeyDraft: '',
-            openaiApiKeyTouched: false,
-            hasStoredOpenaiKey: !!refreshedSettings.openaiApiKey
+            llmApiKeyDraft: '',
+            llmApiKeyTouched: false,
+            hasStoredLlmKey: !!(refreshedSettings.llmApiKey || refreshedSettings.openaiApiKey)
+        });
         });
     }
 
@@ -201,6 +255,8 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         input.onchange = async (e: any) => {
             const file = e.target.files[0];
             if (!file) return;
+            if (!window.confirm('Importar este backup vai substituir os dados atuais. Pretende continuar?')) return;
+            await this.runSyncAction(async () => {
             const text = await file.text();
             const success = await BackupService.getInstance().importAllData(text);
             if (success) {
@@ -209,6 +265,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             } else {
                 showToast('Erro ao importar backup. Verifique o ficheiro.', 'error');
             }
+            });
         };
         input.click();
     }
@@ -229,10 +286,12 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
     }
 
     private async handleTestAutoBackup() {
-        await BackupService.getInstance().performAutoBackup();
+        await this.runSyncAction(async () => {
+        const result = await BackupService.getInstance().performAutoBackup();
         this.refreshLocalBackupStatus();
         this.setState({ settings: SettingsService.getInstance().getSettings() });
-        showToast('Backup automático realizado com sucesso! Verifique a data/hora abaixo.', 'success');
+        showToast(result.created ? 'Backup local guardado.' : 'Backup adiado: existem dados remotos por aplicar.', result.created ? 'success' : 'warning');
+        });
     }
 
     private async handleDownloadAutoBackup() {
@@ -245,10 +304,12 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             showToast('Não existem backups para restaurar.', 'warning');
             return;
         }
-        await this.handleRestoreAutoBackupByTimestamp(latest.timestamp);
+        await this.handleRestoreAutoBackupByTimestamp(latest.id);
     }
 
     private async handleRestoreAutoBackupByTimestamp(timestamp: string) {
+        if (this.state.syncBusy || this.state.isRestoringBackup) return;
+        if (!window.confirm('Restaurar este backup vai substituir os dados atuais. Pretende continuar?')) return;
         this.setState({ isRestoringBackup: true, restoringBackupTimestamp: timestamp });
         try {
             const password = this.state.settings.autoBackupPassword?.trim() || undefined;
@@ -271,6 +332,8 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
     }
 
     private async handleSignIn() {
+        await this.runSyncAction(async () => {
+        this.persistSyncSettings();
         await FirestoreSyncService.getInstance().signIn();
         const user = FirestoreSyncService.getInstance().getCurrentUser();
         this.setState({
@@ -278,19 +341,22 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             authUid: user?.uid || ''
         });
         this.refreshLocalBackupStatus();
+        });
     }
 
     private async handleSignOut() {
+        await this.runSyncAction(async () => {
         await FirestoreSyncService.getInstance().signOut();
         this.setState({
             authEmail: '',
             authUid: ''
         });
+        });
     }
 
     private async handleForceSync() {
+        await this.runSyncAction(async () => {
         this.persistSyncSettings();
-        await BackupService.getInstance().performAutoBackupNow();
         const ok = await FirestoreSyncService.getInstance().forceSyncNow();
         const lastSync = localStorage.getItem(SYNC_LAST_SUCCESS_KEY) || '';
         const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
@@ -301,11 +367,24 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             settings: SettingsService.getInstance().getSettings()
         });
         if (!ok) {
-            showToast('Não foi possível sincronizar agora. Confirme se há backup automático local e se está autenticado.', 'warning');
+            showToast(lastError || 'Não foi possível sincronizar agora. Verifique a autenticação e a password.', 'warning');
+        } else {
+            showToast('Dados enviados com sucesso.', 'success');
         }
+        });
+    }
+
+    private async handleKeepLocal() {
+        if (!window.confirm('Enviar a versão local vai substituir os dados remotos. Confirme apenas depois de comparar as duas versões.')) return;
+        await this.runSyncAction(async () => {
+            this.persistSyncSettings();
+            const ok = await FirestoreSyncService.getInstance().forceSyncNow({ overwriteRemote: true });
+            showToast(ok ? 'Versão local enviada.' : localStorage.getItem(SYNC_LAST_ERROR_KEY) || 'Não foi possível resolver o conflito.', ok ? 'success' : 'error');
+        });
     }
 
     private async handleRefreshRemoteStatus() {
+        await this.runSyncAction(async () => {
         const status = await FirestoreSyncService.getInstance().getRemoteStatus();
         const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
         this.setState({
@@ -314,9 +393,15 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             lastSyncError: lastError
         });
         this.refreshLocalBackupStatus();
+        });
     }
 
     private async handlePullRemote() {
+        if (!window.confirm('Importar a versão remota vai substituir os dados locais. Será descarregada uma cópia dos dados atuais antes de continuar.')) return;
+        await this.runSyncAction(async () => {
+        this.persistSyncSettings();
+        const backup = BackupService.getInstance();
+        backup.downloadBackup(await backup.exportAllData());
         const applied = await FirestoreSyncService.getInstance().pullRemoteNow();
         const lastError = localStorage.getItem(SYNC_LAST_ERROR_KEY) || '';
         this.refreshLocalBackupStatus();
@@ -324,20 +409,26 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         if (!applied) {
             showToast('Nada para atualizar ou não foi possível puxar o remoto. Verifique autenticação e estado remoto.', 'info');
         } else {
-            const data = localStorage.getItem(AUTO_BACKUP_KEY);
-            let ok = false;
-            if (data && data.startsWith(AppConstants.ENCRYPTED_PREFIX)) {
-                const settings = SettingsService.getInstance().getSettings();
-                ok = await BackupService.getInstance().restoreAutoBackup(settings.autoBackupPassword, { preserveCurrentSettings: true });
-            } else if (data) {
-                ok = await BackupService.getInstance().importAllData(data, { preserveCurrentSettings: true });
-            }
+            const ok = await this.props.appController.applyPendingRemote();
             if (ok) {
-                localStorage.removeItem(StorageKeys.SYNC_PENDING_IMPORT);
-                location.reload();
                 return;
             }
             showToast('Dados remotos aplicados ao backup local, mas não foi possível restaurar. Verifique a password do backup local.', 'warning');
+        }
+        });
+    }
+
+    private async runSyncAction(action: () => Promise<void>) {
+        if (this.state.syncBusy || this.state.isRestoringBackup) return;
+        this.setState({ syncBusy: true });
+        try {
+            await action();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Erro na sincronização.';
+            if (!this.unmounted) this.setState({ lastSyncError: message });
+            showToast(message, 'error');
+        } finally {
+            if (!this.unmounted) this.setState({ syncBusy: false });
         }
     }
 
@@ -365,9 +456,17 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
         this.setState(prev => ({
             settings: {
                 ...prev.settings,
+                llmProvider: 'openai-compatible',
+                llmBaseUrl: CODEX_ROUTER_BASE_URL,
+                llmModel: 'gpt-5.3-codex',
+                llmApiKey: '',
+                openaiApiKey: '',
                 openaiBaseUrl: CODEX_ROUTER_BASE_URL,
                 openaiModel: 'gpt-5.3-codex'
-            }
+            },
+            llmApiKeyDraft: '',
+            llmApiKeyTouched: true,
+            hasStoredLlmKey: false
         }));
     }
 
@@ -394,17 +493,21 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             isRestoringBackup,
             restoringBackupTimestamp
         } = this.state;
-        const { openaiModels, openaiModelsLoading, openaiModelsError } = this.state;
+        const { llmModels, llmModelsLoading, llmModelsError } = this.state;
         const aiConfigured = this.props.appController.hasAIConfigured();
-        const apiKeyPlaceholder = this.state.hasStoredOpenaiKey && !this.state.openaiApiKeyTouched
+        const apiKeyPlaceholder = this.state.hasStoredLlmKey && !this.state.llmApiKeyTouched
             ? '********'
-            : 'Introduza a API key';
-        const isUsingLocalCodexRouter = (settings.openaiBaseUrl || '').trim().replace(/\/+$/, '') === CODEX_ROUTER_BASE_URL;
-        const fallbackModels = isUsingLocalCodexRouter
+            : (settings.llmProvider === 'ollama' ? 'Opcional' : 'Introduza a API key');
+        const isUsingLocalCodexRouter = (settings.llmBaseUrl || '').trim().replace(/\/+$/, '') === CODEX_ROUTER_BASE_URL;
+        const fallbackModels = settings.llmProvider === 'ollama'
+            ? ['llama3.1', 'mistral', 'qwen2.5']
+            : settings.llmProvider === 'anthropic'
+                ? ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest']
+                : isUsingLocalCodexRouter
             ? ['gpt-5.3-codex', 'gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'codex-auto-review']
             : ['gpt-4.1-mini', 'gpt-4.1'];
-        const persistedModels = settings.openaiModels && settings.openaiModels.length > 0 ? settings.openaiModels : [];
-        const modelsToShow = openaiModels.length > 0 ? openaiModels : (persistedModels.length > 0 ? persistedModels : fallbackModels);
+        const persistedModels = settings.llmModels && settings.llmModels.length > 0 ? settings.llmModels : [];
+        const modelsToShow = llmModels.length > 0 ? llmModels : (persistedModels.length > 0 ? persistedModels : fallbackModels);
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -424,6 +527,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                             className="btn btn-primary"
                             style={{ borderRadius: '50px', padding: '0.5rem 1.5rem', fontWeight: 700 }}
                             onClick={() => this.handleSave()}
+                            disabled={this.state.syncBusy}
                         >
                             <Save size={18} /> Guardar Configurações
                         </button>
@@ -520,19 +624,73 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                         <div className="card">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.8rem' }}>
                                 <Sparkles size={20} color="var(--color-primary)" />
-                                <h3 style={{ margin: 0 }}>Inteligência Artificial (OpenAI)</h3>
+                                <h3 style={{ margin: 0 }}>Inteligência Artificial (LLM)</h3>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                                 <div style={{ fontSize: '0.85rem', color: aiConfigured ? '#15803D' : '#B45309' }}>
                                     {aiConfigured ? '✅ IA configurada' : '⚠️ IA não configurada'}
                                 </div>
                                 <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Tipo de LLM</label>
+                                    <select
+                                        value={settings.llmProvider || 'openai-compatible'}
+                                        onChange={(e) => {
+                                            const provider = e.target.value as AppSettings['llmProvider'];
+                                            const nextBaseUrl = provider === 'anthropic'
+                                                ? ANTHROPIC_BASE_URL
+                                                : provider === 'ollama'
+                                                    ? OLLAMA_BASE_URL
+                                                    : DEFAULT_LLM_BASE_URL;
+                                            const nextModel = provider === 'anthropic'
+                                                ? 'claude-3-5-sonnet-latest'
+                                                : provider === 'ollama'
+                                                    ? 'llama3.1'
+                                                    : 'gpt-4o-mini';
+                                            this.setState(prev => ({
+                                                settings: {
+                                                    ...prev.settings,
+                                                    llmProvider: provider,
+                                                    llmBaseUrl: nextBaseUrl,
+                                                    llmModel: nextModel,
+                                                    llmModels: [],
+                                                    llmApiKey: '',
+                                                    openaiApiKey: '',
+                                                    openaiBaseUrl: nextBaseUrl,
+                                                    openaiModel: nextModel,
+                                                    openaiModels: []
+                                                },
+                                                llmModels: [],
+                                                llmApiKeyDraft: '',
+                                                llmApiKeyTouched: true,
+                                                hasStoredLlmKey: false,
+                                                llmModelsError: ''
+                                            }));
+                                        }}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                    >
+                                        <option value="openai-compatible">OpenAI compatível</option>
+                                        <option value="anthropic">Anthropic Claude</option>
+                                        <option value="ollama">Ollama local</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>URL Base</label>
                                     <input
                                         type="url"
-                                        value={settings.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL}
-                                        onChange={(e) => this.handleUpdate('openaiBaseUrl', e.target.value)}
-                                        placeholder={DEFAULT_OPENAI_BASE_URL}
+                                        value={settings.llmBaseUrl || DEFAULT_LLM_BASE_URL}
+                                        onChange={(e) => this.setState(prev => ({
+                                            settings: {
+                                                ...prev.settings,
+                                                llmBaseUrl: e.target.value,
+                                                openaiBaseUrl: e.target.value,
+                                                llmApiKey: '',
+                                                openaiApiKey: ''
+                                            },
+                                            llmApiKeyDraft: '',
+                                            llmApiKeyTouched: true,
+                                            hasStoredLlmKey: false
+                                        }))}
+                                        placeholder={DEFAULT_LLM_BASE_URL}
                                         style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
                                     />
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
@@ -552,50 +710,58 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>API Key</label>
                                     <div style={{ position: 'relative' }}>
                                         <input
-                                            type={this.state.showOpenaiApiKey ? 'text' : 'password'}
-                                            value={this.state.openaiApiKeyTouched ? this.state.openaiApiKeyDraft : ''}
+                                            type={this.state.showLlmApiKey ? 'text' : 'password'}
+                                            value={this.state.llmApiKeyTouched ? this.state.llmApiKeyDraft : ''}
                                             onChange={(e) => {
-                                                this.setState({ openaiApiKeyDraft: e.target.value, openaiApiKeyTouched: true });
+                                                this.setState({ llmApiKeyDraft: e.target.value, llmApiKeyTouched: true });
                                             }}
                                             placeholder={apiKeyPlaceholder}
                                             style={{ width: '100%', padding: '0.6rem 2.5rem 0.6rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => this.setState(prev => ({ showOpenaiApiKey: !prev.showOpenaiApiKey }))}
+                                            onClick={() => this.setState(prev => ({ showLlmApiKey: !prev.showLlmApiKey }))}
                                             className="icon-button"
                                             style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)' }}
-                                            title={this.state.showOpenaiApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+                                            title={this.state.showLlmApiKey ? 'Ocultar API key' : 'Mostrar API key'}
                                         >
-                                            {this.state.showOpenaiApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            {this.state.showLlmApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                                         </button>
                                     </div>
                                     <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.4rem' }}>
-                                        Para Codex Router, use o código da API local como Bearer token.
+                                        OpenAI compatível usa Bearer token. Anthropic usa API key. Ollama local pode ficar sem chave.
                                     </p>
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Modelo</label>
-                                    <select
-                                        value={settings.openaiModel || 'gpt-4.1-mini'}
-                                        onChange={(e) => this.handleUpdate('openaiModel', e.target.value)}
+                                    <input
+                                        list="llm-model-options"
+                                        value={settings.llmModel || ''}
+                                        onChange={(e) => this.setState(prev => ({
+                                            settings: {
+                                                ...prev.settings,
+                                                llmModel: e.target.value,
+                                                openaiModel: e.target.value
+                                            }
+                                        }))}
                                         style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                    >
+                                    />
+                                    <datalist id="llm-model-options">
                                         {modelsToShow.map((model) => (
-                                            <option key={model} value={model}>{model}</option>
+                                            <option key={model} value={model} />
                                         ))}
-                                    </select>
+                                    </datalist>
                                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                                         <button
                                             className="btn btn-secondary btn-sm"
                                             onClick={() => this.handleRefreshModels()}
-                                            disabled={openaiModelsLoading || !aiConfigured}
+                                            disabled={llmModelsLoading}
                                         >
-                                            {openaiModelsLoading ? 'A consultar...' : 'Consultar modelos'}
+                                            {llmModelsLoading ? 'A consultar...' : 'Consultar modelos'}
                                         </button>
                                     </div>
-                                    {openaiModelsError && (
-                                        <p style={{ fontSize: '0.75rem', color: '#B91C1C', marginTop: '0.4rem' }}>{openaiModelsError}</p>
+                                    {llmModelsError && (
+                                        <p style={{ fontSize: '0.75rem', color: '#B91C1C', marginTop: '0.4rem' }}>{llmModelsError}</p>
                                     )}
                                 </div>
                             </div>
@@ -612,7 +778,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
 
                     <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#FFF7ED', borderRadius: 'var(--radius-sm)', border: '1px solid #FED7AA' }}>
                         <p style={{ fontSize: '0.85rem', color: '#9A3412', margin: 0 }}>
-                            <strong>⚠️ Importante:</strong> O backup automático guarda os seus dados continuamente numa pasta à sua escolha.
+                            <strong>Backup local:</strong> Os dados são guardados no armazenamento deste navegador.
                             Recomendamos ativar a encriptação para proteger informações sensíveis.
                         </p>
                     </div>
@@ -676,7 +842,7 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                             {localBackups.map((backup) => (
-                                                <div key={backup.timestamp} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', background: '#fff', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '0.45rem 0.55rem' }}>
+                                                <div key={backup.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', background: '#fff', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '0.45rem 0.55rem' }}>
                                                     <div style={{ fontSize: '0.75rem', color: '#4B5563' }}>
                                                         {new Date(backup.timestamp).toLocaleString('pt-PT')} · {this.formatBackupSize(backup.sizeBytes)}{backup.encrypted ? ' · encriptado' : ''}
                                                     </div>
@@ -684,9 +850,9 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                                         className="btn btn-secondary"
                                                         style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
                                                         disabled={isRestoringBackup}
-                                                        onClick={() => this.handleRestoreAutoBackupByTimestamp(backup.timestamp)}
+                                                        onClick={() => this.handleRestoreAutoBackupByTimestamp(backup.id)}
                                                     >
-                                                        {restoringBackupTimestamp === backup.timestamp ? 'A restaurar...' : 'Restaurar'}
+                                                        {restoringBackupTimestamp === backup.id ? 'A restaurar...' : 'Restaurar'}
                                                     </button>
                                                 </div>
                                             ))}
@@ -815,11 +981,11 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                     Não autenticado
                                 </div>
                             )}
-                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
-                                <button className="btn btn-primary" onClick={() => this.handleSignIn()}>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                                    <button className="btn btn-primary" onClick={() => this.handleSignIn()} disabled={this.state.syncBusy}>
                                     Iniciar Sessão Google
                                 </button>
-                                <button className="btn btn-secondary" onClick={() => this.handleSignOut()} disabled={!authUid}>
+                                <button className="btn btn-secondary" onClick={() => this.handleSignOut()} disabled={!authUid || this.state.syncBusy}>
                                     Terminar Sessão
                                 </button>
                             </div>
@@ -833,14 +999,14 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                             <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6B7280' }}>
                                 Backup local: {localBackupUpdatedAt ? new Date(localBackupUpdatedAt).toLocaleString('pt-PT') : '—'} · {localBackupSize}
                             </div>
-                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
-                                <button className="btn btn-secondary" onClick={() => this.handleForceSync()}>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                                <button className="btn btn-secondary" onClick={() => this.handleForceSync()} disabled={this.state.syncBusy}>
                                     Sincronizar Agora
                                 </button>
-                                <button className="btn btn-secondary" onClick={() => this.handleRefreshRemoteStatus()}>
+                                <button className="btn btn-secondary" onClick={() => this.handleRefreshRemoteStatus()} disabled={this.state.syncBusy}>
                                     Verificar Estado
                                 </button>
-                                <button className="btn btn-secondary" onClick={() => this.handlePullRemote()}>
+                                <button className="btn btn-secondary" onClick={() => this.handlePullRemote()} disabled={this.state.syncBusy}>
                                     Puxar Remoto
                                 </button>
                             </div>
@@ -848,6 +1014,11 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#B91C1C' }}>
                                     Último erro: {lastSyncError}
                                 </div>
+                            )}
+                            {lastSyncError.toLowerCase().includes('conflito') && (
+                                <button className="btn btn-secondary" onClick={() => this.handleKeepLocal()} disabled={this.state.syncBusy}>
+                                    <Upload size={16} /> Enviar versão local
+                                </button>
                             )}
                         </div>
 
@@ -879,7 +1050,6 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                         value={syncPassword}
                                         onChange={(e) => {
                                             this.setState({ syncPassword: e.target.value });
-                                            localStorage.setItem(SYNC_PASSWORD_KEY, e.target.value.trim());
                                         }}
                                         placeholder="Defina uma password para encriptação ponta a ponta"
                                         style={{ width: '100%', padding: '0.55rem 2.5rem 0.55rem 0.55rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}

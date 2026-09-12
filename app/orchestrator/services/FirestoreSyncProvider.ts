@@ -1,6 +1,7 @@
 import type { ISyncProvider } from '../../backend/infrastructure/sync/ISyncProvider';
 import { FirestoreSyncService } from './FirestoreSyncService';
 import { AutoBackupStorage } from '../../backend/infrastructure/storage/AutoBackupStorage';
+import { StorageKeys } from '../../shared/constants/StorageKeys';
 
 export class FirestoreSyncProvider implements ISyncProvider {
     private storage: AutoBackupStorage;
@@ -21,7 +22,25 @@ export class FirestoreSyncProvider implements ISyncProvider {
     async pull(): Promise<string | null> {
         const applied = await FirestoreSyncService.getInstance().pullRemoteNow();
         if (!applied) return null;
-        return this.storage.getData();
+        return this.getPendingRemoteData();
+    }
+
+    public getPendingRemoteData(): string | null {
+        if (localStorage.getItem(StorageKeys.SYNC_PENDING_IMPORT) !== 'true') return null;
+        const user = FirestoreSyncService.getInstance().getCurrentUser();
+        if (!user) return null;
+        const payload = localStorage.getItem('saponify_sync_pending_payload');
+        if (!payload) return this.storage.getData();
+        try {
+            const staged = JSON.parse(payload);
+            return staged.uid === user.uid && typeof staged.data === 'string' ? staged.data : null;
+        } catch {
+            return null;
+        }
+    }
+
+    public confirmRemoteImport(): boolean {
+        return FirestoreSyncService.getInstance().confirmRemoteImport();
     }
 
     public isReady(): boolean {

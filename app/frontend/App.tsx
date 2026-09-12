@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Layout } from './core/Layout';
-import { ToastViewport } from './components/Toast';
+import { ToastViewport, showToast } from './components/Toast';
 import { BackupService } from '../backend/application/backup/BackupService';
 import { SettingsService } from '../backend/infrastructure/services/SettingsService';
 import { AppController } from '../orchestrator/services/AppController';
@@ -75,6 +75,11 @@ const readCalculatorDraft = (): CalculatorDraftPayload | null => {
 function App() {
     const [activePage, setActivePage] = useState('home');
     const [pageParams, setPageParams] = useState<any>(null);
+    const [dataRevision, setDataRevision] = useState(0);
+    const [syncNotice, setSyncNotice] = useState('');
+    const activePageRef = useRef(activePage);
+    const editingRef = useRef(false);
+    activePageRef.current = activePage;
     const controllerRef = useRef<AppController | null>(null);
 
     if (!controllerRef.current) {
@@ -82,22 +87,31 @@ function App() {
             backupService: BackupService.getInstance(),
             syncProvider: new FirestoreSyncProvider(),
             settingsService: SettingsService.getInstance(),
-            calculatorUseCase: createCalculatorUseCase()
+            calculatorUseCase: createCalculatorUseCase(),
+            canApplyRemote: () => activePageRef.current !== 'calculator'
+                && !editingRef.current
+                && !document.querySelector('.modal-overlay'),
+            onRemoteDataApplied: confirmed => {
+                setDataRevision(value => value + 1);
+                if (confirmed) showToast('Dados sincronizados com sucesso.', 'success');
+            }
         });
     }
 
     useEffect(() => {
         const run = async () => {
             try {
-                const shouldReload = await controllerRef.current!.init();
-                if (shouldReload) {
-                    location.reload();
-                }
+                await controllerRef.current!.init();
             } catch (error) {
                 console.warn('App init failed:', error);
             }
         };
         void run();
+        const statusTimer = window.setInterval(() => setSyncNotice(controllerRef.current!.getSyncNotice()), 2000);
+        return () => {
+            window.clearInterval(statusTimer);
+            controllerRef.current?.dispose();
+        };
     }, []);
 
     const handleNavigate = (page: string, params: any = null) => {
@@ -121,6 +135,7 @@ function App() {
 
         setActivePage(page);
         setPageParams(params);
+        editingRef.current = false;
     };
 
     const renderPage = () => {
@@ -146,7 +161,8 @@ function App() {
                     appController={controllerRef.current!}
                 />;
             case 'settings':
-                return <SettingsPage title="Configurações" appController={controllerRef.current!} />;
+                return <SettingsPage title="Configurações" appController={controllerRef.current!}
+                    onEditingChange={editing => { editingRef.current = editing; }} />;
             default:
                 return (
                     <div className="card">
@@ -160,7 +176,17 @@ function App() {
     return (
         <>
             <Layout activePage={activePage} onNavigate={handleNavigate}>
-                <Suspense fallback={<div className="card">A carregar...</div>}>
+                {syncNotice && (
+                    <div role="status" style={{ padding: '0.75rem 1rem', background: '#fff3cd', color: '#594400', overflowWrap: 'anywhere' }}>
+                        {syncNotice}{' '}
+                        {activePage !== 'settings' && (
+                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleNavigate('settings')}>
+                                Configurações
+                            </button>
+                        )}
+                    </div>
+                )}
+                <Suspense key={`${activePage}:${dataRevision}`} fallback={<div className="card">A carregar...</div>}>
                     {renderPage()}
                 </Suspense>
             </Layout>
