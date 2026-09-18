@@ -7,6 +7,7 @@ class MemoryStorage {
         this.values = new Map();
         this.failHistoryWrites = false;
         this.failHistoryReads = false;
+        this.maxBytes = Infinity;
     }
 
     getItem(key) {
@@ -20,7 +21,11 @@ class MemoryStorage {
         if (this.failHistoryWrites && key === 'saponify_auto_backup_history') {
             throw new Error('quota exceeded');
         }
-        this.values.set(key, String(value));
+        const candidate = new Map(this.values);
+        candidate.set(key, String(value));
+        const bytes = [...candidate].reduce((sum, [key, value]) => sum + 2 * (key.length + value.length), 0);
+        if (bytes > this.maxBytes) throw new DOMException('quota exceeded', 'QuotaExceededError');
+        this.values = candidate;
     }
 
     removeItem(key) {
@@ -72,6 +77,37 @@ async function run() {
     const { AutoBackupStorage, SettingsService, BackupService, touchDataVersion } = loaded.exports;
 
     const storage = new AutoBackupStorage();
+    const historyKey = 'saponify_auto_backup_history';
+    const legacyHistory = Array.from({ length: 5 }, (_, i) => ({
+        timestamp: `2026-01-0${i + 1}T00:00:00.000Z`, data: `old-${i}`
+    }));
+    localStorage.setItem(historyKey, JSON.stringify(legacyHistory));
+    localStorage.setItem('saponify_auto_backup', 'old-4');
+    localStorage.setItem('saponify_auto_backup_timestamp', legacyHistory[4].timestamp);
+    storage.setSafetyData('recovery', '2026-01-01T00:00:00.000Z');
+    storage.setData('latest', '2026-01-06T00:00:00.000Z', '10');
+    assert.equal(JSON.parse(localStorage.getItem(historyKey)).length, 2);
+    assert.equal(localStorage.getItem('saponify_auto_backup'), null, 'do not duplicate the current payload');
+    assert.equal(storage.getSafetyData(), 'recovery', 'retention must preserve the separate import safety copy');
+
+    storage.setData('older-clock', '2020-01-01T00:00:00.000Z', '11');
+    assert.equal(storage.getCurrentData(), 'older-clock');
+    assert.equal(storage.getCurrentTimestamp(), '2020-01-01T00:00:00.000Z');
+    assert.equal(storage.getSnapshotDataVersion(), '11');
+
+    localStorage.clear();
+    localStorage.setItem('recipes', 'user-data');
+    storage.setData('a'.repeat(100), '2026-01-01T00:00:00.000Z', '1');
+    localStorage.maxBytes = [...localStorage.values].reduce((sum, [key, value]) => sum + 2 * (key.length + value.length), 0) + 10;
+    storage.setData('b'.repeat(100), '2026-01-02T00:00:00.000Z', '2');
+    assert.equal(storage.getAllBackups().length, 1, 'quota must prune the oldest candidate');
+    assert.equal(storage.getCurrentData(), 'b'.repeat(100));
+    const beforeFailure = new Map(localStorage.values);
+    assert.throws(() => storage.setData('c'.repeat(1000), '2026-01-03T00:00:00.000Z'), /backups anteriores foram preservados/);
+    assert.deepEqual(localStorage.values, beforeFailure, 'an oversized single backup must leave stored data untouched');
+    localStorage.maxBytes = Infinity;
+    localStorage.clear();
+
     localStorage.setItem('saponify_auto_backup_history', JSON.stringify([
         { timestamp: '2026-01-01T00:00:00.000Z', data: 'old-history' }
     ]));

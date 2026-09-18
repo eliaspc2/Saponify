@@ -239,7 +239,8 @@ async function testIncomingPreservesBackupUntilConfirmAndCapturesVersion(Firesto
     assert.equal(localStorage.getItem('saponify_auto_backup'), '{"local":"recovery"}');
     localStorage.setItem('saponify_data_version', '100');
     assert.equal(service.confirmRemoteImport(), true);
-    assert.equal(localStorage.getItem('saponify_auto_backup'), '{"remote":"incoming"}');
+    assert.equal(service.storage.getCurrentData(), '{"remote":"incoming"}');
+    assert.equal(localStorage.getItem('saponify_auto_backup'), null, 'confirmation must not duplicate the payload');
     assert.equal(localStorage.getItem('saponify_sync_local_data_version_user-a'), '100', 'confirmation must acknowledge the data version captured while staging');
 }
 

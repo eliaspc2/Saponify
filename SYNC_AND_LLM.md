@@ -32,6 +32,14 @@ antes de escrever. Esta alteracao nao publica regras Firestore nem migra dados
 na conta do utilizador. Os testes usam dados ficticios e APIs simuladas; falta
 validar com duas sessoes Google reais no ambiente de producao.
 
+## Backups locais
+
+O historico guarda no maximo duas copias completas, sem duplicar a ultima numa
+chave separada. Na proxima gravacao bem-sucedida, historicos antigos sao reduzidos
+e a copia duplicada legada e removida. Se faltar quota, tenta guardar apenas a
+copia nova; se nem essa couber, preserva o armazenamento anterior e apresenta
+um erro. A copia de seguranca usada durante importacoes permanece separada.
+
 ## LLM
 
 As Configuracoes suportam OpenAI compativel, Anthropic e Ollama nativo. O modelo

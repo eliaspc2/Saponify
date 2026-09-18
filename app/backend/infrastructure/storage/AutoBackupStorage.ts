@@ -25,18 +25,18 @@ export class AutoBackupStorage {
     }
 
     /**
-     * Returns the backup currently staged in the primary keys. This deliberately
-     * does not sort by timestamp: a remote revision can have an older clock.
+     * Legacy primary keys take precedence until the next successful write.
+     * History keeps the current snapshot first, regardless of remote clocks.
      */
     public getCurrentData(): string | null {
         return localStorage.getItem(AutoBackupStorage.AUTO_BACKUP_KEY)
-            || this.getLatestBackup()?.data
+            || this.readHistory()[0]?.data
             || null;
     }
 
     public getCurrentTimestamp(): string | null {
         return localStorage.getItem(AutoBackupStorage.AUTO_BACKUP_TS_KEY)
-            || this.getLatestBackup()?.timestamp
+            || this.readHistory()[0]?.timestamp
             || null;
     }
 
@@ -50,7 +50,7 @@ export class AutoBackupStorage {
         if (currentData !== null) {
             return localStorage.getItem(AutoBackupStorage.AUTO_BACKUP_DATA_VERSION_KEY);
         }
-        return this.getLatestBackup()?.snapshotDataVersion ?? null;
+        return this.readHistory()[0]?.snapshotDataVersion ?? null;
     }
 
     /** @deprecated Use getSnapshotDataVersion for the currently staged backup. */
@@ -77,16 +77,12 @@ export class AutoBackupStorage {
         }, ...history.filter(item => item.timestamp !== timestamp || item.data !== data)]
             .slice(0, AppConstants.MAX_AUTO_BACKUPS);
 
-        // History is the authoritative store. Write it first so a legacy
-        // mirror failure cannot make an old history entry look newest.
+        // Commit the new snapshot atomically before removing legacy mirrors.
+        // The first history entry is current even if a remote clock is older.
         this.writeHistory(next);
-        localStorage.setItem(AutoBackupStorage.AUTO_BACKUP_KEY, data);
-        localStorage.setItem(AutoBackupStorage.AUTO_BACKUP_TS_KEY, timestamp);
-        if (snapshotDataVersion !== undefined && snapshotDataVersion !== null) {
-            localStorage.setItem(AutoBackupStorage.AUTO_BACKUP_DATA_VERSION_KEY, snapshotDataVersion);
-        } else {
-            localStorage.removeItem(AutoBackupStorage.AUTO_BACKUP_DATA_VERSION_KEY);
-        }
+        localStorage.removeItem(AutoBackupStorage.AUTO_BACKUP_KEY);
+        localStorage.removeItem(AutoBackupStorage.AUTO_BACKUP_TS_KEY);
+        localStorage.removeItem(AutoBackupStorage.AUTO_BACKUP_DATA_VERSION_KEY);
     }
 
     /**
@@ -116,10 +112,6 @@ export class AutoBackupStorage {
         } catch {
             return null;
         }
-    }
-
-    private getLatestBackup(): AutoBackupEntry | null {
-        return this.getAllBackups()[0] || null;
     }
 
     private readLegacyBackup(): AutoBackupEntry[] {
@@ -168,11 +160,23 @@ export class AutoBackupStorage {
     }
 
     private writeHistory(history: AutoBackupEntry[]): void {
-        try {
-            localStorage.setItem(AutoBackupStorage.AUTO_BACKUP_HISTORY_KEY, JSON.stringify(history));
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            throw new Error(`Não foi possível guardar o histórico de backups: ${message}`);
+        const retained = history.slice(0, AppConstants.MAX_AUTO_BACKUPS);
+        while (retained.length > 0) {
+            try {
+                localStorage.setItem(AutoBackupStorage.AUTO_BACKUP_HISTORY_KEY, JSON.stringify(retained));
+                return;
+            } catch (error) {
+                const name = error instanceof Error ? error.name : '';
+                const isQuotaError = name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED';
+                if (isQuotaError && retained.length > 1) {
+                    retained.pop();
+                    continue;
+                }
+                const message = isQuotaError
+                    ? 'Espaço insuficiente no navegador para uma nova cópia. Os backups anteriores foram preservados.'
+                    : error instanceof Error ? error.message : String(error);
+                throw new Error(`Não foi possível guardar o histórico de backups: ${message}`);
+            }
         }
     }
 
