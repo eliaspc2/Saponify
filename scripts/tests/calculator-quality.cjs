@@ -67,18 +67,20 @@ async function run() {
     assert.equal(calculation.results.superfatFinal, 24);
 
     const standardDimensions = { lengthCm: 6.5, widthCm: 6.5, heightCm: 2.5 };
-    const summerDrying = engineModule.exports.CalculatorEngine.calculate({
+    const summerCalculation = engineModule.exports.CalculatorEngine.calculate({
         recipe,
         ingredients,
         now: new Date('2026-06-21T12:00:00Z'),
         curingBarDimensions: standardDimensions
-    }).phaseTotals.physicalDays;
-    const winterDrying = engineModule.exports.CalculatorEngine.calculate({
+    });
+    const winterCalculation = engineModule.exports.CalculatorEngine.calculate({
         recipe,
         ingredients,
         now: new Date('2026-12-21T12:00:00Z'),
         curingBarDimensions: standardDimensions
-    }).phaseTotals.physicalDays;
+    });
+    const summerDrying = summerCalculation.phaseTotals.physicalDays;
+    const winterDrying = winterCalculation.phaseTotals.physicalDays;
     const thickerBarDrying = engineModule.exports.CalculatorEngine.calculate({
         recipe,
         ingredients,
@@ -94,6 +96,8 @@ async function run() {
     assert.ok(winterDrying > summerDrying);
     assert.ok(thickerBarDrying > winterDrying);
     assert.ok(wetterRecipeDrying > winterDrying);
+    assert.ok(winterCalculation.phaseTotals.targetCureMoisturePercent > summerCalculation.phaseTotals.targetCureMoisturePercent);
+    assert.ok(winterCalculation.phaseTotals.estimatedDryWeight > winterCalculation.phaseTotals.anhydrousWeight);
     console.log('calculator-quality: ok');
 }
 

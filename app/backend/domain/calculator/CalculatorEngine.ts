@@ -392,7 +392,11 @@ export class CalculatorEngine {
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
         const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
         const anhydrousWeight = Math.max(0, batchWeightWithLye - results.waterAmount);
-        const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
+        const targetCureMoisturePercent = this.estimateCureMoisturePercent(today, recipe, results);
+        const estimatedDryWeight = Math.min(
+            batchWeightWithLye,
+            anhydrousWeight / (1 - (targetCureMoisturePercent / 100))
+        );
         const goodConditionDays = Math.max(180, Math.round(results.goodConditionDays || 365));
         const goodConditionEndDate = new Date(today.getTime());
         goodConditionEndDate.setDate(goodConditionEndDate.getDate() + goodConditionDays);
@@ -403,6 +407,7 @@ export class CalculatorEngine {
             batchWeightWithLye,
             estimatedDryWeight,
             anhydrousWeight,
+            targetCureMoisturePercent,
             chemicalDays,
             chemicalReadyDate,
             physicalDays,
@@ -579,7 +584,7 @@ export class CalculatorEngine {
         md += `## Cura e Secagem\n`;
         md += `- Estabilização química: ~${phaseTotals.chemicalDays} dias (até ${phaseTotals.chemicalReadyDate.toLocaleDateString('pt-PT')})\n`;
         md += `- Secagem física: ~${phaseTotals.physicalDays} dias (até ${phaseTotals.physicalReadyDate.toLocaleDateString('pt-PT')})\n`;
-        md += `- Peso após cura estimado: ${phaseTotals.estimatedDryWeight.toFixed(1)} g\n`;
+        md += `- Peso estável alvo: ${phaseTotals.estimatedDryWeight.toFixed(1)} g (humidade residual prevista: ~${phaseTotals.targetCureMoisturePercent.toFixed(1)}%)\n`;
         md += `- Peso sem água teórico: ${phaseTotals.anhydrousWeight.toFixed(1)} g\n\n`;
 
         md += `## Qualidade Prevista\n`;
@@ -670,6 +675,20 @@ export class CalculatorEngine {
         return Math.floor(diff / (1000 * 60 * 60 * 24));
     }
 
+    private static getSeasonalFactor(date: Date): number {
+        const dayOfYear = this.getDayOfYear(date);
+        const radians = (2 * Math.PI * (dayOfYear - 172)) / 365;
+        return (1 - Math.cos(radians)) / 2;
+    }
+
+    private static estimateCureMoisturePercent(date: Date, recipe: Recipe, results: CalculationResults): number {
+        const seasonalFactor = this.getSeasonalFactor(date);
+        let moisture = 8 + (seasonalFactor * 4);
+        if (recipe.alkali === 'KOH') moisture += 3;
+        if (results.superfatFinal > 10) moisture += 0.5;
+        return Math.min(15, Math.max(7, moisture));
+    }
+
     private static getPhysicalCureDays(
         date: Date,
         recipe: Recipe,
@@ -678,9 +697,7 @@ export class CalculatorEngine {
     ): number {
         const minDays = 21;
         const maxDays = 35;
-        const dayOfYear = this.getDayOfYear(date);
-        const radians = (2 * Math.PI * (dayOfYear - 172)) / 365;
-        const seasonalFactor = (1 - Math.cos(radians)) / 2;
+        const seasonalFactor = this.getSeasonalFactor(date);
         const seasonalDays = minDays + (maxDays - minDays) * seasonalFactor;
 
         const dimension = (value: number | undefined, fallback: number) => (

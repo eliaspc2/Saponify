@@ -1,5 +1,5 @@
-export const RECIPE_DOMAIN_FINGERPRINT = '9820f191e8f3c5c65e9b3b1fab9a16a9f5e93316afdc79ea43cd81068c5ae64d';
-export const BUILD_TIME = '2026-09-19T15:16:21.543Z';
+export const RECIPE_DOMAIN_FINGERPRINT = '847217739436aef99105f47869db6fab16d8c4bec69e31d0a45096493709489d';
+export const BUILD_TIME = '2026-09-19T15:17:36.028Z';
 export const RECIPE_DOMAIN_FINGERPRINT_INPUTS = [
     "app/backend/ai/rules/soap_recipe_core_norms.json",
     "app/backend/ai/rules/soap_recipe_norms.json",

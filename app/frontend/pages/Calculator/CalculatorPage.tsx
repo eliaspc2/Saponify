@@ -740,7 +740,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const calc = this.props.appController.calculateRecipe({ recipe: baseRecipe, ingredients: availableIngredients });
         const { results, phaseTotals, fattyAcidLabels, ingredientMetaById, qualityProgress } = calc;
         const recipe = calc.normalizedRecipe;
-        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, anhydrousWeight, physicalDays, physicalReadyDate, goodConditionDays, goodConditionEndDate } = phaseTotals;
+        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, anhydrousWeight, targetCureMoisturePercent, physicalDays, physicalReadyDate, goodConditionDays, goodConditionEndDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
         const aiConversation = recipe.aiConversation || [];
@@ -1181,7 +1181,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                     <span className="result-value" style={{ fontSize: '1.1rem', color: 'var(--color-primary-dark)' }}>{results.totalWeight.toFixed(1)}g</span>
                                 </div>
                                 <div className="result-row" style={{ marginTop: '0.75rem' }}>
-                                    <span>Peso após cura</span>
+                                    <span>Peso estável alvo (~{targetCureMoisturePercent.toFixed(1)}% H2O)</span>
                                     <span className="result-value">{estimatedDryWeight.toFixed(1)}g</span>
                                 </div>
                                 <div className="result-row">
