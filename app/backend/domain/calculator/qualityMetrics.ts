@@ -12,6 +12,7 @@ export const computeIodine = (profile: CalculationResults['fattyAcids']) => (
     profile.oleic * 0.86
     + profile.linoleic * 1.732
     + profile.linolenic * 2.616
+    + profile.ricinoleic * 0.85
     + profile.gadoleic * 0.86
 );
 
