@@ -740,7 +740,7 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
         const calc = this.props.appController.calculateRecipe({ recipe: baseRecipe, ingredients: availableIngredients });
         const { results, phaseTotals, fattyAcidLabels, ingredientMetaById, qualityProgress } = calc;
         const recipe = calc.normalizedRecipe;
-        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, anhydrousWeight, targetCureMoisturePercent, physicalDays, physicalReadyDate, goodConditionDays, goodConditionEndDate } = phaseTotals;
+        const { phase1Total, phase2Total, phase3Total, estimatedDryWeight, anhydrousWeight, targetCureMoisturePercent, unmoldCheckHours, unmoldLikelyHours, unmoldCheckDate, unmoldLikelyDate, physicalDays, physicalReadyDate, goodConditionDays, goodConditionEndDate } = phaseTotals;
         const phaseHeaderColor = 'var(--color-primary-light)';
         const phaseHeaderText = 'var(--color-primary-dark)';
         const aiConversation = recipe.aiConversation || [];
@@ -1187,6 +1187,14 @@ export class CalculatorPage extends BasePage<CalculatorPageProps, CalculatorStat
                                 <div className="result-row">
                                     <span>Peso sem água (teórico)</span>
                                     <span className="result-value">{anhydrousWeight.toFixed(1)}g</span>
+                                </div>
+                                <div className="result-row">
+                                    <span>Desmoldagem (molde silicone)</span>
+                                    <span className="result-value">verificar após ~{unmoldCheckHours}h</span>
+                                </div>
+                                <div className="result-row" style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                                    <span>Janela provável</span>
+                                    <span>até ~{unmoldLikelyHours}h ({unmoldCheckDate.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })} - {unmoldLikelyDate.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })})</span>
                                 </div>
                                 <div className="result-row">
                                     <span>Secagem Física</span>

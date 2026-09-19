@@ -71,6 +71,10 @@ export interface PhaseTotals {
     targetCureMoisturePercent: number;
     chemicalDays: number;
     chemicalReadyDate: Date;
+    unmoldCheckHours: number;
+    unmoldLikelyHours: number;
+    unmoldCheckDate: Date;
+    unmoldLikelyDate: Date;
     physicalDays: number;
     physicalReadyDate: Date;
     goodConditionDays: number;

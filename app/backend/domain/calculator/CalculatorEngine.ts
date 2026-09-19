@@ -387,6 +387,11 @@ export class CalculatorEngine {
         const chemicalDays = 2;
         const chemicalReadyDate = new Date(today.getTime());
         chemicalReadyDate.setDate(chemicalReadyDate.getDate() + chemicalDays);
+        const unmoldEstimate = this.getUnmoldEstimate(today, recipe, results, ingredients);
+        const unmoldCheckDate = new Date(today.getTime());
+        unmoldCheckDate.setHours(unmoldCheckDate.getHours() + unmoldEstimate.checkHours);
+        const unmoldLikelyDate = new Date(today.getTime());
+        unmoldLikelyDate.setHours(unmoldLikelyDate.getHours() + unmoldEstimate.likelyHours);
         const physicalDays = this.getPhysicalCureDays(today, recipe, results, curingBarDimensions);
         const physicalReadyDate = new Date(today.getTime());
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
@@ -410,6 +415,10 @@ export class CalculatorEngine {
             targetCureMoisturePercent,
             chemicalDays,
             chemicalReadyDate,
+            unmoldCheckHours: unmoldEstimate.checkHours,
+            unmoldLikelyHours: unmoldEstimate.likelyHours,
+            unmoldCheckDate,
+            unmoldLikelyDate,
             physicalDays,
             physicalReadyDate,
             goodConditionDays,
@@ -583,6 +592,7 @@ export class CalculatorEngine {
 
         md += `## Cura e Secagem\n`;
         md += `- Estabilização química: ~${phaseTotals.chemicalDays} dias (até ${phaseTotals.chemicalReadyDate.toLocaleDateString('pt-PT')})\n`;
+        md += `- Desmoldagem em molde de silicone: verificar após ~${phaseTotals.unmoldCheckHours} h; janela provável até ~${phaseTotals.unmoldLikelyHours} h\n`;
         md += `- Secagem física: ~${phaseTotals.physicalDays} dias (até ${phaseTotals.physicalReadyDate.toLocaleDateString('pt-PT')})\n`;
         md += `- Peso estável alvo: ${phaseTotals.estimatedDryWeight.toFixed(1)} g (humidade residual prevista: ~${phaseTotals.targetCureMoisturePercent.toFixed(1)}%)\n`;
         md += `- Peso sem água teórico: ${phaseTotals.anhydrousWeight.toFixed(1)} g\n\n`;
@@ -687,6 +697,45 @@ export class CalculatorEngine {
         if (recipe.alkali === 'KOH') moisture += 3;
         if (results.superfatFinal > 10) moisture += 0.5;
         return Math.min(15, Math.max(7, moisture));
+    }
+
+    private static getUnmoldEstimate(
+        date: Date,
+        recipe: Recipe,
+        results: CalculationResults,
+        ingredients: Ingredient[]
+    ): { checkHours: number; likelyHours: number } {
+        const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+        const totalFats = this.sumAmounts(recipe.fats);
+        const tallowAmount = (recipe.fats || []).reduce((total, item) => {
+            const ingredient = this.findIngredient(item, ingredients);
+            const name = `${item.name || ''} ${ingredient?.name || ''}`.toLocaleLowerCase('pt-PT');
+            return /\bsebo(?:\s+de)?\s+vaca\b|\bsebo\s+bovino\b|\btallow\b/.test(name)
+                ? total + (item.amount || 0)
+                : total;
+        }, 0);
+        const tallowPercent = totalFats > 0 ? (tallowAmount / totalFats) * 100 : 0;
+        const seasonalAdjustment = this.getSeasonalFactor(date) * 6;
+        const waterAdjustment = clamp((30 - recipe.waterConcentration) * 2, -10, 12);
+        const hardnessAdjustment = results.properties.hardness < 30
+            ? 8
+            : (results.properties.hardness >= 45 ? -8 : 0);
+        const superfatAdjustment = results.superfatFinal > 10 ? 6 : 0;
+        const alkaliAdjustment = recipe.alkali === 'KOH' ? 18 : 0;
+        const tallowAdjustment = -Math.min(12, tallowPercent * 0.12);
+        const rawHours = 30
+            + seasonalAdjustment
+            + waterAdjustment
+            + hardnessAdjustment
+            + superfatAdjustment
+            + alkaliAdjustment
+            + tallowAdjustment;
+        const checkHours = Math.round(clamp(rawHours, 18, 72) / 6) * 6;
+
+        return {
+            checkHours,
+            likelyHours: Math.min(96, checkHours + 24)
+        };
     }
 
     private static getPhysicalCureDays(

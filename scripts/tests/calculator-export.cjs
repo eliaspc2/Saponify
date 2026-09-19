@@ -23,6 +23,7 @@ async function run() {
     const markdown = calculation.exports.markdown.content;
     assert.match(markdown, /## Cura e Secagem/);
     assert.match(markdown, new RegExp(`Estabilização química: ~${calculation.phaseTotals.chemicalDays} dias`));
+    assert.match(markdown, new RegExp(`Desmoldagem em molde de silicone: verificar após ~${calculation.phaseTotals.unmoldCheckHours} h`));
     assert.match(markdown, new RegExp(`Secagem física: ~${calculation.phaseTotals.physicalDays} dias`));
     assert.match(markdown, new RegExp(`Peso estável alvo: ${calculation.phaseTotals.estimatedDryWeight.toFixed(1)} g`));
     assert.match(markdown, new RegExp(`Peso sem água teórico: ${calculation.phaseTotals.anhydrousWeight.toFixed(1)} g`));

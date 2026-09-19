@@ -57,7 +57,8 @@ async function run() {
     const ingredients = [
         { id: 'base', name: 'Base', kind: 'oil', sapNaOH: 0.14, sapKOH: 0.196, fattyAcids: { ...zeroProfile, palmitic: 100 }, properties: {} },
         { id: 'superfat', name: 'Superfat', kind: 'oil', sapNaOH: 0.14, sapKOH: 0.196, fattyAcids: { ...zeroProfile, oleic: 100 }, properties: {} },
-        { id: 'essential', name: 'Essencial', kind: 'essentialOil', sapNaOH: 0, sapKOH: 0, fattyAcids: { ...zeroProfile, lauric: 100 }, properties: {} }
+        { id: 'essential', name: 'Essencial', kind: 'essentialOil', sapNaOH: 0, sapKOH: 0, fattyAcids: { ...zeroProfile, lauric: 100 }, properties: {} },
+        { id: 'tallow', name: 'Sebo de vaca', kind: 'oil', sapNaOH: 0.14, sapKOH: 0.196, fattyAcids: { ...zeroProfile, palmitic: 50, stearic: 50 }, properties: {} }
     ];
     const calculation = engineModule.exports.CalculatorEngine.calculate({ recipe, ingredients, now: new Date('2026-01-01T12:00:00Z') });
     assert.equal(calculation.results.properties.hardness, 80);
@@ -98,6 +99,20 @@ async function run() {
     assert.ok(wetterRecipeDrying > winterDrying);
     assert.ok(winterCalculation.phaseTotals.targetCureMoisturePercent > summerCalculation.phaseTotals.targetCureMoisturePercent);
     assert.ok(winterCalculation.phaseTotals.estimatedDryWeight > winterCalculation.phaseTotals.anhydrousWeight);
+    const tallowCalculation = engineModule.exports.CalculatorEngine.calculate({
+        recipe: { ...recipe, fats: [{ id: 'tallow-fat', ingredientId: 'tallow', name: 'Sebo de vaca', amount: 100, percentage: 100 }] },
+        ingredients,
+        now: new Date('2026-09-19T12:00:00Z'),
+        curingBarDimensions: standardDimensions
+    });
+    const noTallowCalculation = engineModule.exports.CalculatorEngine.calculate({
+        recipe,
+        ingredients,
+        now: new Date('2026-09-19T12:00:00Z'),
+        curingBarDimensions: standardDimensions
+    });
+    assert.ok(tallowCalculation.phaseTotals.unmoldCheckHours < noTallowCalculation.phaseTotals.unmoldCheckHours);
+    assert.ok(tallowCalculation.phaseTotals.unmoldLikelyHours > tallowCalculation.phaseTotals.unmoldCheckHours);
     console.log('calculator-quality: ok');
 }
 
