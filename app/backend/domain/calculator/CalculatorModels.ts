@@ -67,6 +67,7 @@ export interface PhaseTotals {
     phase3Total: number;
     batchWeightWithLye: number;
     estimatedDryWeight: number;
+    anhydrousWeight: number;
     chemicalDays: number;
     chemicalReadyDate: Date;
     physicalDays: number;

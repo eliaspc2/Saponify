@@ -391,6 +391,7 @@ export class CalculatorEngine {
         const physicalReadyDate = new Date(today.getTime());
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
         const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
+        const anhydrousWeight = Math.max(0, batchWeightWithLye - results.waterAmount);
         const estimatedDryWeight = Math.max(0, batchWeightWithLye - (results.waterAmount * 0.85));
         const goodConditionDays = Math.max(180, Math.round(results.goodConditionDays || 365));
         const goodConditionEndDate = new Date(today.getTime());
@@ -401,6 +402,7 @@ export class CalculatorEngine {
             phase3Total,
             batchWeightWithLye,
             estimatedDryWeight,
+            anhydrousWeight,
             chemicalDays,
             chemicalReadyDate,
             physicalDays,
@@ -577,7 +579,8 @@ export class CalculatorEngine {
         md += `## Cura e Secagem\n`;
         md += `- Estabilização química: ~${phaseTotals.chemicalDays} dias (até ${phaseTotals.chemicalReadyDate.toLocaleDateString('pt-PT')})\n`;
         md += `- Secagem física: ~${phaseTotals.physicalDays} dias (até ${phaseTotals.physicalReadyDate.toLocaleDateString('pt-PT')})\n`;
-        md += `- Peso estável estimado: ${phaseTotals.estimatedDryWeight.toFixed(1)} g\n\n`;
+        md += `- Peso após cura estimado: ${phaseTotals.estimatedDryWeight.toFixed(1)} g\n`;
+        md += `- Peso sem água teórico: ${phaseTotals.anhydrousWeight.toFixed(1)} g\n\n`;
 
         md += `## Qualidade Prevista\n`;
         md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)} \n`;
