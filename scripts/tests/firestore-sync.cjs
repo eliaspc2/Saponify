@@ -222,12 +222,14 @@ async function testSessionCancellation(FirestoreSyncService) {
 async function testManualPullReplacesPendingStage(FirestoreSyncService) {
     const env = createEnvironment({ data: '{"remote":"fresh"}', updatedAt: '2026-09-12T12:00:00.000Z', deviceId: 'other-device', revision: 9 });
     const service = await serviceFor(env, FirestoreSyncService);
+    localStorage.setItem('saponify_sync_last_error', 'Failed to get document because the client is offline.');
     localStorage.setItem('saponify_sync_pending_import', 'true');
     localStorage.setItem('saponify_sync_pending_payload', JSON.stringify({ uid: 'user-a', data: '{"remote":"stale"}', updatedAt: '2026-09-12T08:00:00.000Z', deviceId: 'other-device', revision: 8 }));
 
     assert.equal(await service.pullRemoteNow(), true);
     assert.equal(JSON.parse(localStorage.getItem('saponify_sync_pending_payload')).data, '{"remote":"fresh"}');
     assert.equal(env.firestore.getDocFromServerCalls, 1, 'manual pull must force a current server read');
+    assert.equal(localStorage.getItem('saponify_sync_last_error'), '', 'a successful remote read must clear a transient offline warning');
 }
 
 async function testIncomingPreservesBackupUntilConfirmAndCapturesVersion(FirestoreSyncService) {

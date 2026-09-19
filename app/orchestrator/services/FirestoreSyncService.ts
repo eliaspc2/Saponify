@@ -254,6 +254,7 @@ export class FirestoreSyncService {
             const ref = this.getDocRefForUid(user.uid);
             if (!ref) return null;
             const snap = await getDoc(ref);
+            this.setLastSyncError('');
             if (!snap.exists()) return { updatedAt: null, deviceId: null };
             const remote = snap.data() as RemoteBackupPayload;
             return { updatedAt: remote.updatedAt || null, deviceId: remote.deviceId || null };
@@ -360,6 +361,8 @@ export class FirestoreSyncService {
             this.setLastSyncError(error?.message || 'Erro ao ler do Firestore.');
             return false;
         }
+        // A recovered connection must not leave an earlier transient offline warning visible.
+        this.setLastSyncError('');
         if (!this.isCurrentSession(uid, session) || !this.isSyncEnabled()) return false;
         const localOwner = this.safeGetItem(SYNC_LOCAL_OWNER_KEY);
         if (!manual && localOwner && localOwner !== uid) {
