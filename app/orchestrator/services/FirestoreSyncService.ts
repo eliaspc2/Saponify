@@ -15,6 +15,7 @@ import {
 } from 'firebase/auth';
 import { BackupService } from '../../backend/application/backup/BackupService';
 import { AutoBackupStorage } from '../../backend/infrastructure/storage/AutoBackupStorage';
+import { encodeSyncData, decodeSyncData } from '../../backend/infrastructure/storage/SyncCompression';
 import { getDataVersion } from '../../backend/shared/versioning/dataVersion';
 import { StorageKeys } from '../../shared/constants/StorageKeys';
 import { AppConstants } from '../../shared/constants/AppConstants';
@@ -807,7 +808,7 @@ export class FirestoreSyncService {
         const salt = window.crypto.getRandomValues(new Uint8Array(AppConstants.SYNC_SALT_LENGTH));
         const iv = window.crypto.getRandomValues(new Uint8Array(AppConstants.SYNC_IV_LENGTH));
         const key = await this.deriveKeyFromPassword(password, salt);
-        const cipher = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(data));
+        const cipher = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, await encodeSyncData(data));
         const combined = new Uint8Array(salt.length + iv.length + cipher.byteLength);
         combined.set(salt, 0);
         combined.set(iv, salt.length);
@@ -824,7 +825,7 @@ export class FirestoreSyncService {
         const cipher = raw.slice(AppConstants.SYNC_SALT_LENGTH + AppConstants.SYNC_IV_LENGTH);
         const key = await this.deriveKeyFromPassword(password, salt);
         const plain = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
-        return new TextDecoder().decode(plain);
+        return decodeSyncData(new Uint8Array(plain));
     }
 
     private async deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {

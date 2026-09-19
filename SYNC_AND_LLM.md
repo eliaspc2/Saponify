@@ -22,6 +22,13 @@ Configuracoes:
   alteracao remota durante o envio volta a bloquear a operacao.
 - **Sincronizar Agora** tenta enviar os dados atuais sem ignorar conflitos.
 
+Backups a partir de 64 KiB sao comprimidos com gzip antes da encriptacao quando
+isso reduz o tamanho. A rececao reconhece os dados comprimidos depois de os
+autenticar/desencriptar e continua a aceitar backups antigos sem compressao.
+Atualizar todos os dispositivos antes de sincronizar o novo formato. Navegadores
+sem CompressionStream continuam a enviar o formato antigo. A descompressao tem
+limite de 32 MiB para proteger a memoria; os dados nunca sao truncados.
+
 Falhas de rede mantem o envio pendente e desencadeiam novas tentativas. Falhas
 permanentes de permissoes ou tamanho sao apresentadas ao utilizador. O limite
 de um documento Firestore continua a aplicar-se; backups grandes devem ser

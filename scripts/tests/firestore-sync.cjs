@@ -282,9 +282,38 @@ async function testOwnerBlocksAnotherAccountAutomaticUpload(FirestoreSyncService
     assert.equal(localStorage.getItem('saponify_sync_conflict_user-b'), 'true');
 }
 
+async function testCompressedLargeBackup(FirestoreSyncService) {
+    const env = createEnvironment();
+    const service = await serviceFor(env, FirestoreSyncService);
+    const data = JSON.stringify({ recipes: Array.from({ length: 12000 }, (_, id) => ({
+        id, name: 'Receita de sabão', notes: 'Óleo de oliva, água, ingredientes e observações. '.repeat(5)
+    })) });
+    assert.ok(Buffer.byteLength(data) > 1000000);
+    localStorage.setItem('saponify_sync_remote_revision_user-a', '0');
+    assert.equal(await service.commitWrite(writeFor(service, data), false), 'success');
+    assert.ok(Buffer.byteLength(env.firestore.remote.data) < 950000);
+    assert.equal(await service.decryptFromSync(env.firestore.remote.data), data);
+    assert.equal(await service.pullRemoteNow(), true);
+    assert.equal(JSON.parse(localStorage.getItem('saponify_sync_pending_payload')).data, data);
+    const small = '{"legacy":"sem compressão"}';
+    assert.equal(await service.decryptFromSync(await service.encryptForSync(small)), small);
+    localStorage.setItem('saponify_sync_password', 'wrong-password');
+    await assert.rejects(service.decryptFromSync(env.firestore.remote.data));
+}
+
+async function testIncompressibleBackupStillProtected(FirestoreSyncService) {
+    const env = createEnvironment();
+    const service = await serviceFor(env, FirestoreSyncService);
+    const data = JSON.stringify({ blob: require('node:crypto').randomBytes(1100000).toString('base64') });
+    assert.equal(await service.commitWrite(writeFor(service, data), false), 'conflict');
+    assert.equal(env.firestore.remote, null, 'oversized data must never replace a remote backup');
+}
+
 async function run() {
     const FirestoreSyncService = await loadService();
     const tests = [
+        testCompressedLargeBackup,
+        testIncompressibleBackupStillProtected,
         testStaleSignatureConflict,
         testTransientRetryUsesLatestWrite,
         testSessionCancellation,
