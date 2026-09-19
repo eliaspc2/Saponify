@@ -453,21 +453,25 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
     }
 
     private handleUseCodexRouterLocal() {
-        this.setState(prev => ({
-            settings: {
-                ...prev.settings,
-                llmProvider: 'openai-compatible',
-                llmBaseUrl: CODEX_ROUTER_BASE_URL,
-                llmModel: 'gpt-5.6-terra',
-                llmApiKey: '',
-                openaiApiKey: '',
-                openaiBaseUrl: CODEX_ROUTER_BASE_URL,
-                openaiModel: 'gpt-5.6-terra'
-            },
-            llmApiKeyDraft: '',
-            llmApiKeyTouched: true,
-            hasStoredLlmKey: false
-        }));
+        this.setState(prev => {
+            const sameRouter = prev.settings.llmProvider === 'openai-compatible'
+                && prev.settings.llmBaseUrl.replace(/\/+$/, '') === CODEX_ROUTER_BASE_URL;
+            return {
+                settings: {
+                    ...prev.settings,
+                    llmProvider: 'openai-compatible',
+                    llmBaseUrl: CODEX_ROUTER_BASE_URL,
+                    llmModel: 'gpt-5.6-terra',
+                    llmApiKey: sameRouter ? prev.settings.llmApiKey : '',
+                    openaiApiKey: sameRouter ? prev.settings.openaiApiKey : '',
+                    openaiBaseUrl: CODEX_ROUTER_BASE_URL,
+                    openaiModel: 'gpt-5.6-terra'
+                },
+                llmApiKeyDraft: sameRouter ? prev.llmApiKeyDraft : '',
+                llmApiKeyTouched: sameRouter ? prev.llmApiKeyTouched : true,
+                hasStoredLlmKey: sameRouter ? prev.hasStoredLlmKey : false
+            };
+        });
     }
 
     protected renderActions() {
