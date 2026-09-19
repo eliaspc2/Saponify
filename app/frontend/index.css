@@ -511,7 +511,9 @@ tr:hover td {
   position: sticky;
   top: 6rem;
   max-height: calc(var(--vh) - 7rem);
-  overflow-y: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   background: white;
   border: 1px solid rgba(0, 0, 0, 0.05);
   box-shadow: var(--shadow-lg);
@@ -535,6 +537,14 @@ tr:hover td {
   align-items: center;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   margin: -1px -1px 0 -1px;
+}
+
+.results-panel .collapsible-card-content {
+  overflow-y: auto;
+}
+
+.results-panel .collapsible-card-content-inner {
+  overflow: visible;
 }
 
 
