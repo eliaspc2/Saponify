@@ -1,5 +1,3 @@
-import pkg from '../../../../package.json';
+import { APP_VERSION } from './AppVersion.generated';
 
-export const getAppVersion = (): string => {
-    return (pkg as { version?: string }).version || '0.0.0';
-};
+export const getAppVersion = (): string => APP_VERSION;

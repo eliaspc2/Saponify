@@ -3,6 +3,17 @@ const path = require('path');
 const crypto = require('crypto');
 
 const repoRoot = path.resolve(__dirname, '../../../../');
+const packageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+const getGitRevision = () => {
+    try {
+        return require('child_process')
+            .execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' })
+            .trim();
+    } catch {
+        return process.env.GITHUB_SHA?.slice(0, 12) || 'local';
+    }
+};
 
 const inputFiles = [
     'app/backend/ai/rules/soap_recipe_core_norms.json',
@@ -46,4 +57,9 @@ const output = [
 ].join('\n');
 
 fs.writeFileSync(outputPath, output, 'utf8');
-console.log(`Domain fingerprint generated: ${hash}`);
+
+const appVersionPath = path.join(__dirname, 'AppVersion.generated.ts');
+const appVersion = `${packageJson.version || '0.0.0'}+${getGitRevision()}`;
+fs.writeFileSync(appVersionPath, `export const APP_VERSION = '${appVersion}';\n`, 'utf8');
+
+console.log(`Build metadata generated: ${appVersion}, domain fingerprint ${hash}`);
