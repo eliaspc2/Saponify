@@ -119,7 +119,15 @@ export class AppController {
 
     // Contract: calculate recipe using backend use-case (no UI logic).
     public calculateRecipe(input: CalculatorInput): CalculatorResult {
-        return this.calculatorUseCase.calculate(input);
+        const settings = this.settingsService.getSettings();
+        return this.calculatorUseCase.calculate({
+            ...input,
+            curingBarDimensions: input.curingBarDimensions || {
+                lengthCm: settings.curingBarLengthCm,
+                widthCm: settings.curingBarWidthCm,
+                heightCm: settings.curingBarHeightCm
+            }
+        });
     }
 
     // Contract: rescale complete recipe from a new Phase 1 total (delegates to backend use-case).

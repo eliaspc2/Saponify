@@ -47,6 +47,11 @@ export interface CalculatorInput {
     recipe: Recipe;
     ingredients: Ingredient[];
     now?: Date;
+    curingBarDimensions?: {
+        lengthCm: number;
+        widthCm: number;
+        heightCm: number;
+    };
 }
 
 export interface ScaleRecipeByPhase1TotalInput {

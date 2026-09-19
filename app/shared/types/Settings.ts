@@ -12,6 +12,9 @@ export interface AppSettings {
     defaultWaterConcentration: number;
     defaultAlkali: 'NaOH' | 'KOH';
     defaultAlkaliPurity: number;
+    curingBarLengthCm: number;
+    curingBarWidthCm: number;
+    curingBarHeightCm: number;
     language: 'pt' | 'en';
     measurementSystem: 'metric' | 'imperial';
     recipePrefix: string;
@@ -44,6 +47,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultWaterConcentration: 29,
     defaultAlkali: 'NaOH',
     defaultAlkaliPurity: 100,
+    curingBarLengthCm: 6.5,
+    curingBarWidthCm: 6.5,
+    curingBarHeightCm: 2.5,
     language: 'pt',
     measurementSystem: 'metric',
     recipePrefix: 'RE',

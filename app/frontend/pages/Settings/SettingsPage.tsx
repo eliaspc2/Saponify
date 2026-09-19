@@ -603,6 +603,44 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                     style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
                                 />
                             </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Formato padrão da barra (100 g)</label>
+                                <div className="modal-grid-3" style={{ gap: '0.75rem' }}>
+                                    <label style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>Comprimento (cm)
+                                        <input
+                                            aria-label="Comprimento da barra em centímetros"
+                                            type="number"
+                                            min="1"
+                                            step="0.1"
+                                            value={settings.curingBarLengthCm}
+                                            onChange={(e) => this.handleNumericUpdate('curingBarLengthCm', e.target.value)}
+                                            style={{ width: '100%', marginTop: '0.35rem', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        />
+                                    </label>
+                                    <label style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>Largura (cm)
+                                        <input
+                                            aria-label="Largura da barra em centímetros"
+                                            type="number"
+                                            min="1"
+                                            step="0.1"
+                                            value={settings.curingBarWidthCm}
+                                            onChange={(e) => this.handleNumericUpdate('curingBarWidthCm', e.target.value)}
+                                            style={{ width: '100%', marginTop: '0.35rem', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        />
+                                    </label>
+                                    <label style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>Espessura (cm)
+                                        <input
+                                            aria-label="Espessura da barra em centímetros"
+                                            type="number"
+                                            min="0.5"
+                                            step="0.1"
+                                            value={settings.curingBarHeightCm}
+                                            onChange={(e) => this.handleNumericUpdate('curingBarHeightCm', e.target.value)}
+                                            style={{ width: '100%', marginTop: '0.35rem', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        />
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

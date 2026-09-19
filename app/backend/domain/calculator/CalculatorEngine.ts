@@ -21,7 +21,7 @@ export class CalculatorEngine {
         const normalization = this.normalizeRecipe(input.recipe, input.ingredients);
         const results = this.computeResults(normalization.recipe, input.ingredients);
         const normalizedRecipe = this.applyWaterAmount(normalization.recipe, results.waterAmount, input.ingredients);
-        const phaseTotals = this.computePhaseTotals(normalizedRecipe, results, input.ingredients, input.now);
+        const phaseTotals = this.computePhaseTotals(normalizedRecipe, results, input.ingredients, input.now, input.curingBarDimensions);
         const ingredientMetaById = this.buildIngredientMeta(normalizedRecipe, input.ingredients);
         const qualityProgress = this.buildQualityProgress(results);
         const exports = this.buildExports(normalizedRecipe, results, phaseTotals);
@@ -367,7 +367,13 @@ export class CalculatorEngine {
         return results;
     }
 
-    private static computePhaseTotals(recipe: Recipe, results: CalculatorResult['results'], ingredients: Ingredient[], now?: Date) {
+    private static computePhaseTotals(
+        recipe: Recipe,
+        results: CalculatorResult['results'],
+        ingredients: Ingredient[],
+        now?: Date,
+        curingBarDimensions?: CalculatorInput['curingBarDimensions']
+    ) {
         const sumAmounts = (items?: RecipeIngredient[]) => (items || []).reduce((sum, item) => sum + (item.amount || 0), 0);
         const nonWaterLiquids = (recipe.liquids || []).filter(item => this.resolveItemRole(item, ingredients) !== 'water');
         const phase1Total = sumAmounts(recipe.fats);
@@ -381,7 +387,7 @@ export class CalculatorEngine {
         const chemicalDays = 2;
         const chemicalReadyDate = new Date(today.getTime());
         chemicalReadyDate.setDate(chemicalReadyDate.getDate() + chemicalDays);
-        const physicalDays = this.getPhysicalCureDays(today);
+        const physicalDays = this.getPhysicalCureDays(today, recipe, results, curingBarDimensions);
         const physicalReadyDate = new Date(today.getTime());
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
         const batchWeightWithLye = phase1Total + phase2Total + phase3Total;
@@ -661,12 +667,37 @@ export class CalculatorEngine {
         return Math.floor(diff / (1000 * 60 * 60 * 24));
     }
 
-    private static getPhysicalCureDays(date: Date): number {
-        const minDays = 30;
-        const maxDays = 45;
+    private static getPhysicalCureDays(
+        date: Date,
+        recipe: Recipe,
+        results: CalculationResults,
+        curingBarDimensions?: CalculatorInput['curingBarDimensions']
+    ): number {
+        const minDays = 21;
+        const maxDays = 35;
         const dayOfYear = this.getDayOfYear(date);
         const radians = (2 * Math.PI * (dayOfYear - 172)) / 365;
         const seasonalFactor = (1 - Math.cos(radians)) / 2;
-        return Math.round(minDays + (maxDays - minDays) * seasonalFactor);
+        const seasonalDays = minDays + (maxDays - minDays) * seasonalFactor;
+
+        const dimension = (value: number | undefined, fallback: number) => (
+            typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback
+        );
+        const length = dimension(curingBarDimensions?.lengthCm, 6.5);
+        const width = dimension(curingBarDimensions?.widthCm, 6.5);
+        const height = dimension(curingBarDimensions?.heightCm, 2.5);
+        const surfaceToVolume = (2 * ((length * width) + (length * height) + (width * height))) / (length * width * height);
+        const standardSurfaceToVolume = (2 * ((6.5 * 6.5) + (6.5 * 2.5) + (6.5 * 2.5))) / (6.5 * 6.5 * 2.5);
+        const geometryFactor = Math.min(1.5, Math.max(0.7, standardSurfaceToVolume / surfaceToVolume));
+
+        // Seasonal baseline is calibrated for 100 g bars measuring 6.5 x 6.5 x 2.5 cm.
+        const waterAdjustment = (29 - recipe.waterConcentration) * 0.8;
+        const hardnessAdjustment = results.properties.hardness < 30
+            ? 3
+            : (results.properties.hardness > 45 ? -2 : 0);
+        const superfatAdjustment = results.superfatFinal > 10 ? 2 : 0;
+        const estimatedDays = (seasonalDays * geometryFactor) + waterAdjustment + hardnessAdjustment + superfatAdjustment;
+
+        return Math.round(Math.min(50, Math.max(14, estimatedDays)));
     }
 }
