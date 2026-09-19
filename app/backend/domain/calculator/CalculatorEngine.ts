@@ -24,7 +24,7 @@ export class CalculatorEngine {
         const phaseTotals = this.computePhaseTotals(normalizedRecipe, results, input.ingredients, input.now);
         const ingredientMetaById = this.buildIngredientMeta(normalizedRecipe, input.ingredients);
         const qualityProgress = this.buildQualityProgress(results);
-        const exports = this.buildExports(normalizedRecipe, results);
+        const exports = this.buildExports(normalizedRecipe, results, phaseTotals);
         const issues = [...normalization.issues, ...results.fattyAcidDiagnostics];
 
         return {
@@ -375,6 +375,9 @@ export class CalculatorEngine {
             + results.alkaliAmount;
         const phase3Total = sumAmounts(recipe.traceAdditives) + sumAmounts(recipe.superfatOils) + sumAmounts(recipe.essentialOils);
         const today = now ? new Date(now) : new Date();
+        const chemicalDays = 2;
+        const chemicalReadyDate = new Date(today.getTime());
+        chemicalReadyDate.setDate(chemicalReadyDate.getDate() + chemicalDays);
         const physicalDays = this.getPhysicalCureDays(today);
         const physicalReadyDate = new Date(today.getTime());
         physicalReadyDate.setDate(physicalReadyDate.getDate() + physicalDays);
@@ -389,6 +392,8 @@ export class CalculatorEngine {
             phase3Total,
             batchWeightWithLye,
             estimatedDryWeight,
+            chemicalDays,
+            chemicalReadyDate,
             physicalDays,
             physicalReadyDate,
             goodConditionDays,
@@ -513,14 +518,14 @@ export class CalculatorEngine {
         };
     }
 
-    private static buildExports(recipe: Recipe, results: CalculatorResult['results']): CalculatorExports {
+    private static buildExports(recipe: Recipe, results: CalculatorResult['results'], phaseTotals: CalculatorResult['phaseTotals']): CalculatorExports {
         return {
-            markdown: this.buildMarkdown(recipe, results),
+            markdown: this.buildMarkdown(recipe, results, phaseTotals),
             json: this.buildJson(recipe, results)
         };
     }
 
-    private static buildMarkdown(recipe: Recipe, results: CalculatorResult['results']) {
+    private static buildMarkdown(recipe: Recipe, results: CalculatorResult['results'], phaseTotals: CalculatorResult['phaseTotals']) {
         const recipeRef = formatRecipeReference(recipe.code);
         let md = `# Receita: ${recipe.name || 'Sem Nome'} \n`;
         if (recipeRef) {
@@ -559,6 +564,11 @@ export class CalculatorEngine {
         md += `- Água: ${results.waterAmount.toFixed(1)} g\n`;
         md += `- Peso Total Final: ${results.totalWeight.toFixed(1)} g\n`;
         md += `- Durabilidade em boas condições: ~${results.goodConditionDays} dias (~${(results.goodConditionDays / 30).toFixed(1)} meses)\n\n`;
+
+        md += `## Cura e Secagem\n`;
+        md += `- Estabilização química: ~${phaseTotals.chemicalDays} dias (até ${phaseTotals.chemicalReadyDate.toLocaleDateString('pt-PT')})\n`;
+        md += `- Secagem física: ~${phaseTotals.physicalDays} dias (até ${phaseTotals.physicalReadyDate.toLocaleDateString('pt-PT')})\n`;
+        md += `- Peso estável estimado: ${phaseTotals.estimatedDryWeight.toFixed(1)} g\n\n`;
 
         md += `## Qualidade Prevista\n`;
         md += `- Condicionamento: ${results.properties.conditioning.toFixed(0)} \n`;
