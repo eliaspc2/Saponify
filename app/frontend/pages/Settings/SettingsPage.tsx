@@ -169,13 +169,23 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             if (this.unmounted) return;
             const currentModel = this.state.settings.llmModel || this.state.settings.openaiModel || 'gpt-4o-mini';
             const unique = Array.from(new Set(models));
-            if (currentModel && !unique.includes(currentModel)) {
-                unique.unshift(currentModel);
+            const isLegacyCodexModel = currentModel === 'gpt-5.3-codex' || currentModel === 'codex-auto-review';
+            const selectedModel = isLegacyCodexModel && unique.includes('gpt-5.6-terra')
+                ? 'gpt-5.6-terra'
+                : currentModel;
+            if (selectedModel && !unique.includes(selectedModel)) {
+                unique.unshift(selectedModel);
             }
             this.setState(prev => ({
                 llmModels: unique,
                 llmModelsLoading: false,
-                settings: { ...prev.settings, llmModels: unique, openaiModels: unique }
+                settings: {
+                    ...prev.settings,
+                    llmModel: selectedModel,
+                    openaiModel: selectedModel,
+                    llmModels: unique,
+                    openaiModels: unique
+                }
             }));
         } catch (error) {
             if (this.unmounted) return;
@@ -764,6 +774,25 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                             {llmModelsLoading ? 'A consultar...' : 'Consultar modelos'}
                                         </button>
                                     </div>
+                                    {llmModels.length > 0 && (
+                                        <select
+                                            aria-label="Modelos disponíveis"
+                                            value={modelsToShow.includes(settings.llmModel || '') ? settings.llmModel : ''}
+                                            onChange={(e) => this.setState(prev => ({
+                                                settings: {
+                                                    ...prev.settings,
+                                                    llmModel: e.target.value,
+                                                    openaiModel: e.target.value
+                                                }
+                                            }))}
+                                            style={{ width: '100%', marginTop: '0.5rem', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        >
+                                            <option value="" disabled>Selecionar modelo</option>
+                                            {modelsToShow.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                     {llmModelsError && (
                                         <p style={{ fontSize: '0.75rem', color: '#B91C1C', marginTop: '0.4rem' }}>{llmModelsError}</p>
                                     )}

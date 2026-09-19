@@ -71,6 +71,8 @@ try {
     }));
     await page.getByRole('button', { name: 'Consultar modelos' }).click();
     await page.locator('#llm-model-options option[value="modelo-local-teste"]').waitFor({ state: 'attached' });
+    await page.getByLabel('Modelos disponíveis').selectOption('modelo-local-teste');
+    assert.equal(await page.locator('input[list="llm-model-options"]').inputValue(), 'modelo-local-teste');
     await page.getByRole('button', { name: /Guardar/ }).first().click();
     await page.getByText('Configurações guardadas com sucesso!', { exact: true }).waitFor();
     await stage('Recebido apos guardar configuracoes');
