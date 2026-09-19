@@ -458,11 +458,11 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                 ...prev.settings,
                 llmProvider: 'openai-compatible',
                 llmBaseUrl: CODEX_ROUTER_BASE_URL,
-                llmModel: 'gpt-5.3-codex',
+                llmModel: 'gpt-5.6-terra',
                 llmApiKey: '',
                 openaiApiKey: '',
                 openaiBaseUrl: CODEX_ROUTER_BASE_URL,
-                openaiModel: 'gpt-5.3-codex'
+                openaiModel: 'gpt-5.6-terra'
             },
             llmApiKeyDraft: '',
             llmApiKeyTouched: true,
