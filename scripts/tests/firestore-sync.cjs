@@ -21,6 +21,7 @@ class FirestoreMock {
         this.getDocCalls = 0;
         this.getDocFromServerCalls = 0;
         this.transactionCalls = 0;
+        this.settings = null;
         this.transactionError = null;
         this.beforeTransactionRead = null;
     }
@@ -86,7 +87,7 @@ const firebaseMockPlugin = {
                 `,
                 'firebase-firestore': `
                     const mock = () => globalThis.__firestoreSyncMock;
-                    export const getFirestore = () => ({});
+                    export const initializeFirestore = (_app, settings) => { mock().settings = settings; return {}; };
                     export const doc = (_db, ...path) => ({ path });
                     export const getDoc = async () => { mock().getDocCalls += 1; return mock().snapshot(); };
                     export const getDocFromServer = async () => { mock().getDocFromServerCalls += 1; return mock().snapshot(); };
@@ -158,6 +159,10 @@ async function serviceFor(env, FirestoreSyncService) {
     const service = new FirestoreSyncService();
     await service.init();
     assert.equal(env.firestore.getDocCalls, 0, 'Firestore cache reads must not be used by sync');
+    assert.deepEqual(env.firestore.settings, {
+        experimentalForceLongPolling: true,
+        experimentalLongPollingOptions: { timeoutSeconds: 25 }
+    }, 'Firestore must use long polling when WebChannel streaming is blocked');
     return service;
 }
 

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer as getDoc, runTransaction, type Firestore } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer as getDoc, runTransaction, type Firestore } from 'firebase/firestore';
 import {
     getAuth,
     GoogleAuthProvider,
@@ -287,7 +287,12 @@ export class FirestoreSyncService {
         if (this.initPromise) return this.initPromise;
         this.initPromise = (async () => {
             this.app = getApps().length ? getApps()[0] : initializeApp(AppConstants.FIREBASE_CONFIG);
-            this.db = getFirestore(this.app);
+            // Some networks interrupt Firestore's default streaming WebChannel even while normal HTTPS works.
+            // Long polling keeps the sync available through those proxies and filtered connections.
+            this.db = initializeFirestore(this.app, {
+                experimentalForceLongPolling: true,
+                experimentalLongPollingOptions: { timeoutSeconds: 25 }
+            });
             this.auth = getAuth(this.app);
             await setPersistence(this.auth, browserLocalPersistence);
             onAuthStateChanged(this.auth, (user) => this.handleAuthStateChange(user));
