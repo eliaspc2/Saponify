@@ -35,6 +35,36 @@ async function run() {
     });
     assert.ok(Math.abs(loaded.exports.computeIodine(profile) - 50.202) < 1e-9);
     assert.ok(Math.abs(loaded.exports.computeINS(0.2, 50.202) - 149.798) < 1e-9);
+
+    const engineBundle = await build({
+        entryPoints: [path.resolve(__dirname, '../../app/backend/domain/calculator/CalculatorEngine.ts')],
+        bundle: true,
+        platform: 'node',
+        format: 'cjs',
+        write: false
+    });
+    const engineModule = { exports: {} };
+    new Function('module', 'exports', 'require', engineBundle.outputFiles[0].text)(engineModule, engineModule.exports, require);
+    const recipe = {
+        id: 'recipe-1', code: 'RE0001', date: '2026-01-01', clientId: null, name: 'Teste de superfat', notes: '',
+        alkali: 'NaOH', superfat: 5, waterConcentration: 30, alkaliPurity: 100,
+        fats: [{ id: 'base', ingredientId: 'base', name: 'Base', amount: 100, percentage: 100 }],
+        liquids: [], functionalAdditives: [], lyeAdditives: [], traceAdditives: [],
+        superfatOils: [{ id: 'superfat', ingredientId: 'superfat', name: 'Superfat', amount: 25, percentage: 0 }],
+        essentialOils: [{ id: 'essential', ingredientId: 'essential', name: 'Essencial', amount: 5, percentage: 0 }]
+    };
+    const zeroProfile = { lauric: 0, myristic: 0, palmitic: 0, stearic: 0, ricinoleic: 0, oleic: 0, linoleic: 0, linolenic: 0, gadoleic: 0, other: 0 };
+    const ingredients = [
+        { id: 'base', name: 'Base', kind: 'oil', sapNaOH: 0.14, sapKOH: 0.196, fattyAcids: { ...zeroProfile, palmitic: 100 }, properties: {} },
+        { id: 'superfat', name: 'Superfat', kind: 'oil', sapNaOH: 0.14, sapKOH: 0.196, fattyAcids: { ...zeroProfile, oleic: 100 }, properties: {} },
+        { id: 'essential', name: 'Essencial', kind: 'essentialOil', sapNaOH: 0, sapKOH: 0, fattyAcids: { ...zeroProfile, lauric: 100 }, properties: {} }
+    ];
+    const calculation = engineModule.exports.CalculatorEngine.calculate({ recipe, ingredients, now: new Date('2026-01-01T12:00:00Z') });
+    assert.equal(calculation.results.properties.hardness, 80);
+    assert.equal(calculation.results.properties.conditioning, 20);
+    assert.equal(calculation.results.iodine, 17.2);
+    assert.ok(Math.abs(calculation.results.ins - 178.8) < 1e-9);
+    assert.equal(calculation.results.superfatFinal, 24);
     console.log('calculator-quality: ok');
 }
 

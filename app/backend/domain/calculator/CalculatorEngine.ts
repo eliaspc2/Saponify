@@ -272,8 +272,11 @@ export class CalculatorEngine {
         const traceOils = traceOilData.oils;
         const baseOilsWeight = baseOils.reduce((sum, oil) => sum + oil.amount, 0);
         const traceOilsWeight = traceOils.reduce((sum, oil) => sum + oil.amount, 0);
+        const qualityOils = [...baseOils, ...traceOils];
+        const qualityOilsWeight = baseOilsWeight + traceOilsWeight;
         results.totalFats = baseOilsWeight;
-        results.fattyAcidDiagnostics = [...baseOilData.diagnostics, ...traceOilData.diagnostics];
+        const oilDiagnostics = [...baseOilData.diagnostics, ...traceOilData.diagnostics];
+        results.fattyAcidDiagnostics = [...oilDiagnostics];
         const unsaponifiedFromBase = baseOilsWeight * (recipe.superfat / 100);
         const totalOilPhase = baseOilsWeight + traceOilsWeight;
         results.superfatFinal = totalOilPhase > 0
@@ -299,12 +302,12 @@ export class CalculatorEngine {
         results.alkaliAmount = alkaliResult.alkaliAmount;
         results.waterAmount = alkaliResult.waterAmount;
         results.fattyAcidDiagnostics.push(...alkaliResult.diagnostics);
-        if (baseOilsWeight > 0) {
+        if (qualityOilsWeight > 0) {
             let weightedSapKOH = 0;
             let solubility = 0;
             let drying = 0;
-            baseOils.forEach(({ ingredient, amount }) => {
-                const weightRatio = amount / baseOilsWeight;
+            qualityOils.forEach(({ ingredient, amount }) => {
+                const weightRatio = amount / qualityOilsWeight;
                 const sapKOH = getSapKOH(ingredient);
                 weightedSapKOH += sapKOH * weightRatio;
                 solubility += (ingredient.properties?.solubility || 0) * weightRatio;
@@ -312,8 +315,8 @@ export class CalculatorEngine {
             });
             results.properties.solubility = solubility;
             results.properties.drying = drying;
-            const profileResult = computeFattyAcidProfile(baseOils, warn);
-            results.fattyAcidProfileValid = profileResult.isValid && baseOilData.diagnostics.length === 0;
+            const profileResult = computeFattyAcidProfile(qualityOils, warn);
+            results.fattyAcidProfileValid = profileResult.isValid && oilDiagnostics.length === 0;
             results.fattyAcidDiagnostics.push(...profileResult.diagnostics);
             results.fattyAcids = { ...profileResult.profile };
             if (results.fattyAcidProfileValid) {
@@ -337,7 +340,7 @@ export class CalculatorEngine {
             }
         } else {
             results.fattyAcidProfileValid = false;
-            results.fattyAcidDiagnostics.push('Sem óleos base para cálculo das métricas.');
+            results.fattyAcidDiagnostics.push('Sem óleos para cálculo das métricas.');
         }
         const allAdditives = [
             ...(recipe.functionalAdditives || []),
