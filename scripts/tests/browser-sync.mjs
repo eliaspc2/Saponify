@@ -71,13 +71,13 @@ try {
     }));
     await page.getByRole('button', { name: 'Consultar modelos' }).click();
     await page.locator('#llm-model-options option[value="modelo-local-teste"]').waitFor({ state: 'attached' });
-    await page.getByLabel('Modelos disponíveis').selectOption('modelo-local-teste');
-    assert.equal(await page.locator('input[list="llm-model-options"]').inputValue(), 'modelo-local-teste');
+    await page.getByLabel('Modelo').selectOption('modelo-local-teste');
+    assert.equal(await page.getByLabel('Modelo').inputValue(), 'modelo-local-teste');
     await page.getByRole('button', { name: /Guardar/ }).first().click();
     await page.getByText('Configurações guardadas com sucesso!', { exact: true }).waitFor();
     await stage('Recebido apos guardar configuracoes');
     await page.waitForFunction(() => localStorage.getItem('saponify_sync_pending_import') === null);
-    assert.equal(await page.locator('input[list="llm-model-options"]').inputValue(), 'modelo-personalizado');
+    assert.equal(await page.getByLabel('Modelo').inputValue(), 'modelo-local-teste');
     await page.screenshot({ path: '/tmp/saponify-sync-desktop.png', fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(350);

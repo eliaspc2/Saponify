@@ -518,10 +518,12 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
             : settings.llmProvider === 'anthropic'
                 ? ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest']
                 : isUsingLocalCodexRouter
-            ? ['gpt-5.3-codex', 'gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'codex-auto-review']
+            ? ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5']
             : ['gpt-4.1-mini', 'gpt-4.1'];
         const persistedModels = settings.llmModels && settings.llmModels.length > 0 ? settings.llmModels : [];
         const modelsToShow = llmModels.length > 0 ? llmModels : (persistedModels.length > 0 ? persistedModels : fallbackModels);
+        const hasRefreshedModels = llmModels.length > 0;
+        const isKnownModel = modelsToShow.includes(settings.llmModel || '');
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -748,18 +750,38 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Modelo</label>
-                                    <input
-                                        list="llm-model-options"
-                                        value={settings.llmModel || ''}
-                                        onChange={(e) => this.setState(prev => ({
-                                            settings: {
-                                                ...prev.settings,
-                                                llmModel: e.target.value,
-                                                openaiModel: e.target.value
-                                            }
-                                        }))}
-                                        style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                    />
+                                    {hasRefreshedModels && isKnownModel ? (
+                                        <select
+                                            aria-label="Modelo"
+                                            value={settings.llmModel}
+                                            onChange={(e) => this.setState(prev => ({
+                                                settings: {
+                                                    ...prev.settings,
+                                                    llmModel: e.target.value,
+                                                    openaiModel: e.target.value
+                                                }
+                                            }))}
+                                            style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        >
+                                            {modelsToShow.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                            <option value="">Outro modelo...</option>
+                                        </select>
+                                    ) : (
+                                        <input
+                                            list="llm-model-options"
+                                            value={settings.llmModel || ''}
+                                            onChange={(e) => this.setState(prev => ({
+                                                settings: {
+                                                    ...prev.settings,
+                                                    llmModel: e.target.value,
+                                                    openaiModel: e.target.value
+                                                }
+                                            }))}
+                                            style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
+                                        />
+                                    )}
                                     <datalist id="llm-model-options">
                                         {modelsToShow.map((model) => (
                                             <option key={model} value={model} />
@@ -774,25 +796,6 @@ export class SettingsPage extends BasePage<SettingsPageProps, SettingsState> {
                                             {llmModelsLoading ? 'A consultar...' : 'Consultar modelos'}
                                         </button>
                                     </div>
-                                    {llmModels.length > 0 && (
-                                        <select
-                                            aria-label="Modelos disponíveis"
-                                            value={modelsToShow.includes(settings.llmModel || '') ? settings.llmModel : ''}
-                                            onChange={(e) => this.setState(prev => ({
-                                                settings: {
-                                                    ...prev.settings,
-                                                    llmModel: e.target.value,
-                                                    openaiModel: e.target.value
-                                                }
-                                            }))}
-                                            style={{ width: '100%', marginTop: '0.5rem', padding: '0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #d1d5db' }}
-                                        >
-                                            <option value="" disabled>Selecionar modelo</option>
-                                            {modelsToShow.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </select>
-                                    )}
                                     {llmModelsError && (
                                         <p style={{ fontSize: '0.75rem', color: '#B91C1C', marginTop: '0.4rem' }}>{llmModelsError}</p>
                                     )}
