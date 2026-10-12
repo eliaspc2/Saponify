@@ -410,6 +410,10 @@ export class HomePage extends BasePage<HomePageProps, HomePageState> {
                         clientId={this.state.selectedClientId}
                         isOpen={this.state.isClientDetailsOpen}
                         onClose={() => this.closeClientDetails()}
+                        onOpenRecipeInCalculator={(recipeId) => {
+                            this.closeClientDetails();
+                            this.props.onNavigate('calculator', { recipeId });
+                        }}
                         appController={this.props.appController}
                     />
                 )}

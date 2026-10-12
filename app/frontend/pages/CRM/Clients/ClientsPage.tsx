@@ -1068,6 +1068,10 @@ export class ClientsPage extends BaseListPage<Client, ClientsPageState, ClientsP
                         clientId={this.state.selectedClientId}
                         isOpen={this.state.isDetailsOpen}
                         onClose={() => this.setState({ isDetailsOpen: false, selectedClientId: null })}
+                        onOpenRecipeInCalculator={(recipeId) => {
+                            this.setState({ isDetailsOpen: false, selectedClientId: null });
+                            this.props.onNavigate('calculator', { recipeId });
+                        }}
                         appController={this.props.appController}
                     />
                 )}

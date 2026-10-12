@@ -33,6 +33,7 @@ interface ClientDetailsProps {
     clientId: string;
     isOpen: boolean;
     onClose: () => void;
+    onOpenRecipeInCalculator: (recipeId: string) => void;
     appController: AppController;
 }
 
@@ -986,6 +987,12 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
             this.loadData();
         };
 
+        const handleOpenInCalculator = () => {
+            RecipeDomainService.getInstance().save(viewingRecipe);
+            this.setState({ isRecipeModalOpen: false, viewingRecipe: null });
+            this.props.onOpenRecipeInCalculator(viewingRecipe.id);
+        };
+
         const handleDelete = () => {
             if (!confirm('Deseja eliminar esta receita? Esta ação é irreversível.')) return;
             RecipeService.getInstance().delete(viewingRecipe.id);
@@ -1051,6 +1058,9 @@ export class ClientDetailsPage extends BasePage<ClientDetailsProps, ClientDetail
                         </button>
                         <button className="btn btn-secondary" onClick={handleConvertToProduction}>
                             <Beaker size={16} /> Converter Produção
+                        </button>
+                        <button className="btn btn-secondary" onClick={handleOpenInCalculator}>
+                            <FileText size={16} /> Abrir na Calculadora
                         </button>
                         <button className="btn btn-secondary" style={{ color: '#EF4444' }} onClick={handleDelete}>
                             <Trash2 size={16} /> Eliminar
